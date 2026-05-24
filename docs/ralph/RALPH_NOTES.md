@@ -126,3 +126,34 @@ Appended by each group as it completes.
 - Replace `getAccessibleModels()` in-TS deduplication with a proper SQL subquery (lateral join or `DISTINCT ON`) once data volume warrants it
 - Add integration test suite that runs against a test DB (separate from the dev DB) — currently only structural/unit tests
 - Consider a `db:reset` script for local dev (drop modelpick schema + re-migrate + re-seed)
+
+## Group 4: IU capability probe
+
+### What was implemented
+- `src/server/iu/client.ts`: `iuFetch<T>()` — thin fetch wrapper with Authorization injection, 503 retry/backoff (3 attempts, 500ms×attempt delay), response body parsed by content-type (JSON → `.json()`, else → `.arrayBuffer()`). `parseResidency()` reads `x-ms-region` and `x-middleware-forwarded-server` headers → `"eu" | "us" | "unknown"`.
+- `src/server/iu/probe.ts`: `probeModel(model_id, modality)` — sends a minimal capability call per modality (LLM: chat completion max_tokens=1; TTS: audio/speech "hi"/alloy; STT: multipart FormData with 417-byte silent MP3 named `audio.mp3`). Returns `ProbeResult` including accessible, latency_ms, residency, optional error. `runProbe()` lazy-imports db+schema+seed (to keep `probeModel` testable without a live DB), probes all MODEL_SEED candidates, bulk-inserts into `capability_probe`.
+- `src/server/iu/index.ts`: re-exports + `probeServerFn` via `createServerFn` from `@tanstack/react-start`.
+- `scripts/probe.ts`: CLI entry point (`bun run probe`) — calls `runProbe()`, pretty-prints results.
+- `src/__tests__/probe.test.ts`: 15 unit tests covering parseResidency (EU/US/unknown), iuFetch retry (503→success, all-503→throw, non-503 immediate return, Authorization header), probeModel for all three modalities (accessible, inaccessible, error catch, FormData filename).
+
+### Deviations from prompt
+- No separate `catalog.ts`: candidate list comes from `MODEL_SEED` via lazy import inside `runProbe()`. The `/models` endpoint merge was skipped — the seed is the authoritative source for modality, and dynamically-discovered models would have unknown modality. Worth adding later when the endpoint is validated.
+- Lazy DB imports in `runProbe()`: `db/index.ts` creates a postgres connection pool on import; lazy import keeps `probeModel()` isolated so tests never touch the DB.
+
+### Gotchas & surprises
+- **`createServerFn` import path**: not in `@tanstack/react-start/server` — it's in the root `@tanstack/react-start` export. The `/server` subpath exists but doesn't export this symbol.
+- **UnhandledPromiseRejection in timer-mocked tests**: when `vi.useFakeTimers()` is in use and a Promise rejects (IuFetchError after all 503 attempts), calling `await expect(promise).rejects...` AFTER `await vi.runAllTimersAsync()` results in the rejection being temporarily unhandled. Fix: attach the rejection handler (`expect(promise).rejects.toBeInstanceOf(...)`) before advancing timers, then await it after.
+- **STT filename requirement**: the IU middleware sniffs the multipart filename extension, not the bytes. `FormData.append("file", blob, "audio.mp3")` is essential — passing a Blob without a filename causes 503.
+- **No top-level DB import in probe.ts**: `postgres("")` (with empty DATABASE_URL in test env) may throw on import. Dynamic imports inside `runProbe()` protect test isolation cleanly.
+
+### Security notes
+- `IU_API_KEY` read from `process.env` at call time; never logged or returned in any public-facing output
+- `scripts/probe.ts` is a server-only CLI; results printed to stdout contain model IDs and latency, no secrets
+
+### Tests added
+- `src/__tests__/probe.test.ts`: 15 tests (parseResidency ×4, iuFetch ×4, probeModel LLM ×3, TTS ×2, STT ×2)
+
+### Future improvements
+- Try `GET /models` endpoint in `runProbe()` to discover new models not yet in the seed; default unknown-modality models to LLM
+- Add concurrency to `runProbe()` (e.g. `Promise.allSettled` with a concurrency limit) — currently sequential, safe for daily cron but slow for 24 models
+- Persist `error` field to a separate column for better diagnostics (currently only in-memory ProbeResult)
