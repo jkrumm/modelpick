@@ -1,0 +1,33 @@
+# Secrets — NEVER commit. Public repo + autonomous loop = hard rule.
+.env
+.env.*
+!.env.example
+*.local
+secrets/
+*.key
+*.pem
+
+# Dependencies / build
+node_modules/
+dist/
+.output/
+.vinxi/
+.nitro/
+.tanstack/
+.cache/
+build/
+
+# Generated audio demos (dev) — hosted as assets, not tracked
+public/demos/*.mp3
+public/demos/*.wav
+
+# Logs / OS
+*.log
+.DS_Store
+.idea/
+.vscode/
+
+# RALPH loop state/logs (scaffold + prompts ARE tracked)
+.ralph-tasks.json
+.ralph-logs/
+.ralph-secrets.env
