@@ -1,13 +1,5 @@
 import { describe, it, expect } from "vitest";
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-function normalizeScore(raw: number, min: number, max: number): number {
-  if (max === min) return 0;
-  return clamp((raw - min) / (max - min), 0, 1);
-}
+import { clamp, normalizeScore } from "../server/scoring/utils.js";
 
 describe("clamp", () => {
   it("returns value when within range", () => {

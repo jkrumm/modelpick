@@ -17,7 +17,8 @@
     "db:migrate": "bun run scripts/migrate.ts",
     "db:seed": "bun run scripts/seed-run.ts",
     "probe": "bun run scripts/probe.ts",
-    "collect": "bun run scripts/collect.ts"
+    "collect": "bun run scripts/collect.ts",
+    "recommend": "bun run scripts/recommend.ts"
   },
   "dependencies": {
     "@mantine/core": "^9.2.1",
