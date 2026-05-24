@@ -323,3 +323,44 @@ Appended by each group as it completes.
 - Add price ceiling slider to filter bar (requires raw `price_in` in `DeciderData`)
 - Consider `priceInPerMToken` in the raw metric map for a formatted price column in the table
 
+
+## Group 9: Audio playground
+
+### What was implemented
+- `src/server/audio/generate.ts` — `generateTts`, `generateStt`, `writeDemoAudio`, `checkAdminKey`, `getDemosDir` (pure functions, fully unit-tested)
+- `src/db/queries.ts` additions — `getAllDemos`, `insertDemo`, `updateDemoAudioPath`, `setDemoPublic` (admin CRUD on demo table)
+- `src/routes/-audio-server-fns.ts` — 6 server functions: `getTtsPlaygroundData`, `getSttPlaygroundData`, `getAdminDemosFn`, `generateTtsDemoFn`, `runSttDemoFn`, `toggleDemoPublicFn`; exports `TTS_PRESETS`, `EU_TTS_MODELS`, `EU_STT_MODELS` for client use
+- `src/routes/tts.tsx` — Full TTS playground: preset/language filter, demo gallery grouped by model, audio player per demo, residency badges, admin generate panel
+- `src/routes/stt.tsx` — Full STT playground: transcription groups by source audio, per-model comparison, admin transcription panel (requires TTS source audio)
+- `public/demos/.gitkeep` — static audio directory served by Vite/Nitro at `/demos/`
+- 16 new tests in `src/__tests__/audio.test.ts`
+
+### Deviations from prompt
+- Used `.inputValidator((input: T) => input)` pattern instead of `.validator(zodSchema)` — TanStack Start v1.168.11 uses `.inputValidator()` (not `.validator()`); plain function validator avoids potential Zod v4 Standard Schema edge cases
+- `Alert` in Mantine 9 has no `size` prop (removed it)
+- STT demo flow: uses existing TTS demo audio as source rather than file upload — avoids multipart upload complexity in the admin UI; admin selects a TTS demo ID, server reads the file from disk and runs it through the chosen STT model
+
+### Gotchas & surprises
+- `exactOptionalPropertyTypes: true` in tsconfig requires `DemoInsert.preset?: string | null` (not `string`) since DB column is nullable and Drizzle may receive null from select
+- `<audio>` elements require `<track kind="captions" />` child + `aria-label` to pass `jsx-a11y/media-has-caption` and `control-has-associated-label` oxlint rules
+- `Alert` in Mantine 9 does not accept `size` prop — use inner `Text` with `size` instead
+- `getDemosDir()` defaults to `join(process.cwd(), 'public', 'demos')` — in dev CWD is project root so Vite serves static files correctly; in prod override with `DEMOS_DIR` env var
+- STT `audio.mp3` filename requirement: the IU middleware sniffs the extension, not bytes (documented in probe.ts and generation code)
+
+### Security notes
+- Admin key checked server-side on every mutation (`checkAdminKey` throws "Unauthorized")
+- Admin key stored client-side in localStorage — intentionally soft gate per PRD ("not real auth")
+- ADMIN_KEY env var must be set and non-empty for any admin operation to succeed
+- Audio files written to `public/demos/` are served publicly once `public=true` is toggled
+
+### Tests added
+- `checkAdminKey` — accepts correct key, rejects wrong/empty/missing key (4 tests)
+- `generateTts` — correct endpoint, EU/US residency capture, 4xx error handling, latency_ms (5 tests)
+- `generateStt` — multipart form with .mp3 filename, EU residency, 4xx error, latency_ms (4 tests)
+- `groupBySource` — grouping by audio_path, fallback to text prefix, separate groups (3 tests)
+
+### Future improvements
+- A/B side-by-side audio comparison UI (picking 2+ models, playing same preset together)
+- Batch TTS generation: one-click generate all presets for all models
+- STT accuracy metric: compare against reference text (Levenshtein distance)
+- Upload custom audio for STT admin instead of requiring TTS source demos
