@@ -232,3 +232,55 @@ Appended by each group as it completes.
 - Add runners-up (top-2 or top-3 per category) to recommendation rows — schema already supports multiple rows per category+date if the uniqueIndex is changed
 - TTS/STT quality metrics currently null (no external source provides them) — once AA TTS endpoint is hit (Group 5 future improvement), scoring will work end-to-end for audio models
 - Add `explain` output to CLI: print all scored candidates with breakdown, not just the winner
+
+## Group 7: visx chart primitives (ported from Argo)
+
+### What was implemented
+- `src/charts/tokens.ts`: `VX` semantic palette (good/bad/warn/goodSolid/badSolid, grid, crosshair, tooltip, axis theme pairs) + modelpick-specific series colors (quality/cost/speed dimensions, provider families anthropic/openai/google/mistral/deepseek/qwen, modality llm/tts/stt, residency eu/us)
+- `src/charts/theme.tsx`: `VxThemeProvider` + `useVxTheme()` — resolves dark/light pairs from `VX` into a `VxTheme` object. Throws clearly if used outside provider.
+- `src/charts/bridge.tsx`: `VxBridge` component — reads Mantine's `useMantineColorScheme()` and wraps children with `VxThemeProvider`. Wired into `src/routes/__root.tsx` inside `<MantineProvider>`.
+- `src/charts/hover-context.ts`: `HoverContext` + `DEFAULT_NO_OP_SET_HOVER` — shared-cursor context for cross-chart crosshair sync.
+- Primitives: `ChartCard`, `ChartLegend` (line|bar|split|splitLine shapes, optional highlight state), `ChartTooltip` + `TooltipHeader`/`TooltipRow`/`TooltipBody` + `useTooltipStyles`, `AxisLeftNumeric` + `AxisRightNumeric` + `AxisBottomDate`, `HoverOverlay`, `ZoneRects`.
+- Hooks: `useChartTooltip` (DOM-direct tip positioning to avoid re-renders), `useHoverSync` (closest-point snap + cross-chart broadcast).
+- Sparklines: `LineSparkline`, `BarSparkline` (sparklines dir, exempt from ChartCard/ChartLegend/ChartTooltip requirement per rules).
+- Utils: `fmtAxisDate` (DD.MM), `fmtTooltipDate` (Mon Apr 21 2026), `smartTicks`.
+- `src/charts/index.ts`: re-exports all primitives + selected raw visx primitives (Group, GridRows/GridColumns, scales, shapes, curves, Threshold) for bespoke chart composition.
+- visx packages installed: all 8 `@visx/*` at `^4.0.0-alpha.11` (matching Argo).
+- Test infra: vitest `projects` config (node for `.test.ts`, jsdom for `.test.tsx`); esbuild JSX transform (`jsx: 'automatic'`); `@testing-library/react@16`; `jsdom@29`.
+- Tests: 17 pure-logic tests (tokens structure, fmtAxisDate, fmtTooltipDate, smartTicks) + 24 render smoke tests (ChartCard dark/light, ChartLegend shapes, ChartTooltip sub-components, sparklines, theme resolution).
+
+### Deviations from prompt
+- Series colors adapted to modelpick's domain (provider families, quality/cost/speed dimensions, residency) — the Argo health-specific series (hrv, steps, etc.) replaced. Semantic palette unchanged.
+- `VxBridge` lives in `src/charts/bridge.tsx` (not a separate `charts-bridge.tsx` at app root as in Argo) — simpler layout for a smaller app.
+- No `ZonedLine` or `Bars` kind components — Group 7 scope is primitives only; kinds belong in Group 8 when actual chart shapes are known.
+- vitest config changed from `environmentMatchGlobs` (deprecated in vitest v3) to `projects` with two named environments.
+
+### Gotchas & surprises
+- **`@vitejs/plugin-react` v6 type incompatibility with vitest v3**: vite 8 switched to rolldown internally; vitest v3 ships its own bundled vite (still using rollup). Adding the React plugin directly to `vitest.config.ts` causes a TypeScript type error (rolldown `PluginContextMeta` vs rollup type mismatch). Fix: configure `esbuild.jsx: 'automatic'` + `jsxImportSource: 'react'` in the vitest config instead — no plugin needed, vitest's esbuild handles JSX natively.
+- **`@testing-library/react` DOM accumulation without cleanup**: tests share `document.body` between `it()` blocks. Without `afterEach(cleanup)`, DOM nodes from prior renders persist and cause `getByText` to find multiple matches. Must explicitly import and call `cleanup` in `afterEach`.
+- **`environmentMatchGlobs` deprecated in vitest v3**: use `test.projects` with `extends: true` to inherit top-level `esbuild`/`resolve` config while overriding `environment` and `include` per project.
+- **`ZoneRects` uses `ScaleLinear` from `d3-scale`**: requires `@types/d3-scale` devDependency (not included in `@visx/scale`) — needed for the TypeScript type on the `leftScale`/`rightScale` props.
+- **`HoverOverlay` is a plain `<rect>`**: no React import required; works as a pure SVG element. No DOM events crossing the SVG/HTML boundary.
+
+### Security notes
+- No secrets touched; chart primitives are pure client-side UI
+- No raw `@visx/tooltip` imports — the `no-restricted-imports` rule in `.oxlintrc.json` (wired in Group 2) enforces this for `src/charts/**`
+
+### Tests added
+- `src/charts/__tests__/charts.test.ts`: 17 tests (node environment)
+  - VX tokens: 5 tests (semantic keys, modelpick series, dark/light pairs, axisFont type, margin sides)
+  - fmtAxisDate: 4 tests (ISO string, Date object, unknown string, null/undefined)
+  - fmtTooltipDate: 3 tests (ISO string, Date object, unknown string)
+  - smartTicks: 5 tests (empty, fits, subsamples, first+last, minimum 2)
+- `src/charts/__tests__/charts-render.test.tsx`: 24 tests (jsdom environment)
+  - ChartCard: 4 tests (dark/light, subtitle, extra slot)
+  - ChartLegend: 5 tests (all labels, without highlight, with highlight, split, splitLine shapes)
+  - ChartTooltip + subcomponents: 7 tests (null tip, content, header date, header label, row, line shape, body)
+  - LineSparkline: 3 tests (renders, < 2 points, custom color)
+  - BarSparkline: 2 tests (renders, empty data)
+  - VxThemeProvider: 3 tests (dark line, light line, dark vs light tooltipBg)
+
+### Future improvements
+- Add `ZonedLine` and `Bars` kind components once Group 8 identifies recurring chart shapes
+- Add `HoverContext.Provider` wrapper utility (a `useHoverState` hook returning `[state, setState]` + wrapping provider) to simplify cross-chart sync setup in Group 8
+- Consider a `scaleNumeric` utility that auto-selects nice domain from data — reduces boilerplate in each chart
