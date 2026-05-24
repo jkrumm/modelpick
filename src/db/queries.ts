@@ -209,3 +209,42 @@ export async function getReasonableNews(limit = 20): Promise<NewsItem[]> {
     .orderBy(desc(newsItem.published_at))
     .limit(limit);
 }
+
+export async function getAllNewsItems(limit = 100): Promise<NewsItem[]> {
+  return db
+    .select()
+    .from(newsItem)
+    .orderBy(desc(newsItem.published_at))
+    .limit(limit);
+}
+
+export interface NewsItemInsert {
+  title: string;
+  url: string;
+  source: string;
+  summary?: string | null;
+  published_at?: string | null;
+  model_id?: string | null;
+  reasonable?: boolean;
+}
+
+/**
+ * Insert a news item; returns true if inserted, false if the URL already exists.
+ * Uses ON CONFLICT DO NOTHING on the unique url index for idempotent daily runs.
+ */
+export async function upsertNewsItem(data: NewsItemInsert): Promise<boolean> {
+  const rows = await db
+    .insert(newsItem)
+    .values({
+      title: data.title,
+      url: data.url,
+      source: data.source,
+      summary: data.summary ?? null,
+      published_at: data.published_at ?? null,
+      model_id: data.model_id ?? null,
+      reasonable: data.reasonable ?? true,
+    })
+    .onConflictDoNothing()
+    .returning({ id: newsItem.id });
+  return rows.length > 0;
+}

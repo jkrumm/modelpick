@@ -39,6 +39,7 @@ const NAV_ITEMS: Array<{ to: string; label: string; exact?: boolean }> = [
   { to: "/catalog", label: "Catalog" },
   { to: "/tts", label: "TTS" },
   { to: "/stt", label: "STT" },
+  { to: "/news", label: "News" },
 ];
 
 function NavButtons() {
