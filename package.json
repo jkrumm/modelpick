@@ -15,7 +15,8 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun run scripts/migrate.ts",
-    "db:seed": "bun run scripts/seed-run.ts"
+    "db:seed": "bun run scripts/seed-run.ts",
+    "probe": "bun run scripts/probe.ts"
   },
   "dependencies": {
     "@mantine/core": "^9.2.1",
