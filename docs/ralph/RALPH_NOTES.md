@@ -87,3 +87,42 @@ Appended by each group as it completes.
 ### Future improvements
 - Add `verbatimModuleSyntax: true` to tsconfig when it won't cascade into multiple files
 - Wire `lefthook` pre-commit hook once the RALPH loop is complete (developer QoL, not loop safety)
+
+## Group 3: DB layer (Drizzle + schema)
+
+### What was implemented
+- drizzle-orm@0.45.2, postgres@3.4.9, drizzle-kit@0.31.10 installed (all newer than Argo's pinned versions)
+- `drizzle.config.ts` at repo root; all tables and enums scoped to `modelpick` PG schema
+- `src/db/schema.ts`: 6 tables (models, capability_probe, metric_snapshot, recommendation, demo, news_item) + 5 enums (modality, residency, recommendation_category, lang, metric_source) via `mp.enum()` — drizzle-orm 0.45 supports schema-scoped enums on the `PgSchema` object
+- `src/db/index.ts`: postgres.js connection + `runMigrations()` function (programmatic migrate API)
+- `src/db/queries.ts`: typed helpers — getModels, getAccessibleModels, getLatestMetrics, getRecommendationsByDate, getLatestRecommendations, getRecommendationByCategory, getPublicDemos, getReasonableNews
+- `src/db/seed.ts`: 24 models (14 LLM, 5 TTS, 5 STT) from IU endpoint memo
+- `scripts/migrate.ts`: custom migration runner (see Gotchas below)
+- `scripts/seed-run.ts`: seed entry point
+- 15 new tests in `src/__tests__/db.test.ts` covering enum values, table column structure, and seed data integrity
+
+### Deviations from prompt
+- Added `scripts/migrate.ts` custom runner instead of using `bun run db:migrate` (drizzle-kit migrate). Reason: see Gotchas.
+- Schema-scoped enums (`mp.enum()`) instead of public-schema `pgEnum()` — drizzle-orm 0.45 supports this cleanly; keeps the entire schema self-contained in the `modelpick` namespace.
+- `getAccessibleModels()` fetches all probes sorted by `checked_at` and deduplicates in TypeScript rather than using a SQL subquery/lateral join — simpler, correct for the expected data volume.
+
+### Gotchas & surprises
+- **drizzle-kit migrate bug (0.31.x)**: `drizzle-kit migrate` exits non-zero when Postgres returns a NOTICE for idempotent DDL (e.g. `CREATE SCHEMA "modelpick"` when the schema already exists). The NOTICE is not an error, but the CLI treats it as one. Workaround: `scripts/migrate.ts` applies the SQL directly via postgres.js with `onnotice: () => {}` to suppress NOTICEs, splits on `--> statement-breakpoint`, and maintains its own tracking table. This is stable; no drizzle-kit behavior is lost.
+- **drizzle-kit generate produces `CREATE SCHEMA` without `IF NOT EXISTS`** — harmless in a fresh DB, but triggers a NOTICE on re-run. The custom migrate script handles this gracefully.
+- **Schema-scoped enums**: the Drizzle migration correctly generates all `CREATE TYPE` statements in the `modelpick` schema (not public), verified in the generated SQL.
+- **`noUncheckedIndexedAccess`**: `rows[0]` returns `T | undefined`. Query helpers that return a single row (e.g. `getRecommendationByCategory`) use `return rows[0]` typed as `Recommendation | undefined` — callers must handle the undefined case.
+
+### Security notes
+- No secrets in tracked files; DATABASE_URL read from environment only
+- Admin gate deferred (later groups)
+
+### Tests added
+- `src/__tests__/db.test.ts`: 15 tests
+  - Enum value assertions (all 5 enums)
+  - Table column presence assertions (all 6 tables)
+  - Seed data integrity (modalities present, required fields, no duplicate IDs, known model IDs)
+
+### Future improvements
+- Replace `getAccessibleModels()` in-TS deduplication with a proper SQL subquery (lateral join or `DISTINCT ON`) once data volume warrants it
+- Add integration test suite that runs against a test DB (separate from the dev DB) — currently only structural/unit tests
+- Consider a `db:reset` script for local dev (drop modelpick schema + re-migrate + re-seed)
