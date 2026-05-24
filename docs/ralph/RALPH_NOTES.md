@@ -44,6 +44,46 @@ Appended by each group as it completes.
   scoring engine in Group 6
 
 ### Future improvements
-- Group 2 will wire oxlint replacing the placeholder `lint` script
 - `ColorSchemeScript` in `<head>` prevents theme flash on page load (already wired)
 - Nav uses basic `Button + Link` pattern; Group 8 can upgrade to Mantine Tabs or SegmentedControl
+
+## Group 2: Strictness baseline
+
+### What was implemented
+- `tsconfig.json`: added `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`,
+  `noFallthroughCasesInSwitch` (all flags from the prompt; `strict: true` + `forceConsistentCasingInFileNames`
+  were already present from Group 1)
+- Linter: `oxlint@^1.60.0` matching Argo stack — `bun run lint` now runs `oxlint .`
+- Formatter: `oxfmt@^0.45.0` matching Argo stack — `bun run format` and `bun run format:check`
+- `.oxlintrc.json`: adapted from Argo's config — same plugins (react, typescript, import, unicorn, etc.),
+  correctness=error / suspicious=warn categories, `import/no-unassigned-import: off`
+- Pre-wired `no-restricted-imports` for `src/charts/**` banning `@visx/tooltip` direct imports per
+  `visx-charts.md` (anticipates Group 7)
+- Applied `oxfmt` to all source files — reformatted 7 files
+
+### Deviations from prompt
+- `verbatimModuleSyntax` not added — not in the requested flags list and would require converting
+  `import * as React from 'react'` to `import type`, adding churn before meaningful code exists
+- `noPropertyAccessFromIndexSignature` not added — not in the requested list (Argo has it but prompt
+  didn't ask for it)
+- Lefthook skipped — RALPH instructions say skip if risky; runner already validates on every group
+- No separate oxfmt config file (`oxfmt.toml`) — defaults are fine; Argo also runs without one
+
+### Gotchas & surprises
+- The existing Group 1 code passed all new strict flags without any changes — the scaffold was already
+  clean enough. No cascade to fix.
+- `import/no-unassigned-import` fires on `import '@mantine/core/styles.css'` (side-effect import).
+  Rule turned off in `.oxlintrc.json` — this is intentional CSS-loading pattern. Argo also disables it.
+- `oxfmt` reformatted all 7 source files (spacing, trailing commas, quotes) — zero semantic changes.
+- `oxfmt` outputs "No config found, using defaults" as an informational note; exit 0. Argo also has no
+  explicit oxfmt config and this is benign.
+
+### Security notes
+- No secrets touched
+
+### Tests added
+- No new tests — existing 5 tests pass under the new strictness flags
+
+### Future improvements
+- Add `verbatimModuleSyntax: true` to tsconfig when it won't cascade into multiple files
+- Wire `lefthook` pre-commit hook once the RALPH loop is complete (developer QoL, not loop safety)
