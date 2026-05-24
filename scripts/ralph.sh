@@ -267,7 +267,7 @@ for g in state['groups']:
     attempts = f" (attempts: {g['attempts']})" if g['attempts']>0 else ""
     lines.append(f"- {icon} **Group {g['id']}**: {g['title']}{attempts}")
 lines += ["","## Next Steps",""]
-if done==total: lines += ["All groups complete.","","1. `git log --oneline -25`","2. Run full build + E2E","3. `/ship`"]
+if done==total: lines += ["All groups complete.","","1. \`git log --oneline -25\`","2. Run full build + E2E","3. \`/ship\`"]
 elif pending>0: lines.append("Run `./scripts/ralph.sh` to continue.")
 with open('$REPORT_FILE','w') as f: f.write('\n'.join(lines)+'\n')
 print(f"Report: $REPORT_FILE")
