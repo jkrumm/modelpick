@@ -157,3 +157,41 @@ Appended by each group as it completes.
 - Try `GET /models` endpoint in `runProbe()` to discover new models not yet in the seed; default unknown-modality models to LLM
 - Add concurrency to `runProbe()` (e.g. `Promise.allSettled` with a concurrency limit) — currently sequential, safe for daily cron but slow for 24 models
 - Persist `error` field to a separate column for better diagnostics (currently only in-memory ProbeResult)
+
+## Group 5: External collectors (OpenRouter + artificialanalysis)
+
+### What was implemented
+- `src/db/model-ids.ts`: pure data file (no DB dependency) mirroring MODEL_SEED IDs — avoids the `postgres("") throws on import` trap for test isolation
+- `src/server/collectors/normalize.ts`: `NormalizedMetric` / `CollectorResult` types + `resolveModelId()` — exact → strip provider prefix → fuzzy lowercase normalization
+- `src/server/collectors/openrouter.ts`: fetches `GET /api/v1/models`, maps `price_in` / `price_out` (converted from per-token to per-million-token) + `context_window` for locally matched models; `Authorization: Bearer` header
+- `src/server/collectors/artificialanalysis.ts`: fetches `GET /api/v2/data/llms/models`, maps `quality` (intelligence_index), `throughput` (median_output_tokens_per_second), `latency_p50` (median_time_to_first_token_seconds), `price_in` / `price_out` (already per-million from AA); `x-api-key` header; handles both direct-array and `{ models: [] }` response wrappers
+- `scripts/collect.ts`: runs both collectors concurrently, inserts matched metrics into `metric_snapshot`, logs unmatched external IDs as discovery candidates
+- `package.json`: added `"collect": "bun run scripts/collect.ts"` script
+- 26 new tests in `src/__tests__/collectors.test.ts` — all fixture-based, no live API calls
+
+### Deviations from prompt
+- Added `src/db/model-ids.ts` instead of importing MODEL_SEED from `seed.ts` in normalize.ts. Reason: `seed.ts` imports `db` from `index.ts` at the top level, and `postgres("")` may throw on import in the test environment (documented in Group 4 notes). A lightweight data-only file breaks the import chain cleanly.
+- Unmatched external model IDs are logged to stdout (not stored in DB). The `metric_snapshot.model_id` FK constraint prevents inserting rows with unknown model IDs. Logged IDs serve as "new model discovery" candidates visible in `bun run collect` output.
+- ArtificialAnalysis TTS endpoint (`/data/media/text-to-speech`) not hit in v1 — it returns Elo ratings for a different model set, not the IU TTS models. Noted as future improvement.
+
+### Gotchas & surprises
+- **OpenRouter pricing is per-token strings**: `pricing.prompt = "0.000003"` (cost per token). Must multiply by 1,000,000 to get per-million-token price consistent with artificialanalysis which already returns per-million values.
+- **ArtificialAnalysis response format**: docs implied direct array; actually may return `{ models: [] }` wrapper. `extractModels()` handles both cases.
+- **AA API key header**: `x-api-key` (not `Authorization: Bearer`). Different auth mechanism from OpenRouter.
+- **`model.pricing?.price_1m_input_tokens` can be null** even when `pricing` is present — null-guard is required for every metric field independently.
+
+### Security notes
+- `OPENROUTER_API_KEY` and `ARTIFICIALANALYSIS_API_KEY` read from `process.env` at call time; never logged
+- Missing API key is a graceful skip (warn + return empty), not a crash
+
+### Tests added
+- `src/__tests__/collectors.test.ts`: 26 tests
+  - `resolveModelId`: 7 tests (exact, prefix strip, fuzzy case, TTS/STT, unknown)
+  - `collectOpenRouter`: 8 tests (metrics mapped, pricing unit conversion, context_window, unmatched list, HTTP error, fetch throw, missing key, Authorization header)
+  - `collectArtificialAnalysis`: 11 tests (all metric types, null skipping, unmatched, wrapped response, HTTP error, fetch throw, missing key, x-api-key header)
+
+### Future improvements
+- Hit AA TTS endpoint (`/data/media/text-to-speech`) for Elo-based quality scores on TTS models
+- Improve fuzzy ID matching with levenshtein distance for near-miss model IDs (e.g. `claude-3-7-sonnet` → `claude-sonnet-4-6`)
+- Add dynamic model discovery: insert unmatched external models into `models` table with `modality: 'llm'` default when provider prefix is recognizable
+- Rate-limit awareness: AA has 1,000 req/day limit — the daily cron is well within bounds
