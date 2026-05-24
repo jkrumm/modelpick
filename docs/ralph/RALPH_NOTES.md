@@ -364,3 +364,53 @@ Appended by each group as it completes.
 - Batch TTS generation: one-click generate all presets for all models
 - STT accuracy metric: compare against reference text (Levenshtein distance)
 - Upload custom audio for STT admin instead of requiring TTS source demos
+
+## Group 10: Daily refresh + news
+
+### What was implemented
+- `src/server/collectors/news.ts`: `collectNews()` — fetches OpenRouter `/api/v1/models`, filters to models created in the last 60 days + from known major AI providers, upserts to `news_item` via `ON CONFLICT DO NOTHING` on url. Dynamic import for DB to keep the module test-safe. `isReasonable()` uses a provider-prefix allowlist (anthropic, openai, google, meta-llama, mistralai, deepseek, qwen, etc.).
+- `src/server/refresh.ts`: `runRefresh(deps)` — four-step orchestration (probe → collect → recommend → news) with injectable deps for testability. Each step isolated in `runStep()` try/catch so one failure doesn't abort subsequent steps. collect step uses `Promise.allSettled` internally so partial collector failures don't kill the whole collect step. Prints per-step log and a final summary line.
+- `src/db/queries.ts` additions: `upsertNewsItem(data)` (ON CONFLICT DO NOTHING, returns bool indicating whether inserted), `getAllNewsItems(limit)` (admin use, no filter).
+- `scripts/refresh.ts`: wires real deps (runProbe, collectOpenRouter, collectAA, insertMetrics, runRecommender, collectNews), exits non-zero when any step fails.
+- `scripts/news.ts`: standalone `bun run news` for ad-hoc news collection.
+- `src/routes/-news-server-fns.ts` + `src/routes/news.tsx`: News feed route — server fn returns `getReasonableNews(50)`, page shows Card list with title/source/date/summary; empty state instructs to run refresh.
+- `src/routes/__root.tsx`: Added News to nav.
+- `package.json`: Added `news` and `refresh` scripts.
+- `src/__tests__/refresh.test.ts`: 10 tests — all-steps-called, probe/recommend/news step failure isolation, partial collector failure via allSettled, insertMetrics skipped when no metrics, collect fails only when insertMetrics throws, message content assertions.
+
+### Deviations from prompt
+- No in-process `node-cron` scheduler — the refresh script is a standalone CLI. For prod, the daily schedule is a host cron/launchd entry (documented below); adding node-cron requires a long-running process alongside the SSR server which adds ops complexity for a vibe project.
+- News sourced from OpenRouter only (not ArtificialAnalysis) — OpenRouter has a `created` unix timestamp enabling recency filtering; AA's model list has no creation date so it can't distinguish new vs historical.
+- `bun run refresh` is idempotent: probe writes fresh rows each run, metric snapshots accumulate (intended for trend charts), recommendations upsert by category+date, news items deduplicate by URL.
+
+### Gotchas & surprises
+- `import type` in `src/server/refresh.ts` (for `NormalizedMetric`/`CollectorResult`) is erased at runtime — no module evaluation occurs, so the DB-touching modules never run during tests. This is essential for test isolation.
+- `Promise.allSettled` inside the collect step means a single collector failure surfaces in the step message ("OR failed, 1 AA") but does NOT make collect.ok = false. Only if `insertMetrics` itself throws does collect fail.
+- `exactOptionalPropertyTypes: true` requires all optional fields in `NewsItemInsert` to be omitted or explicitly `null` — cannot be `undefined`. Used `?? null` coercions in `upsertNewsItem`.
+- The 60-day cutoff on news collection avoids flooding the feed on first run (OpenRouter has hundreds of historical models). After first run, only genuinely new models (not yet in the URL-indexed table) are inserted.
+
+### Prod cron setup (document, not installed)
+```
+# /etc/cron.d/modelpick-refresh  — runs daily at 06:00 UTC
+0 6 * * * modelpick /usr/local/bin/bun run /opt/modelpick/refresh 2>&1 | logger -t modelpick-refresh
+```
+Or via launchd plist on macOS (dev):
+```xml
+<key>StartCalendarInterval</key>
+<dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+```
+
+### Security notes
+- `OPENROUTER_API_KEY` read from env at call time; never logged
+- News items only store publicly-available model metadata (title, url, description, published_at); no user data
+- `upsertNewsItem` uses parameterized queries via Drizzle (no SQL injection risk)
+
+### Tests added
+- `src/__tests__/refresh.test.ts`: 10 tests (all steps called, per-step isolation, partial collector allSettled, insertMetrics skip, collect failure, message content, multi-step failure)
+
+### Future improvements
+- Add ArtificialAnalysis news source once AA exposes model creation dates in their API
+- Add a "new vs known" heuristic: cross-reference news items against the local MODEL_SEED and badge "IU-accessible" models in the feed
+- Add an admin toggle to mark news items reasonable/unreasonable from the UI
+- Consider a LaunchAgent plist in `dotfiles` for local dev daily refresh
+- Trend-over-time charts on the Decider page (Group 8 deferred them pending 3+ days of snapshot data — now the refresh pipeline provides that data daily)
