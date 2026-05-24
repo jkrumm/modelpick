@@ -284,3 +284,42 @@ Appended by each group as it completes.
 - Add `ZonedLine` and `Bars` kind components once Group 8 identifies recurring chart shapes
 - Add `HoverContext.Provider` wrapper utility (a `useHoverState` hook returning `[state, setState]` + wrapping provider) to simplify cross-chart sync setup in Group 8
 - Consider a `scaleNumeric` utility that auto-selects nice domain from data — reduces boilerplate in each chart
+
+## Group 8: Decider + catalog UI
+
+### What was implemented
+- `src/routes/-server-fns.ts`: centralized `getDeciderData` server fn — loads recommendations, models, normalized `ModelMetrics[]`, latest probes (accessibility + residency + latency), and raw metric map. Deduplicates snapshots to latest per (model, source, metric) before normalizing.
+- `src/routes/index.tsx`: full decider page — 5 category cards (fast/coding/orchestrator/tts/stt), weight sliders (quality/cost/speed with reset), IU-only toggle, residency filter. Live re-scoring with `scoreModels()` runs client-side on `ModelMetrics[]` from loader. DB rationale shown when live winner matches DB recommendation.
+- `src/routes/catalog.tsx`: catalog page — text search + modality filter + IU-only toggle; sortable table (click column header to sort, nulls-last); Quality vs Cost scatter chart (hover labels); Speed Scores horizontal bar chart. Both charts use `useResizeObserver` for responsive width.
+- `src/routes/__root.tsx`: Catalog added to nav between Decider and TTS.
+- `src/__tests__/ui.test.ts`: 14 tests — `getTopModels` (8 tests: modality filtering, IU-only, residency, weight sensitivity, sort order) + `sortRows` (5 tests: numeric sort, string sort, nulls-last invariant).
+
+### Deviations from prompt
+- Server fns file is `-server-fns.ts` (prefixed with `-`) to exclude it from TanStack Router's file-based routing. The router's `routeFileIgnorePrefix` is `-` (default).
+- Only one shared server fn (`getDeciderData`) used for both pages — the catalog doesn't need different data, and sharing avoids two parallel DB call sets.
+- No `AxisBottomNumeric` primitive existed — used raw `@visx/axis AxisBottom` with manual theming for the scatter and bar chart bottom axes. Pattern is consistent with existing bespoke chart rules (genuinely unique composition stays bespoke).
+- Trend-over-time line chart not implemented — current data model has a single snapshot date (no historical accumulation yet); sparklines would be flat lines. Deferred until daily cron accumulates 3+ days of data.
+- No `@visx/responsive` or `useParentSize` — used `useResizeObserver` from `@mantine/hooks` (already installed) for chart container width.
+- `BarSparkline` and `LineSparkline` not used in the catalog table — the table rows don't have trend data yet; would require daily historical metrics.
+
+### Gotchas & surprises
+- **`useResizeObserver` type**: Mantine v9 returns `ObserverRect` with `.width` directly (not `.contentRect.width`). TypeScript correctly catches this.
+- **TanStack Router route file detection**: any `.ts`/`.tsx` in `src/routes/` is treated as a potential route unless prefixed with `-` or matching `routeFileIgnorePattern`. The server fns file must be `-server-fns.ts`.
+- **`oxlint react/no-unstable-nested-components`**: defining a component function inside another component body triggers the rule. Extracted `SortTh` to module scope with explicit props for `sortField`, `sortDir`, `onSort`.
+- **`import/no-duplicates`**: two `import { X }` from the same module path triggers an error even if they import different symbols. Must merge into one statement.
+- **`useResizeObserver` initial value**: returns `undefined` entry before mount (SSR). Width defaults to 600px on server — a minor layout shift on hydration but acceptable for charts.
+
+### Security notes
+- No secrets in tracked files; `getDeciderData` server fn reads DB only on the server side
+- Chart hover state is ephemeral client-side state, no data leakage
+
+### Tests added
+- `src/__tests__/ui.test.ts`: 14 tests covering filter/rank logic and sort logic
+
+### Future improvements
+- Add trend sparklines to catalog table once daily cron accumulates multiple days of snapshot data
+- Add trend-over-time line chart on the decider page (quality score per category over the last 30 days)
+- Add model detail drawer/modal with full metrics breakdown on row click
+- Add price ceiling slider to filter bar (requires raw `price_in` in `DeciderData`)
+- Consider `priceInPerMToken` in the raw metric map for a formatted price column in the table
+

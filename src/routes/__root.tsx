@@ -36,6 +36,7 @@ export const Route = createRootRoute({
 
 const NAV_ITEMS: Array<{ to: string; label: string; exact?: boolean }> = [
   { to: "/", label: "Decider", exact: true },
+  { to: "/catalog", label: "Catalog" },
   { to: "/tts", label: "TTS" },
   { to: "/stt", label: "STT" },
 ];
