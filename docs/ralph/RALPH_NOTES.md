@@ -195,3 +195,40 @@ Appended by each group as it completes.
 - Improve fuzzy ID matching with levenshtein distance for near-miss model IDs (e.g. `claude-3-7-sonnet` → `claude-sonnet-4-6`)
 - Add dynamic model discovery: insert unmatched external models into `models` table with `modality: 'llm'` default when provider prefix is recognizable
 - Rate-limit awareness: AA has 1,000 req/day limit — the daily cron is well within bounds
+
+## Group 6: Scoring + recommender
+
+### What was implemented
+- `src/server/scoring/utils.ts`: exported `clamp` and `normalizeScore` (extracted from `utils.test.ts` which previously defined them locally)
+- `src/server/scoring/normalize.ts`: `normalizeMetrics(MetricInput[]) → ModelMetrics[]` — confidence-weighted averaging per (model, metric), min-max normalization across models, compound dimensions: quality (direct), cost (inverted price_in/out average), speed (0.6×throughput + 0.4×inverted latency_p50)
+- `src/server/scoring/score.ts`: `CATEGORY_WEIGHTS` defaults per category (fast/coding/orchestrator/tts/stt) + `scoreModels()` returning sorted `ModelScore[]`; uses `.toSorted()` (unicorn rule)
+- `src/server/scoring/recommend.ts`: `runRecommender(snapshotDate?)` — loads DB snapshots (deduped to latest per model+source+metric), probes, and model modalities; normalizes; scores per category; calls `claude-haiku-4-5-eu` for rationale; upserts to `recommendation` via `onConflictDoUpdate`
+- `scripts/recommend.ts`: CLI entry point (`bun run recommend`)
+- `package.json`: added `recommend` script
+- `src/__tests__/scoring.test.ts`: 21 tests covering all normalizeMetrics edge cases + scoreModels weight sensitivity + end-to-end pipeline
+
+### Deviations from prompt
+- Kept `MetricInput` as a structural type (not `NormalizedMetric`) so `MetricSnapshot[]` (from DB, with `confidence: number | null`) can be passed directly without mapping
+- Snapshot deduplication: instead of a time filter, deduplicates to latest per (model, source, metric) key — cleaner and correct for accumulated data
+- `src/server/scoring/normalize.ts` is a different module from `src/server/collectors/normalize.ts` — the prompt named the same path but they serve different purposes (ID resolution vs value normalization); the path `app/server/scoring/normalize.ts` maps to `src/server/scoring/normalize.ts` in this repo's layout
+
+### Gotchas & surprises
+- **`noUncheckedIndexedAccess`**: `arr[i]` returns `T | undefined`; used `?? null` throughout to safely coerce to `null` for the `ModelMetrics` interface
+- **oxlint `eqeqeq` error**: `v != null` (loose equality) rejected — must use `v !== null && v !== undefined`
+- **oxlint `unicorn/no-array-sort`**: `.sort()` mutates; must use `.toSorted()` which returns a new array
+- **`exactOptionalPropertyTypes`**: no issues since all insert fields are `string | null` (not `undefined`), and Drizzle nullable columns accept `null` cleanly
+
+### Security notes
+- `RATIONALE_MODEL = "claude-haiku-4-5-eu"` (EU GDPR residency) — rationale prompt contains only model IDs and scores, no user data
+- IU API key read from env at call time; never logged
+
+### Tests added
+- `src/__tests__/scoring.test.ts`: 21 tests
+  - normalizeMetrics: 10 tests (empty, single point, quality/cost/speed ordering, confidence weighting, price_in+out combination, null dimensions, flat range, bounds [0,1])
+  - scoreModels: 9 tests (weighted sum, null→0, sorted order, orchestrator vs fast tradeoff, custom weights, category weights sum to 1, empty input)
+  - pipeline: 2 integration tests (orchestrator picks quality winner, fast picks speed/cost winner)
+
+### Future improvements
+- Add runners-up (top-2 or top-3 per category) to recommendation rows — schema already supports multiple rows per category+date if the uniqueIndex is changed
+- TTS/STT quality metrics currently null (no external source provides them) — once AA TTS endpoint is hit (Group 5 future improvement), scoring will work end-to-end for audio models
+- Add `explain` output to CLI: print all scored candidates with breakdown, not just the winner
