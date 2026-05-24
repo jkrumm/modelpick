@@ -11,6 +11,7 @@ import {
 import type {
   Modality,
   RecommendationCategory,
+  Lang,
   Model,
   CapabilityProbe,
   MetricSnapshot,
@@ -157,6 +158,45 @@ export async function getPublicDemos(modality?: Modality): Promise<Demo[]> {
     .from(demo)
     .where(eq(demo.public, true))
     .orderBy(desc(demo.created_at));
+}
+
+// ── Admin demo operations ─────────────────────────────────────────────────────
+
+/** Returns all demos for a modality, including non-public ones (admin use). */
+export async function getAllDemos(modality?: Modality): Promise<Demo[]> {
+  if (modality !== undefined) {
+    return db
+      .select()
+      .from(demo)
+      .where(eq(demo.modality, modality))
+      .orderBy(desc(demo.created_at));
+  }
+  return db.select().from(demo).orderBy(desc(demo.created_at));
+}
+
+export interface DemoInsert {
+  modality: Modality;
+  model_id: string;
+  text_content: string;
+  lang: Lang;
+  preset?: string | null;
+  audio_path?: string | null;
+  public?: boolean;
+}
+
+export async function insertDemo(data: DemoInsert): Promise<Demo> {
+  const rows = await db.insert(demo).values(data).returning();
+  const row = rows[0];
+  if (!row) throw new Error("insertDemo returned no rows");
+  return row;
+}
+
+export async function updateDemoAudioPath(id: number, audioPath: string): Promise<void> {
+  await db.update(demo).set({ audio_path: audioPath }).where(eq(demo.id, id));
+}
+
+export async function setDemoPublic(id: number, isPublic: boolean): Promise<void> {
+  await db.update(demo).set({ public: isPublic }).where(eq(demo.id, id));
 }
 
 // ── News ──────────────────────────────────────────────────────────────────────
