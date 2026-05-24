@@ -1,0 +1,171 @@
+import { and, desc, eq } from "drizzle-orm";
+import { db } from "./index.js";
+import {
+  capabilityProbe,
+  demo,
+  models,
+  newsItem,
+  recommendation,
+  metricSnapshot,
+} from "./schema.js";
+import type {
+  Modality,
+  RecommendationCategory,
+  Model,
+  CapabilityProbe,
+  MetricSnapshot,
+  Recommendation,
+  Demo,
+  NewsItem,
+} from "./schema.js";
+
+export type { Model, CapabilityProbe, MetricSnapshot, Recommendation, Demo, NewsItem };
+
+// ── Models ────────────────────────────────────────────────────────────────────
+
+export async function getModels(modality?: Modality): Promise<Model[]> {
+  if (modality !== undefined) {
+    return db.select().from(models).where(eq(models.modality, modality));
+  }
+  return db.select().from(models);
+}
+
+/** Returns models that were accessible in their most recent probe. */
+export async function getAccessibleModels(
+  modality?: Modality,
+): Promise<Model[]> {
+  // Subquery not needed: join the latest probe per model via a lateral-style
+  // approach — fetch all probes ordered by checked_at desc, deduplicate in TS.
+  const probes = await db
+    .select({
+      model_id: capabilityProbe.model_id,
+      accessible: capabilityProbe.accessible,
+      checked_at: capabilityProbe.checked_at,
+    })
+    .from(capabilityProbe)
+    .orderBy(desc(capabilityProbe.checked_at));
+
+  // Keep only the latest probe per model
+  const latestByModel = new Map<
+    string,
+    { model_id: string; accessible: boolean }
+  >();
+  for (const probe of probes) {
+    if (!latestByModel.has(probe.model_id)) {
+      latestByModel.set(probe.model_id, probe);
+    }
+  }
+
+  const accessibleIds = [...latestByModel.values()]
+    .filter((p) => p.accessible)
+    .map((p) => p.model_id);
+
+  if (accessibleIds.length === 0) return [];
+
+  const conditions =
+    modality !== undefined ? eq(models.modality, modality) : undefined;
+
+  const rows = conditions
+    ? await db.select().from(models).where(conditions)
+    : await db.select().from(models);
+
+  return rows.filter((m) => accessibleIds.includes(m.id));
+}
+
+// ── Metric snapshots ──────────────────────────────────────────────────────────
+
+/** Latest metric snapshots, optionally filtered to a specific date (yyyy-mm-dd). */
+export async function getLatestMetrics(
+  snapshotDate?: string,
+): Promise<MetricSnapshot[]> {
+  const rows = await db
+    .select()
+    .from(metricSnapshot)
+    .orderBy(desc(metricSnapshot.captured_at));
+
+  if (snapshotDate === undefined) return rows;
+
+  return rows.filter((r) => r.captured_at.startsWith(snapshotDate));
+}
+
+// ── Recommendations ───────────────────────────────────────────────────────────
+
+export async function getRecommendationsByDate(
+  snapshotDate: string,
+): Promise<Recommendation[]> {
+  return db
+    .select()
+    .from(recommendation)
+    .where(eq(recommendation.snapshot_date, snapshotDate))
+    .orderBy(desc(recommendation.score));
+}
+
+export async function getLatestRecommendations(): Promise<Recommendation[]> {
+  const all = await db
+    .select()
+    .from(recommendation)
+    .orderBy(desc(recommendation.snapshot_date), desc(recommendation.score));
+
+  if (all.length === 0) return [];
+
+  // Return only entries for the most recent snapshot date
+  const latestDate = all[0]?.snapshot_date;
+  if (latestDate === undefined) return [];
+
+  return all.filter((r) => r.snapshot_date === latestDate);
+}
+
+export async function getRecommendationByCategory(
+  category: RecommendationCategory,
+  snapshotDate?: string,
+): Promise<Recommendation | undefined> {
+  if (snapshotDate !== undefined) {
+    const rows = await db
+      .select()
+      .from(recommendation)
+      .where(
+        and(
+          eq(recommendation.category, category),
+          eq(recommendation.snapshot_date, snapshotDate),
+        ),
+      )
+      .limit(1);
+    return rows[0];
+  }
+
+  const rows = await db
+    .select()
+    .from(recommendation)
+    .where(eq(recommendation.category, category))
+    .orderBy(desc(recommendation.snapshot_date))
+    .limit(1);
+  return rows[0];
+}
+
+// ── Audio demos ───────────────────────────────────────────────────────────────
+
+export async function getPublicDemos(modality?: Modality): Promise<Demo[]> {
+  if (modality !== undefined) {
+    return db
+      .select()
+      .from(demo)
+      .where(and(eq(demo.public, true), eq(demo.modality, modality)))
+      .orderBy(desc(demo.created_at));
+  }
+  return db
+    .select()
+    .from(demo)
+    .where(eq(demo.public, true))
+    .orderBy(desc(demo.created_at));
+}
+
+// ── News ──────────────────────────────────────────────────────────────────────
+
+export async function getReasonableNews(limit = 20): Promise<NewsItem[]> {
+  return db
+    .select()
+    .from(newsItem)
+    .where(eq(newsItem.reasonable, true))
+    .orderBy(desc(newsItem.published_at))
+    .limit(limit);
+}

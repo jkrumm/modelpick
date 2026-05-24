@@ -12,7 +12,10 @@
     "lint:fix": "oxlint --fix .",
     "format": "oxfmt 'src/**' --write",
     "format:check": "oxfmt 'src/**' --check",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun run scripts/migrate.ts",
+    "db:seed": "bun run scripts/seed-run.ts"
   },
   "dependencies": {
     "@mantine/core": "^9.2.1",
@@ -21,6 +24,8 @@
     "@tanstack/react-router": "^1.170.8",
     "@tanstack/react-router-devtools": "^1.167.0",
     "@tanstack/react-start": "^1.168.11",
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^4.4.3"
@@ -31,6 +36,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.1",
+    "drizzle-kit": "^0.31.10",
     "nitro": "^3.0.260311-beta",
     "oxfmt": "^0.45.0",
     "oxlint": "^1.60.0",
