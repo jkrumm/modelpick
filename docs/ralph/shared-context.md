@@ -82,10 +82,13 @@ the runner env. Never hardcode keys or hostnames in tracked files; never log sec
 ```bash
 bun run typecheck   # tsc --noEmit — must be clean
 bun run lint        # must be clean
-bun run test        # all Vitest tests pass
+bun run test        # all Vitest tests pass (script must be `vitest run`, never watch)
+bun run build       # SSR/prerender build must be clean
 ```
 
-Group 1 must create these scripts in `package.json`. The runner gates every group ≥2 on them.
+Group 1 must create these scripts in `package.json`. The runner gates every group (the four above,
+build included) and will mark your group failed if any fails — so run all four yourself before you
+signal complete.
 
 ## Research Before Implementing
 

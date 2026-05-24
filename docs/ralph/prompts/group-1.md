@@ -23,8 +23,10 @@ before this group; you must leave it green.**
    `/` (Decider), `/tts` (TTS playground), `/stt` (STT playground).
 2. **App shell**: Mantine provider + a top nav (tabs/links) shared across routes. Dark/light aware.
 3. **`package.json` scripts** (exact names — the runner calls them):
-   `dev`, `build`, `typecheck` (`tsc --noEmit`), `lint`, `test` (vitest). `lint` may be a placeholder
-   that exits 0 until Group 2 sets up the real linter — but it MUST exist and pass.
+   `dev`, `build`, `typecheck` (`tsc --noEmit`), `lint`, `test`. The `test` script MUST be
+   non-interactive — use `vitest run` (NOT bare `vitest`, which enters watch mode and would hang the
+   autonomous loop's validation gate forever). `lint` may be a placeholder that exits 0 until Group 2
+   sets up the real linter — but it MUST exist and pass.
 4. **Vitest** config + one trivial passing test (e.g. a util) so `bun run test` is green.
 5. **`docker-compose.dev.yml`**: a Postgres service on host port **5433**, using `POSTGRES_USER`,
    `POSTGRES_PASSWORD`, `POSTGRES_DB` from env (the runner sources `.env`).

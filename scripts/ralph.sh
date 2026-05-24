@@ -199,13 +199,16 @@ PYEOF
 
 # ── Validation ────────────────────────────────────────────────────────────────
 
+BUILD_TIMEOUT=600  # 10 min — a hung build must not stall the loop
 validate() {
   local label=${1:-""}
   log_info "Validation${label:+ ($label)}..."
   cd "$REPO_ROOT"
-  if ! bun run typecheck 2>&1; then log_error "Typecheck failed"; return 1; fi
-  if ! bun run lint 2>&1; then log_error "Lint failed"; return 1; fi
-  if ! bun run test 2>&1; then log_error "Tests failed"; return 1; fi
+  # CI=1 forces non-interactive mode (e.g. vitest never enters watch) regardless of stdin TTY.
+  if ! CI=1 bun run typecheck 2>&1; then log_error "Typecheck failed"; return 1; fi
+  if ! CI=1 bun run lint 2>&1; then log_error "Lint failed"; return 1; fi
+  if ! CI=1 bun run test 2>&1; then log_error "Tests failed"; return 1; fi
+  if ! CI=1 gtimeout "$BUILD_TIMEOUT" bun run build 2>&1; then log_error "Build failed (or timed out after ${BUILD_TIMEOUT}s)"; return 1; fi
   log_success "Validation passed"
   return 0
 }
