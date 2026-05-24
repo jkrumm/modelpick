@@ -8,7 +8,10 @@
     "build": "vite build",
     "start": "node .output/server/index.mjs",
     "typecheck": "tsr generate && tsc --noEmit",
-    "lint": "echo 'lint: no linter configured (Group 2 wires real linter)'",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "format": "oxfmt 'src/**' --write",
+    "format:check": "oxfmt 'src/**' --check",
     "test": "vitest run"
   },
   "dependencies": {
@@ -29,6 +32,8 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.1",
     "nitro": "^3.0.260311-beta",
+    "oxfmt": "^0.45.0",
+    "oxlint": "^1.60.0",
     "typescript": "^5.9.3",
     "vite": "^8.0.0",
     "vitest": "^3.0.0"

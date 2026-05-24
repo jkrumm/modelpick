@@ -1,9 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { Title, Text, Stack, Badge, Group } from '@mantine/core'
+import { createFileRoute } from "@tanstack/react-router";
+import { Title, Text, Stack, Badge, Group } from "@mantine/core";
 
-export const Route = createFileRoute('/stt')({
+export const Route = createFileRoute("/stt")({
   component: SttPage,
-})
+});
 
 function SttPage() {
   return (
@@ -15,9 +15,9 @@ function SttPage() {
         </Badge>
       </Group>
       <Text c="dimmed">
-        Static sample transcriptions per model — accuracy and latency
-        side-by-side. Admin can upload a clip and run it live across models.
+        Static sample transcriptions per model — accuracy and latency side-by-side. Admin can upload
+        a clip and run it live across models.
       </Text>
     </Stack>
-  )
+  );
 }
