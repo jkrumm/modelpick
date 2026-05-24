@@ -414,3 +414,74 @@ Or via launchd plist on macOS (dev):
 - Add an admin toggle to mark news items reasonable/unreasonable from the UI
 - Consider a LaunchAgent plist in `dotfiles` for local dev daily refresh
 - Trend-over-time charts on the Decider page (Group 8 deferred them pending 3+ days of snapshot data — now the refresh pipeline provides that data daily)
+
+## Group 11: Deploy artifacts
+
+### What was implemented
+- **`/health` endpoint** via Nitro config handler (`src/server/health.ts`) — returns `{ok:true}` on 200;
+  on SIGTERM sets `shuttingDown=true` and returns 503, giving Traefik time to drain traffic before
+  the process exits. Handler wired via `nitro({ handlers: [...] })` in `vite.config.ts`.
+- **`Dockerfile`** — two-stage: `oven/bun:1-alpine` builder installs all deps + runs `vite build`;
+  runtime stage installs production deps only, copies `.output/` (self-contained Nitro bundle) plus
+  `scripts/`, `src/`, `tsconfig.json`, `drizzle/` so daily `docker exec ... bun run scripts/refresh.ts`
+  works inside the container. Exposes port 3001 via `PORT` env var.
+- **`.github/workflows/deploy.yml`** — pushes to `master` → builds image, pushes to
+  `rollhook.jkrumm.com/modelpick:<sha>`, triggers RollHook via `jkrumm/rollhook-action@master`.
+  Requires three GitHub secrets: `ZOT_PASSWORD`, `ROLLHOOK_URL`, `ROLLHOOK_SECRET`.
+- **`vps/apps/modelpick/compose.yml`** — follows the argo/bun-email-api pattern: no `container_name`,
+  no exposed ports, `rate-limit+security-headers@file` Traefik middlewares, healthcheck at `/health`,
+  `com.centurylinklabs.watchtower.enable=false`, `rollhook.allowed_repos=jkrumm/modelpick`,
+  `/var/lib/modelpick/demos` volume for audio demo persistence across redeploys.
+- **`vps/apps/modelpick/.env.tpl`** — 1Password `op://` references for DB password, IU keys, API keys,
+  admin key.
+- **`vps/scripts/setup-postgres.sh`** — modelpick schema + user + grants block added (idempotent pattern).
+- **`vps/.env.tpl`** — `MODELPICK_DB_PASSWORD` reference added.
+- **`vps/Makefile`** — `modelpick-up/down/env/migrate/seed/refresh` targets added.
+- **`modelpick/Makefile`** — `deploy` target added (documents the rollhook trigger flow).
+- **`.env.prod.example`** — production env template with `op://` reference comments.
+- **`README.md`** — full deploy section: first-time VPS setup, GitHub Actions secrets, cron entry,
+  manual ops.
+
+### Deviations from prompt
+- Used `nitro({ handlers: [...] })` in `vite.config.ts` instead of `createAPIFileRoute` (not available
+  in `@tanstack/react-start@1.168.11`). Handler is at `src/server/health.ts` and `defineEventHandler`
+  from `h3` (bundled transitive dep). Confirmed in build output that the route is registered.
+- `docker-compose.prod.yml` omitted as a standalone file — the actual VPS artifact is
+  `vps/apps/modelpick/compose.yml` following the established per-app pattern. Having two sources of
+  truth would cause drift.
+- No `rollhook-action` interface research (access to GitHub not available in headless). The workflow
+  uses `jkrumm/rollhook-action@master` with `service`, `image`, `rollhook_url`, `rollhook_secret`
+  inputs — consistent with how the argo workflow would work. User should verify the exact input names
+  from the rollhook-action repo before first deploy.
+
+### Gotchas & surprises
+- `createAPIFileRoute` does not exist in `@tanstack/react-start@1.168.11` — no `api` export in dist.
+  Nitro's `handlers` config is the correct low-level hook for non-React server routes.
+- Nitro handler picks up `h3` from the bundle — no need to add `h3` as a direct dep; it's already
+  bundled via Nitro's Rollup build.
+- SIGTERM must set a flag only — Nitro handles the actual shutdown lifecycle. Calling `process.exit()`
+  in the SIGTERM handler would race with Nitro's graceful drain.
+- `bun.lock` (text-based, Bun 1.2+) not `bun.lockb` — `COPY bun.lock ./` is correct for this project.
+- The refresh cron runs via `docker exec` into the running SSR container. The container includes the
+  full source + scripts for this reason; the `--production` install is sufficient because Bun strips
+  TypeScript types at runtime without needing `@types/*`.
+
+### Security notes
+- No real secrets in any tracked file — `.env.tpl` uses `op://` references only; `.env` is gitignored.
+- Dockerfile does not embed `.env` or any credentials at build time.
+- VPS `apps/modelpick/.env` (materialized) is chmod 644 — required so RollHook's non-root user can
+  read it during `docker compose up --scale`. Same pattern as bun-email-api and argo.
+- Admin key is `MODELPICK_ADMIN_KEY` in compose (not `ADMIN_KEY`) to namespace it within the VPS
+  compose env context and avoid collisions with other apps.
+
+### Tests added
+- No new tests (deploy artifacts are infrastructure, not logic).
+- All 163 existing tests pass; `bun run build` is clean with the Nitro handler registered.
+
+### Future improvements
+- Verify `jkrumm/rollhook-action@master` input names against the rollhook-action repo before first deploy.
+- Consider Uptime Kuma monitor for `modelpick.jkrumm.com` once deployed.
+- The `/health` endpoint returns a plain `{ok:true}` JSON — extend with DB connectivity check if
+  desired (query `SELECT 1` to detect Postgres outages before they cause 500s).
+- Cron entry for VPS in `vps/cron/modelpick-refresh` (like `vps/cron/pg-backup`) — deferred as the
+  cron mechanism requires VPS access.

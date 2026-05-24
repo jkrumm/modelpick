@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TtsRouteImport } from './routes/tts'
 import { Route as SttRouteImport } from './routes/stt'
+import { Route as NewsRouteImport } from './routes/news'
 import { Route as CatalogRouteImport } from './routes/catalog'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -22,6 +23,11 @@ const TtsRoute = TtsRouteImport.update({
 const SttRoute = SttRouteImport.update({
   id: '/stt',
   path: '/stt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NewsRoute = NewsRouteImport.update({
+  id: '/news',
+  path: '/news',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CatalogRoute = CatalogRouteImport.update({
@@ -38,12 +44,14 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/catalog': typeof CatalogRoute
+  '/news': typeof NewsRoute
   '/stt': typeof SttRoute
   '/tts': typeof TtsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/catalog': typeof CatalogRoute
+  '/news': typeof NewsRoute
   '/stt': typeof SttRoute
   '/tts': typeof TtsRoute
 }
@@ -51,20 +59,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/catalog': typeof CatalogRoute
+  '/news': typeof NewsRoute
   '/stt': typeof SttRoute
   '/tts': typeof TtsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/catalog' | '/stt' | '/tts'
+  fullPaths: '/' | '/catalog' | '/news' | '/stt' | '/tts'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/catalog' | '/stt' | '/tts'
-  id: '__root__' | '/' | '/catalog' | '/stt' | '/tts'
+  to: '/' | '/catalog' | '/news' | '/stt' | '/tts'
+  id: '__root__' | '/' | '/catalog' | '/news' | '/stt' | '/tts'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CatalogRoute: typeof CatalogRoute
+  NewsRoute: typeof NewsRoute
   SttRoute: typeof SttRoute
   TtsRoute: typeof TtsRoute
 }
@@ -83,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/stt'
       fullPath: '/stt'
       preLoaderRoute: typeof SttRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/news': {
+      id: '/news'
+      path: '/news'
+      fullPath: '/news'
+      preLoaderRoute: typeof NewsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/catalog': {
@@ -105,6 +122,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CatalogRoute: CatalogRoute,
+  NewsRoute: NewsRoute,
   SttRoute: SttRoute,
   TtsRoute: TtsRoute,
 }
