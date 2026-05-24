@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { parseResidency, IuFetchError, iuFetch } from "../server/iu/client.js";
+import { parseResidency, IuFetchError, iuFetch, gatewayChat } from "../server/iu/client.js";
+import { classifyProbe, isAccessible } from "../server/iu/classify.js";
 import { probeModel } from "../server/iu/probe.js";
 
 // Replace global fetch with a Vitest mock
@@ -14,11 +15,12 @@ function makeFetchResponse(
 ): Response {
   const contentType = isAudio ? "audio/mpeg" : "application/json";
   const headers = new Headers({ "content-type": contentType, ...responseHeaders });
+  const text = typeof body === "string" ? body : JSON.stringify(body);
   return {
     status,
     headers,
     json: async () => body,
-    text: async () => JSON.stringify(body),
+    text: async () => text,
     arrayBuffer: async () => new ArrayBuffer(0),
   } as unknown as Response;
 }
@@ -26,6 +28,8 @@ function makeFetchResponse(
 beforeEach(() => {
   fetchMock.mockReset();
   process.env["IU_OPENAI_BASE_URL"] = "https://iu-test.example/openai/v1";
+  process.env["IU_ANTHROPIC_BASE_URL"] = "https://iu-test.example/anthropic/v1";
+  process.env["IU_GEMINI_BASE_URL"] = "https://iu-test.example/gemini/v1beta";
   process.env["IU_API_KEY"] = "test-key";
 });
 
@@ -65,9 +69,7 @@ describe("parseResidency", () => {
 
 describe("iuFetch", () => {
   it("sets Authorization header on every request", async () => {
-    fetchMock.mockResolvedValueOnce(
-      makeFetchResponse(200, { choices: [] }),
-    );
+    fetchMock.mockResolvedValueOnce(makeFetchResponse(200, { choices: [] }));
 
     await iuFetch("/chat/completions", { method: "POST" });
 
@@ -97,8 +99,6 @@ describe("iuFetch", () => {
     fetchMock.mockResolvedValue(makeFetchResponse(503, { error: "overloaded" }));
 
     const resultPromise = iuFetch("/chat/completions");
-    // Attach the rejection handler BEFORE advancing timers to avoid
-    // UnhandledPromiseRejection warnings (rejection fires when timers run).
     const assertion = expect(resultPromise).rejects.toBeInstanceOf(IuFetchError);
 
     await vi.runAllTimersAsync();
@@ -119,83 +119,253 @@ describe("iuFetch", () => {
   });
 });
 
+// ── classifyProbe ─────────────────────────────────────────────────────────────
+
+describe("classifyProbe", () => {
+  it("classifies 2xx as available with no error", () => {
+    expect(classifyProbe({ status: 200, body: "{}" })).toEqual({
+      status: "available",
+      error: null,
+    });
+  });
+
+  it("classifies timeout", () => {
+    expect(classifyProbe({ status: "timeout", body: "TimeoutError" }).status).toBe("timeout");
+  });
+
+  it("classifies usage-limit bodies as throttled", () => {
+    const body =
+      '{"error":{"message":"You have reached your specified API usage limits. You will regain access on 2026-06-01."}}';
+    expect(classifyProbe({ status: 417, body }).status).toBe("throttled");
+  });
+
+  it("treats a request-shape param quibble as available (route reached the model)", () => {
+    const body =
+      "Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.";
+    expect(classifyProbe({ status: 400, body }).status).toBe("available");
+  });
+
+  it("classifies an upstream bad-key as backend_error", () => {
+    const body = '{"error":{"message":"Incorrect API key provided: sk-DAINR..."}}';
+    expect(classifyProbe({ status: 417, body }).status).toBe("backend_error");
+  });
+
+  it("classifies missing auth header as backend_error", () => {
+    const body = '{"error":{"message":"Missing or invalid Authorization header."}}';
+    expect(classifyProbe({ status: 417, body }).status).toBe("backend_error");
+  });
+
+  it("classifies 'no providers available' as not_routed", () => {
+    const body = "NO first line providers available for model";
+    expect(classifyProbe({ status: 406, body }).status).toBe("not_routed");
+  });
+
+  it("classifies 'no suitable backend' as not_routed", () => {
+    const body = "No suitable backend server found for model 'tts-1'.";
+    expect(classifyProbe({ status: 404, body }).status).toBe("not_routed");
+  });
+
+  it("classifies a Vertex not-found/no-access as not_routed", () => {
+    const body = "Publisher Model ... was not found or your project does not have access to it.";
+    expect(classifyProbe({ status: 417, body }).status).toBe("not_routed");
+  });
+
+  it("classifies 'does not exist' (Nebius) as not_routed", () => {
+    const body =
+      '[Nebius AI Cloud StatusCode: NotFound] {"detail":"The model `Qwen/QwQ-32B-fast` does not exist."}';
+    expect(classifyProbe({ status: 503, body }).status).toBe("not_routed");
+  });
+
+  it("classifies a bare 'StatusCode: NotFound' gateway tag as not_routed", () => {
+    const body = "[Gemini API OpenAI direct StatusCode: NotFound]";
+    expect(classifyProbe({ status: 503, body }).status).toBe("not_routed");
+  });
+
+  it("classifies 'not a chat model' as not_routed", () => {
+    const body = '{"error":{"message":"This is not a chat model and thus not supported"}}';
+    expect(classifyProbe({ status: 404, body }).status).toBe("not_routed");
+  });
+
+  it("classifies a wrong-payload-shape error as bad_request", () => {
+    const body =
+      '[{ "error": { "message": "Invalid JSON payload received. Unknown name \\"input\\": Cannot find field." } }]';
+    expect(classifyProbe({ status: 417, body }).status).toBe("bad_request");
+  });
+
+  it("falls back to unknown for unrecognized non-2xx", () => {
+    const result = classifyProbe({ status: 500, body: "internal blip" });
+    expect(result.status).toBe("unknown");
+    expect(result.error).toContain("internal blip");
+  });
+
+  it("isAccessible includes available and throttled only", () => {
+    expect(isAccessible("available")).toBe(true);
+    expect(isAccessible("throttled")).toBe(true);
+    expect(isAccessible("backend_error")).toBe(false);
+    expect(isAccessible("not_routed")).toBe(false);
+    expect(isAccessible("bad_request")).toBe(false);
+    expect(isAccessible("timeout")).toBe(false);
+    expect(isAccessible("unknown")).toBe(false);
+  });
+});
+
+// ── gatewayChat (provider-native routing) ─────────────────────────────────────
+
+describe("gatewayChat", () => {
+  it("routes anthropic to /messages with the version header and parses content", async () => {
+    fetchMock.mockResolvedValueOnce(
+      makeFetchResponse(200, { content: [{ type: "text", text: "Hello" }] }),
+    );
+
+    const res = await gatewayChat({
+      model: "claude-sonnet-4-5",
+      provider: "anthropic",
+      prompt: "hi",
+      maxTokens: 4,
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://iu-test.example/anthropic/v1/messages");
+    const headers = new Headers(init.headers as HeadersInit);
+    expect(headers.get("anthropic-version")).toBe("2023-06-01");
+    expect(JSON.parse(init.body as string)).toMatchObject({ max_tokens: 4 });
+    expect(res.text).toBe("Hello");
+  });
+
+  it("routes google to :generateContent and parses candidates", async () => {
+    fetchMock.mockResolvedValueOnce(
+      makeFetchResponse(200, {
+        candidates: [{ content: { parts: [{ text: "Hi there" }] } }],
+      }),
+    );
+
+    const res = await gatewayChat({
+      model: "gemini-2.5-flash",
+      provider: "google",
+      prompt: "hi",
+      maxTokens: 4,
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(
+      "https://iu-test.example/gemini/v1beta/models/gemini-2.5-flash:generateContent",
+    );
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      generationConfig: { maxOutputTokens: 4 },
+    });
+    expect(res.text).toBe("Hi there");
+  });
+
+  it("routes openai to /chat/completions with max_completion_tokens", async () => {
+    fetchMock.mockResolvedValueOnce(
+      makeFetchResponse(200, { choices: [{ message: { content: "Hey" } }] }),
+    );
+
+    const res = await gatewayChat({
+      model: "gpt-5.1",
+      provider: "openai",
+      prompt: "hi",
+      maxTokens: 4,
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://iu-test.example/openai/v1/chat/completions");
+    expect(JSON.parse(init.body as string)).toMatchObject({ max_completion_tokens: 4 });
+    expect(res.text).toBe("Hey");
+  });
+});
+
 // ── probeModel ───────────────────────────────────────────────────────────────
 
 describe("probeModel — LLM", () => {
-  it("marks accessible=true and captures residency on 200", async () => {
+  it("marks available + captures residency on 200", async () => {
     fetchMock.mockResolvedValueOnce(
-      makeFetchResponse(
-        200,
-        { choices: [{ message: { content: "hi" } }] },
-        { "x-ms-region": "Sweden Central" },
-      ),
+      makeFetchResponse(200, { content: [{ text: "hi" }] }, { "x-ms-region": "Sweden Central" }),
     );
 
-    const result = await probeModel("claude-sonnet-4-6", "llm");
+    const result = await probeModel({
+      model_id: "claude-sonnet-4-5",
+      modality: "llm",
+      provider: "anthropic",
+    });
 
     expect(result.accessible).toBe(true);
+    expect(result.probe_status).toBe("available");
     expect(result.residency).toBe("eu");
     expect(result.latency_ms).toBeTypeOf("number");
-    expect(result.error).toBeUndefined();
+    expect(result.error).toBeNull();
   });
 
-  it("marks accessible=false on 410 (deprecated model)", async () => {
+  it("marks throttled as accessible with a persisted reason", async () => {
     fetchMock.mockResolvedValueOnce(
-      makeFetchResponse(410, { error: { message: "Model deprecated" } }),
+      makeFetchResponse(417, {
+        error: { message: "You have reached your specified API usage limits." },
+      }),
     );
 
-    const result = await probeModel("gpt-5.5", "llm");
+    const result = await probeModel({
+      model_id: "claude-opus-4-5",
+      modality: "llm",
+      provider: "anthropic",
+    });
 
-    expect(result.accessible).toBe(false);
-    expect(result.model_id).toBe("gpt-5.5");
+    expect(result.probe_status).toBe("throttled");
+    expect(result.accessible).toBe(true);
+    expect(result.error).toContain("usage limits");
   });
 
-  it("marks accessible=false and sets error when fetch throws", async () => {
-    vi.useFakeTimers();
+  it("marks an upstream bad key as backend_error (not accessible)", async () => {
+    fetchMock.mockResolvedValueOnce(
+      makeFetchResponse(417, {
+        error: { message: "Incorrect API key provided: sk-DAINR..." },
+      }),
+    );
 
-    // All 3 attempts return 503 → IuFetchError caught by probeModel
-    fetchMock.mockResolvedValue(makeFetchResponse(503, {}));
+    const result = await probeModel({
+      model_id: "gpt-5.1",
+      modality: "llm",
+      provider: "openai",
+    });
 
-    // probeModel catches the IuFetchError internally, so the promise resolves
-    const resultPromise = probeModel("gpt-5.5", "llm");
-    await vi.runAllTimersAsync();
-    const result = await resultPromise;
-
+    expect(result.probe_status).toBe("backend_error");
     expect(result.accessible).toBe(false);
-    expect(result.error).toContain("503");
   });
 });
 
 describe("probeModel — TTS", () => {
-  it("marks accessible=true on 200 audio response", async () => {
-    fetchMock.mockResolvedValueOnce(
-      makeFetchResponse(200, new ArrayBuffer(512), {}, true),
-    );
+  it("marks available on 200 audio response", async () => {
+    fetchMock.mockResolvedValueOnce(makeFetchResponse(200, new ArrayBuffer(512), {}, true));
 
-    const result = await probeModel("tts-hd", "tts");
+    const result = await probeModel({ model_id: "tts-hd", modality: "tts", provider: "openai" });
 
     expect(result.accessible).toBe(true);
     expect(result.modality).toBe("tts");
   });
 
-  it("marks accessible=false on 400", async () => {
+  it("marks not_routed when no backend serves the model", async () => {
     fetchMock.mockResolvedValueOnce(
-      makeFetchResponse(400, { error: { message: "invalid voice" } }),
+      makeFetchResponse(404, "No suitable backend server found for model 'tts-1'."),
     );
 
-    const result = await probeModel("voxtral-mini-tts", "tts");
+    const result = await probeModel({ model_id: "tts-1", modality: "tts", provider: "openai" });
 
     expect(result.accessible).toBe(false);
+    expect(result.probe_status).toBe("not_routed");
   });
 });
 
 describe("probeModel — STT", () => {
-  it("marks accessible=true on 200 transcription response", async () => {
-    fetchMock.mockResolvedValueOnce(
-      makeFetchResponse(200, { text: "" }),
-    );
+  const audioFixture = new Blob([new Uint8Array(2048)], { type: "audio/mpeg" });
 
-    const result = await probeModel("whisper", "stt");
+  it("marks available on 200 transcription response", async () => {
+    fetchMock.mockResolvedValueOnce(makeFetchResponse(200, { text: "hello" }));
+
+    const result = await probeModel({
+      model_id: "whisper",
+      modality: "stt",
+      provider: "openai",
+      audioFixture,
+    });
 
     expect(result.accessible).toBe(true);
     expect(result.modality).toBe("stt");
@@ -204,14 +374,32 @@ describe("probeModel — STT", () => {
   it("sends multipart/form-data with .mp3 filename", async () => {
     fetchMock.mockResolvedValueOnce(makeFetchResponse(200, { text: "" }));
 
-    await probeModel("whisper", "stt");
+    await probeModel({
+      model_id: "whisper",
+      modality: "stt",
+      provider: "openai",
+      audioFixture,
+    });
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.body).toBeInstanceOf(FormData);
-
     const form = init.body as FormData;
     const file = form.get("file") as File;
     expect(file.name).toBe("audio.mp3");
     expect(file.type).toBe("audio/mpeg");
+  });
+
+  it("returns unknown (not accessible) when no audio fixture is available", async () => {
+    const result = await probeModel({
+      model_id: "whisper",
+      modality: "stt",
+      provider: "openai",
+      audioFixture: null,
+    });
+
+    expect(result.accessible).toBe(false);
+    expect(result.probe_status).toBe("unknown");
+    expect(result.error).toContain("audio fixture");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

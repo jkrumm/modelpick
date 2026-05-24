@@ -12,8 +12,18 @@ import {
 
 export const mp = pgSchema("modelpick");
 
-export const modalityEnum = mp.enum("modality", ["llm", "tts", "stt"]);
+export const modalityEnum = mp.enum("modality", ["llm", "tts", "stt", "image", "embedding"]);
 export const residencyEnum = mp.enum("residency", ["eu", "us", "unknown"]);
+// Outcome of a live access probe. `accessible` is derived from this (available|throttled).
+export const probeStatusEnum = mp.enum("probe_status", [
+  "available", // 2xx — model responded
+  "throttled", // rate/usage limit — model exists and works, temporarily capped
+  "backend_error", // IU-side misconfig: bad upstream key / missing auth / auth failure
+  "not_routed", // no provider/backend for this model on the gateway
+  "bad_request", // route reached the model but rejected our request shape
+  "timeout", // probe aborted before a response
+  "unknown", // unclassified non-2xx
+]);
 export const categoryEnum = mp.enum("recommendation_category", [
   "fast",
   "coding",
@@ -38,6 +48,9 @@ export const models = mp.table("models", {
   modality: modalityEnum("modality").notNull(),
   display_name: text("display_name").notNull(),
   context_window: integer("context_window"),
+  // true when the model is returned by the live IU /models endpoint (vs. an
+  // external-only comparison entry discovered from a leaderboard collector)
+  iu_listed: boolean("iu_listed").notNull().default(false),
   created_at: timestamp("created_at", {
     withTimezone: true,
     mode: "string",
@@ -56,6 +69,8 @@ export const capabilityProbe = mp.table(
       .notNull()
       .references(() => models.id, { onDelete: "cascade" }),
     accessible: boolean("accessible").notNull(),
+    probe_status: probeStatusEnum("probe_status").notNull().default("unknown"),
+    error: text("error"),
     latency_ms: real("latency_ms"),
     residency: residencyEnum("residency").notNull().default("unknown"),
     checked_at: timestamp("checked_at", {
@@ -116,10 +131,7 @@ export const recommendation = mp.table(
   (t) => [
     index("idx_recommendation_snapshot_date").on(t.snapshot_date),
     index("idx_recommendation_category").on(t.category),
-    uniqueIndex("uq_recommendation_category_date").on(
-      t.category,
-      t.snapshot_date,
-    ),
+    uniqueIndex("uq_recommendation_category_date").on(t.category, t.snapshot_date),
   ],
 );
 
@@ -145,10 +157,7 @@ export const demo = mp.table(
       .defaultNow()
       .notNull(),
   },
-  (t) => [
-    index("idx_demo_model_id").on(t.model_id),
-    index("idx_demo_public").on(t.public),
-  ],
+  (t) => [index("idx_demo_model_id").on(t.model_id), index("idx_demo_public").on(t.public)],
 );
 
 // ── News items (curated notable releases) ────────────────────────────────────
@@ -195,6 +204,7 @@ export type NewsItem = typeof newsItem.$inferSelect;
 
 export type Modality = (typeof modalityEnum.enumValues)[number];
 export type Residency = (typeof residencyEnum.enumValues)[number];
+export type ProbeStatus = (typeof probeStatusEnum.enumValues)[number];
 export type RecommendationCategory = (typeof categoryEnum.enumValues)[number];
 export type Lang = (typeof langEnum.enumValues)[number];
 export type MetricSource = (typeof metricSourceEnum.enumValues)[number];

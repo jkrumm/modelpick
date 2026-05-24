@@ -51,10 +51,34 @@ const metrics: ModelMetrics[] = [
 ];
 
 const probes: Record<string, ProbeInfo> = {
-  "model-a": { accessible: true, latency_ms: 200, residency: "eu" },
-  "model-b": { accessible: false, latency_ms: 100, residency: "us" },
-  "model-c": { accessible: true, latency_ms: 150, residency: "us" },
-  "tts-1": { accessible: true, latency_ms: 50, residency: "eu" },
+  "model-a": {
+    accessible: true,
+    probe_status: "available",
+    error: null,
+    latency_ms: 200,
+    residency: "eu",
+  },
+  "model-b": {
+    accessible: false,
+    probe_status: "not_routed",
+    error: "no backend",
+    latency_ms: 100,
+    residency: "us",
+  },
+  "model-c": {
+    accessible: true,
+    probe_status: "available",
+    error: null,
+    latency_ms: 150,
+    residency: "us",
+  },
+  "tts-1": {
+    accessible: true,
+    probe_status: "available",
+    error: null,
+    latency_ms: 50,
+    residency: "eu",
+  },
 };
 
 const modelMap = new Map<string, { modality: string }>([
@@ -121,7 +145,15 @@ describe("getTopModels", () => {
 
   it("re-ranks with quality-heavy weights", () => {
     const qualityWeights = { quality: 0.9, cost: 0.05, speed: 0.05 };
-    const top = getTopModels(metrics, probes, modelMap, "orchestrator", qualityWeights, false, "all");
+    const top = getTopModels(
+      metrics,
+      probes,
+      modelMap,
+      "orchestrator",
+      qualityWeights,
+      false,
+      "all",
+    );
     // model-a has quality=0.9, should win
     expect(top[0]?.model_id).toBe("model-a");
   });
@@ -164,15 +196,52 @@ function sortRows(rows: TableRow[], field: SortField, dir: SortDir): TableRow[] 
     if (av === null && bv === null) return 0;
     if (av === null) return 1;
     if (bv === null) return -1;
-    const cmp = typeof av === "string" ? av.localeCompare(bv as string) : (av as number) - (bv as number);
+    const cmp =
+      typeof av === "string" ? av.localeCompare(bv as string) : (av as number) - (bv as number);
     return dir === "asc" ? cmp : -cmp;
   });
 }
 
 const tableRows: TableRow[] = [
-  { model_id: "a", display_name: "Alpha", provider: "openai", modality: "llm", quality: 0.9, cost: 0.5, speed: 0.3, score: 0.7, accessible: true, residency: "eu", latency_ms: 200 },
-  { model_id: "b", display_name: "Beta", provider: "anthropic", modality: "llm", quality: null, cost: 0.8, speed: 0.9, score: 0.4, accessible: false, residency: "us", latency_ms: 100 },
-  { model_id: "c", display_name: "Gamma", provider: "google", modality: "tts", quality: 0.6, cost: null, speed: 0.7, score: 0.55, accessible: true, residency: "us", latency_ms: null },
+  {
+    model_id: "a",
+    display_name: "Alpha",
+    provider: "openai",
+    modality: "llm",
+    quality: 0.9,
+    cost: 0.5,
+    speed: 0.3,
+    score: 0.7,
+    accessible: true,
+    residency: "eu",
+    latency_ms: 200,
+  },
+  {
+    model_id: "b",
+    display_name: "Beta",
+    provider: "anthropic",
+    modality: "llm",
+    quality: null,
+    cost: 0.8,
+    speed: 0.9,
+    score: 0.4,
+    accessible: false,
+    residency: "us",
+    latency_ms: 100,
+  },
+  {
+    model_id: "c",
+    display_name: "Gamma",
+    provider: "google",
+    modality: "tts",
+    quality: 0.6,
+    cost: null,
+    speed: 0.7,
+    score: 0.55,
+    accessible: true,
+    residency: "us",
+    latency_ms: null,
+  },
 ];
 
 describe("sortRows", () => {

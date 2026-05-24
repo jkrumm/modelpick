@@ -14,6 +14,7 @@ import {
   Text,
   TextInput,
   Title,
+  Tooltip,
 } from "@mantine/core";
 import { useResizeObserver } from "@mantine/hooks";
 import { IconSearch } from "@tabler/icons-react";
@@ -29,7 +30,46 @@ import {
   VX,
   useVxTheme,
 } from "~/charts";
-import type { Modality } from "~/db/schema";
+import type { Modality, ProbeStatus } from "~/db/schema";
+
+const MODALITY_COLORS: Record<Modality, string> = {
+  llm: "indigo",
+  tts: "orange",
+  stt: "green",
+  image: "grape",
+  embedding: "cyan",
+};
+
+// Per probe outcome: badge color, short label, and a fixed explanation for the
+// accessible cases (non-accessible cases show the persisted error in the tooltip).
+const PROBE_STATUS_META: Record<ProbeStatus, { color: string; label: string; hint: string }> = {
+  available: { color: "green", label: "✓", hint: "Responds to a live call." },
+  throttled: { color: "yellow", label: "throttled", hint: "Works but rate/usage-limited." },
+  backend_error: {
+    color: "orange",
+    label: "backend",
+    hint: "IU-side upstream key/auth misconfig.",
+  },
+  not_routed: { color: "gray", label: "not routed", hint: "No provider/backend on the gateway." },
+  bad_request: {
+    color: "grape",
+    label: "bad req",
+    hint: "Route reached the model but rejected the request shape.",
+  },
+  timeout: { color: "red", label: "timeout", hint: "No response before the probe timeout." },
+  unknown: { color: "gray", label: "?", hint: "Unclassified non-2xx response." },
+};
+
+function ProbeStatusBadge({ status, error }: { status: ProbeStatus; error: string | null }) {
+  const meta = PROBE_STATUS_META[status];
+  return (
+    <Tooltip label={error ?? meta.hint} multiline maw={360} withArrow>
+      <Badge color={meta.color} size="xs" variant="light" style={{ cursor: "help" }}>
+        {meta.label}
+      </Badge>
+    </Tooltip>
+  );
+}
 import type { ModelMetrics } from "~/server/scoring/normalize";
 import type { DeciderData } from "./-server-fns";
 import { getDeciderData } from "./-server-fns";
@@ -61,9 +101,23 @@ function pct(v: number | null | undefined): string {
 }
 
 function ResidencyBadge({ residency }: { residency: "eu" | "us" | "unknown" }) {
-  if (residency === "eu") return <Badge color="blue" size="xs" variant="light">EU</Badge>;
-  if (residency === "us") return <Badge color="orange" size="xs" variant="light">US</Badge>;
-  return <Badge color="gray" size="xs" variant="light">?</Badge>;
+  if (residency === "eu")
+    return (
+      <Badge color="blue" size="xs" variant="light">
+        EU
+      </Badge>
+    );
+  if (residency === "us")
+    return (
+      <Badge color="orange" size="xs" variant="light">
+        US
+      </Badge>
+    );
+  return (
+    <Badge color="gray" size="xs" variant="light">
+      ?
+    </Badge>
+  );
 }
 
 // ── Scatter chart: Quality vs Cost ──────────────────────────────────────────
@@ -209,7 +263,10 @@ function ThroughputBars({ data, width }: { data: BarDatum[]; width: number }) {
   const height = innerH + BAR_MARGIN.top + BAR_MARGIN.bottom;
 
   return (
-    <ChartCard title="Speed Scores" tooltip="Normalized speed score (throughput + latency). Higher = faster.">
+    <ChartCard
+      title="Speed Scores"
+      tooltip="Normalized speed score (throughput + latency). Higher = faster."
+    >
       <svg width={width} height={height}>
         <VxGroup top={BAR_MARGIN.top} left={BAR_MARGIN.left}>
           <GridColumns scale={xScale} height={innerH} stroke={VX.grid} />
@@ -227,12 +284,7 @@ function ThroughputBars({ data, width }: { data: BarDatum[]; width: number }) {
                   fill={providerColor(d.provider)}
                   opacity={0.8}
                 />
-                <text
-                  x={xScale(d.speed) + 4}
-                  y={y + barH / 2 + 4}
-                  fontSize={9}
-                  fill={theme.axis}
-                >
+                <text x={xScale(d.speed) + 4} y={y + barH / 2 + 4} fontSize={9} fill={theme.axis}>
                   {Math.round(d.speed * 100)}
                 </text>
               </g>
@@ -285,6 +337,8 @@ interface TableRow {
   speed: number | null;
   score: number;
   accessible: boolean;
+  probe_status: ProbeStatus;
+  probe_error: string | null;
   residency: "eu" | "us" | "unknown";
   latency_ms: number | null;
 }
@@ -310,7 +364,11 @@ function SortTh({
     >
       <Group gap={4} wrap="nowrap">
         {children}
-        {active && <Text size="xs" c="dimmed">{sortDir === "asc" ? "↑" : "↓"}</Text>}
+        {active && (
+          <Text size="xs" c="dimmed">
+            {sortDir === "asc" ? "↑" : "↓"}
+          </Text>
+        )}
       </Group>
     </Table.Th>
   );
@@ -327,19 +385,30 @@ function ModelTable({
   sortDir: SortDir;
   onSort: (f: SortField) => void;
 }) {
-
   return (
     <ScrollArea>
       <Table striped highlightOnHover withTableBorder withColumnBorders style={{ minWidth: 700 }}>
         <Table.Thead>
           <Table.Tr>
-            <SortTh field="display_name" sortField={sortField} sortDir={sortDir} onSort={onSort}>Model</SortTh>
-            <SortTh field="provider" sortField={sortField} sortDir={sortDir} onSort={onSort}>Provider</SortTh>
+            <SortTh field="display_name" sortField={sortField} sortDir={sortDir} onSort={onSort}>
+              Model
+            </SortTh>
+            <SortTh field="provider" sortField={sortField} sortDir={sortDir} onSort={onSort}>
+              Provider
+            </SortTh>
             <Table.Th>Type</Table.Th>
-            <SortTh field="quality" sortField={sortField} sortDir={sortDir} onSort={onSort}>Quality</SortTh>
-            <SortTh field="cost" sortField={sortField} sortDir={sortDir} onSort={onSort}>Cost</SortTh>
-            <SortTh field="speed" sortField={sortField} sortDir={sortDir} onSort={onSort}>Speed</SortTh>
-            <SortTh field="score" sortField={sortField} sortDir={sortDir} onSort={onSort}>Score</SortTh>
+            <SortTh field="quality" sortField={sortField} sortDir={sortDir} onSort={onSort}>
+              Quality
+            </SortTh>
+            <SortTh field="cost" sortField={sortField} sortDir={sortDir} onSort={onSort}>
+              Cost
+            </SortTh>
+            <SortTh field="speed" sortField={sortField} sortDir={sortDir} onSort={onSort}>
+              Speed
+            </SortTh>
+            <SortTh field="score" sortField={sortField} sortDir={sortDir} onSort={onSort}>
+              Score
+            </SortTh>
             <Table.Th>IU</Table.Th>
             <Table.Th>Residency</Table.Th>
             <Table.Th>Latency</Table.Th>
@@ -349,8 +418,12 @@ function ModelTable({
           {rows.map((row) => (
             <Table.Tr key={row.model_id}>
               <Table.Td>
-                <Text size="sm" fw={500}>{row.display_name}</Text>
-                <Text size="xs" c="dimmed" ff="monospace">{row.model_id}</Text>
+                <Text size="sm" fw={500}>
+                  {row.display_name}
+                </Text>
+                <Text size="xs" c="dimmed" ff="monospace">
+                  {row.model_id}
+                </Text>
               </Table.Td>
               <Table.Td>
                 <Badge
@@ -363,11 +436,7 @@ function ModelTable({
                 </Badge>
               </Table.Td>
               <Table.Td>
-                <Badge
-                  color={row.modality === "llm" ? "indigo" : row.modality === "tts" ? "orange" : "green"}
-                  variant="light"
-                  size="xs"
-                >
+                <Badge color={MODALITY_COLORS[row.modality] ?? "gray"} variant="light" size="xs">
                   {row.modality.toUpperCase()}
                 </Badge>
               </Table.Td>
@@ -375,14 +444,12 @@ function ModelTable({
               <Table.Td ta="right">{pct(row.cost)}</Table.Td>
               <Table.Td ta="right">{pct(row.speed)}</Table.Td>
               <Table.Td ta="right">
-                <Text size="sm" fw={500}>{pct(row.score)}</Text>
+                <Text size="sm" fw={500}>
+                  {pct(row.score)}
+                </Text>
               </Table.Td>
               <Table.Td>
-                {row.accessible ? (
-                  <Badge color="green" size="xs" variant="light">✓</Badge>
-                ) : (
-                  <Badge color="red" size="xs" variant="light">✗</Badge>
-                )}
+                <ProbeStatusBadge status={row.probe_status} error={row.probe_error} />
               </Table.Td>
               <Table.Td>
                 <ResidencyBadge residency={row.residency} />
@@ -408,9 +475,7 @@ function buildTableRows(
   modalityFilter: "all" | Modality,
   search: string,
 ): TableRow[] {
-  const metricsMap = new Map<string, ModelMetrics>(
-    data.modelMetrics.map((m) => [m.model_id, m]),
-  );
+  const metricsMap = new Map<string, ModelMetrics>(data.modelMetrics.map((m) => [m.model_id, m]));
 
   return data.models
     .filter((m) => {
@@ -444,6 +509,8 @@ function buildTableRows(
         speed,
         score,
         accessible: probe?.accessible ?? false,
+        probe_status: probe?.probe_status ?? "unknown",
+        probe_error: probe?.error ?? null,
         residency: probe?.residency ?? "unknown",
         latency_ms: probe?.latency_ms ?? null,
       };
@@ -457,7 +524,8 @@ function sortRows(rows: TableRow[], field: SortField, dir: SortDir): TableRow[] 
     if (av === null && bv === null) return 0;
     if (av === null) return 1;
     if (bv === null) return -1;
-    const cmp = typeof av === "string" ? av.localeCompare(bv as string) : (av as number) - (bv as number);
+    const cmp =
+      typeof av === "string" ? av.localeCompare(bv as string) : (av as number) - (bv as number);
     return dir === "asc" ? cmp : -cmp;
   });
 }
@@ -558,6 +626,8 @@ function CatalogPage() {
                 { label: "LLM", value: "llm" },
                 { label: "TTS", value: "tts" },
                 { label: "STT", value: "stt" },
+                { label: "Image", value: "image" },
+                { label: "Embedding", value: "embedding" },
               ]}
               size="xs"
             />
@@ -575,12 +645,7 @@ function CatalogPage() {
         {sortedRows.length} model{sortedRows.length !== 1 ? "s" : ""}
       </Text>
 
-      <ModelTable
-        rows={sortedRows}
-        sortField={sortField}
-        sortDir={sortDir}
-        onSort={handleSort}
-      />
+      <ModelTable rows={sortedRows} sortField={sortField} sortDir={sortDir} onSort={handleSort} />
 
       {scatterPoints.length > 0 || barData.length > 0 ? (
         <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">

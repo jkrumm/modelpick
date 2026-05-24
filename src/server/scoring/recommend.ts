@@ -2,7 +2,7 @@ import { desc } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { capabilityProbe, metricSnapshot, models, recommendation } from "../../db/schema.js";
 import type { MetricSnapshot, Modality, RecommendationCategory } from "../../db/schema.js";
-import { iuFetch } from "../iu/client.js";
+import { gatewayChat } from "../iu/client.js";
 import { normalizeMetrics } from "./normalize.js";
 import { CATEGORY_WEIGHTS, scoreModels } from "./score.js";
 
@@ -14,11 +14,9 @@ const CATEGORY_MODALITY: Record<RecommendationCategory, Modality> = {
   stt: "stt",
 };
 
-const RATIONALE_MODEL = "claude-haiku-4-5-eu";
-
-interface ChatCompletionResponse {
-  choices: Array<{ message: { content: string } }>;
-}
+// Native Anthropic route — fast, cheap, and reliably available on the gateway.
+const RATIONALE_MODEL = "claude-haiku-4-5";
+const RATIONALE_PROVIDER = "anthropic";
 
 async function generateRationale(
   category: RecommendationCategory,
@@ -44,19 +42,15 @@ async function generateRationale(
     `Focus on the dominant score drivers. Write plain text, no markdown or bullets.`;
 
   try {
-    const resp = await iuFetch<ChatCompletionResponse>("/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: RATIONALE_MODEL,
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 120,
-        temperature: 0.2,
-      }),
+    const resp = await gatewayChat({
+      model: RATIONALE_MODEL,
+      provider: RATIONALE_PROVIDER,
+      prompt,
+      maxTokens: 120,
+      temperature: 0.2,
     });
-
-    if (resp.status < 200 || resp.status >= 300) return null;
-    return resp.body.choices[0]?.message.content ?? null;
+    if (resp.status === "timeout" || resp.status < 200 || resp.status >= 300) return null;
+    return resp.text;
   } catch {
     return null;
   }
@@ -81,20 +75,24 @@ export async function runRecommender(snapshotDate?: string): Promise<void> {
     }
   }
 
-  // Latest accessibility per model
+  // Latest accessibility + latency per model
   const allProbes = await db
     .select({
       model_id: capabilityProbe.model_id,
       accessible: capabilityProbe.accessible,
+      latency_ms: capabilityProbe.latency_ms,
       checked_at: capabilityProbe.checked_at,
     })
     .from(capabilityProbe)
     .orderBy(desc(capabilityProbe.checked_at));
 
-  const latestProbeByModel = new Map<string, boolean>();
+  const latestProbeByModel = new Map<string, { accessible: boolean; latency_ms: number | null }>();
   for (const probe of allProbes) {
     if (!latestProbeByModel.has(probe.model_id)) {
-      latestProbeByModel.set(probe.model_id, probe.accessible);
+      latestProbeByModel.set(probe.model_id, {
+        accessible: probe.accessible,
+        latency_ms: probe.latency_ms,
+      });
     }
   }
 
@@ -107,14 +105,47 @@ export async function runRecommender(snapshotDate?: string): Promise<void> {
 
   const normalizedMetrics = normalizeMetrics(latestSnapshots);
 
+  const persist = (
+    category: RecommendationCategory,
+    modelId: string,
+    score: number,
+    rationale: string | null,
+  ): Promise<unknown> =>
+    db
+      .insert(recommendation)
+      .values({ category, model_id: modelId, score, rationale, snapshot_date: date })
+      .onConflictDoUpdate({
+        target: [recommendation.category, recommendation.snapshot_date],
+        set: { model_id: modelId, score, rationale },
+      });
+
   const categories: RecommendationCategory[] = ["fast", "coding", "orchestrator", "tts", "stt"];
   for (const category of categories) {
     const targetModality = CATEGORY_MODALITY[category];
-    const weights = CATEGORY_WEIGHTS[category];
 
+    // Audio (tts/stt): leaderboards publish no quality/cost metrics for these, so
+    // rank accessible models by measured access latency (faster = better).
+    if (targetModality === "tts" || targetModality === "stt") {
+      const top = pickFastestAccessible(targetModality, modalityByModel, latestProbeByModel);
+      if (!top) {
+        console.warn(`[recommend] no accessible ${category} models — skipping`);
+        continue;
+      }
+      const rationale =
+        `Fastest accessible ${category.toUpperCase()} model on the IU endpoint ` +
+        `(probe latency ${Math.round(top.latency_ms)}ms). Leaderboards don't publish ` +
+        `audio quality/cost metrics, so ranking uses measured access latency.`;
+      await persist(category, top.model_id, top.score, rationale);
+      console.log(
+        `[recommend] ${category}: ${top.model_id} (latency ${Math.round(top.latency_ms)}ms)`,
+      );
+      continue;
+    }
+
+    const weights = CATEGORY_WEIGHTS[category];
     const eligibleMetrics = normalizedMetrics.filter((m) => {
       if (modalityByModel.get(m.model_id) !== targetModality) return false;
-      return latestProbeByModel.get(m.model_id) === true;
+      return latestProbeByModel.get(m.model_id)?.accessible === true;
     });
 
     if (eligibleMetrics.length === 0) {
@@ -135,26 +166,32 @@ export async function runRecommender(snapshotDate?: string): Promise<void> {
       top.speed,
     );
 
-    await db
-      .insert(recommendation)
-      .values({
-        category,
-        model_id: top.model_id,
-        score: top.score,
-        rationale,
-        snapshot_date: date,
-      })
-      .onConflictDoUpdate({
-        target: [recommendation.category, recommendation.snapshot_date],
-        set: {
-          model_id: top.model_id,
-          score: top.score,
-          rationale,
-        },
-      });
-
+    await persist(category, top.model_id, top.score, rationale);
     console.log(`[recommend] ${category}: ${top.model_id} (score: ${top.score.toFixed(3)})`);
   }
 
   console.log(`[recommend] done for ${date}`);
+}
+
+/** Picks the lowest-latency accessible model of a modality. Returns the model id,
+ *  its latency, and a 0-1 score (1 = fastest in the set). Null if none qualify. */
+function pickFastestAccessible(
+  modality: Modality,
+  modalityByModel: Map<string, Modality>,
+  probes: Map<string, { accessible: boolean; latency_ms: number | null }>,
+): { model_id: string; latency_ms: number; score: number } | null {
+  const candidates: { model_id: string; latency_ms: number }[] = [];
+  for (const [model_id, probe] of probes) {
+    if (!probe.accessible || probe.latency_ms === null) continue;
+    if (modalityByModel.get(model_id) !== modality) continue;
+    candidates.push({ model_id, latency_ms: probe.latency_ms });
+  }
+  if (candidates.length === 0) return null;
+
+  const latencies = candidates.map((c) => c.latency_ms);
+  const min = Math.min(...latencies);
+  const max = Math.max(...latencies);
+  const fastest = candidates.reduce((a, b) => (b.latency_ms < a.latency_ms ? b : a));
+  const score = max === min ? 1 : 1 - (fastest.latency_ms - min) / (max - min);
+  return { model_id: fastest.model_id, latency_ms: fastest.latency_ms, score };
 }

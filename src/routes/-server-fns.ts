@@ -2,17 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { desc } from "drizzle-orm";
 import { db } from "~/db/index";
 import { capabilityProbe } from "~/db/schema";
-import type { MetricSnapshot, Model, Recommendation } from "~/db/schema";
-import {
-  getLatestMetrics,
-  getLatestRecommendations,
-  getModels,
-} from "~/db/queries";
+import type { MetricSnapshot, Model, ProbeStatus, Recommendation } from "~/db/schema";
+import { getLatestMetrics, getLatestRecommendations, getModels } from "~/db/queries";
 import { normalizeMetrics } from "~/server/scoring/normalize";
 import type { ModelMetrics } from "~/server/scoring/normalize";
 
 export interface ProbeInfo {
   accessible: boolean;
+  probe_status: ProbeStatus;
+  error: string | null;
   latency_ms: number | null;
   residency: "eu" | "us" | "unknown";
 }
@@ -32,6 +30,8 @@ function buildProbeMap(
   allProbes: Array<{
     model_id: string;
     accessible: boolean;
+    probe_status: ProbeStatus;
+    error: string | null;
     latency_ms: number | null;
     residency: "eu" | "us" | "unknown";
     checked_at: string;
@@ -42,6 +42,8 @@ function buildProbeMap(
     if (!map.has(p.model_id)) {
       map.set(p.model_id, {
         accessible: p.accessible,
+        probe_status: p.probe_status,
+        error: p.error,
         latency_ms: p.latency_ms,
         residency: p.residency,
       });
@@ -87,6 +89,8 @@ export const getDeciderData = createServerFn({ method: "GET" }).handler(
         .select({
           model_id: capabilityProbe.model_id,
           accessible: capabilityProbe.accessible,
+          probe_status: capabilityProbe.probe_status,
+          error: capabilityProbe.error,
           latency_ms: capabilityProbe.latency_ms,
           residency: capabilityProbe.residency,
           checked_at: capabilityProbe.checked_at,
