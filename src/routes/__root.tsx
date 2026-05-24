@@ -21,6 +21,7 @@ import {
   AppShellMain,
   Button,
 } from "@mantine/core";
+import { VxBridge } from "~/charts/bridge";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -70,6 +71,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <MantineProvider defaultColorScheme="dark">
+          <VxBridge>
           <AppShell header={{ height: 56 }} padding="md">
             <AppShellHeader>
               <Container size="xl" h="100%">
@@ -85,6 +87,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
               <Container size="xl">{children}</Container>
             </AppShellMain>
           </AppShell>
+          </VxBridge>
         </MantineProvider>
         {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-right" />}
         <Scripts />
