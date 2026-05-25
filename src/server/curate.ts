@@ -93,8 +93,8 @@ function isBetterRep(
   b: CurateModelInput,
   byId: Map<string, ModelMetrics>,
 ): boolean {
-  const aq = byId.get(a.id)?.quality != null;
-  const bq = byId.get(b.id)?.quality != null;
+  const aq = (byId.get(a.id)?.quality ?? null) !== null;
+  const bq = (byId.get(b.id)?.quality ?? null) !== null;
   if (aq !== bq) return aq;
   const ad = isDatedPin(a.id);
   const bd = isDatedPin(b.id);
@@ -127,7 +127,7 @@ export function curate(
   for (const group of groups.values()) {
     const rep = group.reduce((best, cur) => (isBetterRep(best, cur, byId) ? best : cur));
     const isCurrent =
-      rep.modality === "llm" ? byId.get(rep.id)?.quality != null : isAccessible(rep.id);
+      rep.modality === "llm" ? (byId.get(rep.id)?.quality ?? null) !== null : isAccessible(rep.id);
     if (isCurrent) currentIds.add(rep.id);
   }
 
