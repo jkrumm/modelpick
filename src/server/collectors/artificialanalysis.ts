@@ -1,5 +1,4 @@
-import { resolveModelId } from "./normalize.js";
-import type { CollectorResult, NormalizedMetric } from "./normalize.js";
+import type { CollectorResult, IdResolver, NormalizedMetric } from "./normalize.js";
 
 interface AAEvaluations {
   artificial_analysis_intelligence_index?: number | null;
@@ -14,6 +13,7 @@ interface AAPricing {
 interface AAModel {
   id: string;
   name: string;
+  slug?: string | null;
   evaluations?: AAEvaluations | null;
   pricing?: AAPricing | null;
   median_output_tokens_per_second?: number | null;
@@ -45,7 +45,7 @@ function addMetric(
   }
 }
 
-export async function collectArtificialAnalysis(): Promise<CollectorResult> {
+export async function collectArtificialAnalysis(resolve: IdResolver): Promise<CollectorResult> {
   const key = process.env["ARTIFICIALANALYSIS_API_KEY"] ?? "";
   if (!key) {
     console.warn("[artificialanalysis] ARTIFICIALANALYSIS_API_KEY not set — skipping");
@@ -72,9 +72,11 @@ export async function collectArtificialAnalysis(): Promise<CollectorResult> {
   const unmatched: { externalId: string; name: string }[] = [];
 
   for (const model of models) {
-    const localId = resolveModelId(model.id);
+    // AA's `id` is a UUID; the human-readable identifier is `slug` (fall back to name).
+    const externalId = model.slug ?? model.name;
+    const localId = resolve(externalId);
     if (!localId) {
-      unmatched.push({ externalId: model.id, name: model.name });
+      unmatched.push({ externalId, name: model.name });
       continue;
     }
 
@@ -85,20 +87,17 @@ export async function collectArtificialAnalysis(): Promise<CollectorResult> {
       model.evaluations?.artificial_analysis_intelligence_index,
       0.9,
     );
+    // Coding-specific index — diverges from general intelligence (a model can be
+    // smart but a weak coder), so the "coding" category ranks on this instead.
     addMetric(
       metrics,
       localId,
-      "throughput",
-      model.median_output_tokens_per_second,
+      "coding_index",
+      model.evaluations?.artificial_analysis_coding_index,
       0.9,
     );
-    addMetric(
-      metrics,
-      localId,
-      "latency_p50",
-      model.median_time_to_first_token_seconds,
-      0.9,
-    );
+    addMetric(metrics, localId, "throughput", model.median_output_tokens_per_second, 0.9);
+    addMetric(metrics, localId, "latency_p50", model.median_time_to_first_token_seconds, 0.9);
     // Prices already in per-million-token units from AA
     addMetric(metrics, localId, "price_in", model.pricing?.price_1m_input_tokens, 0.9);
     addMetric(metrics, localId, "price_out", model.pricing?.price_1m_output_tokens, 0.9);

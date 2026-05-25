@@ -4,13 +4,21 @@ import { collectOpenRouter } from "../src/server/collectors/openrouter.js";
 import { collectArtificialAnalysis } from "../src/server/collectors/artificialanalysis.js";
 import { runRecommender } from "../src/server/scoring/recommend.js";
 import { collectNews } from "../src/server/collectors/news.js";
+import { createIdResolver } from "../src/server/collectors/normalize.js";
 import { db, client } from "../src/db/index.js";
-import { metricSnapshot } from "../src/db/schema.js";
+import { metricSnapshot, models } from "../src/db/schema.js";
+
+// Resolver is built at collect time (after the probe step has merged in any new
+// IU models) so leaderboard ids reconcile against the full current catalog.
+async function buildResolver() {
+  const catalog = await db.select({ id: models.id }).from(models);
+  return createIdResolver(catalog.map((m) => m.id));
+}
 
 const result = await runRefresh({
   probe: runProbe,
-  collectOpenRouter,
-  collectArtificialAnalysis,
+  collectOpenRouter: async () => collectOpenRouter(await buildResolver()),
+  collectArtificialAnalysis: async () => collectArtificialAnalysis(await buildResolver()),
   insertMetrics: async (metrics) => {
     if (metrics.length === 0) return;
     await db.insert(metricSnapshot).values(

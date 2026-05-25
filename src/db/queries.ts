@@ -6,6 +6,7 @@ import {
   models,
   newsItem,
   recommendation,
+  stackChoice,
   metricSnapshot,
 } from "./schema.js";
 import type {
@@ -16,11 +17,12 @@ import type {
   CapabilityProbe,
   MetricSnapshot,
   Recommendation,
+  StackChoice,
   Demo,
   NewsItem,
 } from "./schema.js";
 
-export type { Model, CapabilityProbe, MetricSnapshot, Recommendation, Demo, NewsItem };
+export type { Model, CapabilityProbe, MetricSnapshot, Recommendation, StackChoice, Demo, NewsItem };
 
 // ── Models ────────────────────────────────────────────────────────────────────
 
@@ -32,9 +34,7 @@ export async function getModels(modality?: Modality): Promise<Model[]> {
 }
 
 /** Returns models that were accessible in their most recent probe. */
-export async function getAccessibleModels(
-  modality?: Modality,
-): Promise<Model[]> {
+export async function getAccessibleModels(modality?: Modality): Promise<Model[]> {
   // Subquery not needed: join the latest probe per model via a lateral-style
   // approach — fetch all probes ordered by checked_at desc, deduplicate in TS.
   const probes = await db
@@ -47,10 +47,7 @@ export async function getAccessibleModels(
     .orderBy(desc(capabilityProbe.checked_at));
 
   // Keep only the latest probe per model
-  const latestByModel = new Map<
-    string,
-    { model_id: string; accessible: boolean }
-  >();
+  const latestByModel = new Map<string, { model_id: string; accessible: boolean }>();
   for (const probe of probes) {
     if (!latestByModel.has(probe.model_id)) {
       latestByModel.set(probe.model_id, probe);
@@ -63,8 +60,7 @@ export async function getAccessibleModels(
 
   if (accessibleIds.length === 0) return [];
 
-  const conditions =
-    modality !== undefined ? eq(models.modality, modality) : undefined;
+  const conditions = modality !== undefined ? eq(models.modality, modality) : undefined;
 
   const rows = conditions
     ? await db.select().from(models).where(conditions)
@@ -76,13 +72,8 @@ export async function getAccessibleModels(
 // ── Metric snapshots ──────────────────────────────────────────────────────────
 
 /** Latest metric snapshots, optionally filtered to a specific date (yyyy-mm-dd). */
-export async function getLatestMetrics(
-  snapshotDate?: string,
-): Promise<MetricSnapshot[]> {
-  const rows = await db
-    .select()
-    .from(metricSnapshot)
-    .orderBy(desc(metricSnapshot.captured_at));
+export async function getLatestMetrics(snapshotDate?: string): Promise<MetricSnapshot[]> {
+  const rows = await db.select().from(metricSnapshot).orderBy(desc(metricSnapshot.captured_at));
 
   if (snapshotDate === undefined) return rows;
 
@@ -91,9 +82,7 @@ export async function getLatestMetrics(
 
 // ── Recommendations ───────────────────────────────────────────────────────────
 
-export async function getRecommendationsByDate(
-  snapshotDate: string,
-): Promise<Recommendation[]> {
+export async function getRecommendationsByDate(snapshotDate: string): Promise<Recommendation[]> {
   return db
     .select()
     .from(recommendation)
@@ -125,10 +114,7 @@ export async function getRecommendationByCategory(
       .select()
       .from(recommendation)
       .where(
-        and(
-          eq(recommendation.category, category),
-          eq(recommendation.snapshot_date, snapshotDate),
-        ),
+        and(eq(recommendation.category, category), eq(recommendation.snapshot_date, snapshotDate)),
       )
       .limit(1);
     return rows[0];
@@ -143,6 +129,13 @@ export async function getRecommendationByCategory(
   return rows[0];
 }
 
+// ── My Stack ──────────────────────────────────────────────────────────────────
+
+/** My deliberate model picks, one per category. */
+export async function getStackChoices(): Promise<StackChoice[]> {
+  return db.select().from(stackChoice);
+}
+
 // ── Audio demos ───────────────────────────────────────────────────────────────
 
 export async function getPublicDemos(modality?: Modality): Promise<Demo[]> {
@@ -153,11 +146,7 @@ export async function getPublicDemos(modality?: Modality): Promise<Demo[]> {
       .where(and(eq(demo.public, true), eq(demo.modality, modality)))
       .orderBy(desc(demo.created_at));
   }
-  return db
-    .select()
-    .from(demo)
-    .where(eq(demo.public, true))
-    .orderBy(desc(demo.created_at));
+  return db.select().from(demo).where(eq(demo.public, true)).orderBy(desc(demo.created_at));
 }
 
 // ── Admin demo operations ─────────────────────────────────────────────────────
@@ -165,11 +154,7 @@ export async function getPublicDemos(modality?: Modality): Promise<Demo[]> {
 /** Returns all demos for a modality, including non-public ones (admin use). */
 export async function getAllDemos(modality?: Modality): Promise<Demo[]> {
   if (modality !== undefined) {
-    return db
-      .select()
-      .from(demo)
-      .where(eq(demo.modality, modality))
-      .orderBy(desc(demo.created_at));
+    return db.select().from(demo).where(eq(demo.modality, modality)).orderBy(desc(demo.created_at));
   }
   return db.select().from(demo).orderBy(desc(demo.created_at));
 }
@@ -180,6 +165,7 @@ export interface DemoInsert {
   text_content: string;
   lang: Lang;
   preset?: string | null;
+  voice?: string | null;
   audio_path?: string | null;
   public?: boolean;
 }
@@ -199,6 +185,19 @@ export async function setDemoPublic(id: number, isPublic: boolean): Promise<void
   await db.update(demo).set({ public: isPublic }).where(eq(demo.id, id));
 }
 
+/** Bulk enable/disable every demo of a given voice (used to narrow the TTS
+ *  candidate shortlist). Scoped to a modality so STT/TTS don't collide. */
+export async function setDemoPublicByVoice(
+  modality: Modality,
+  voice: string,
+  isPublic: boolean,
+): Promise<void> {
+  await db
+    .update(demo)
+    .set({ public: isPublic })
+    .where(and(eq(demo.modality, modality), eq(demo.voice, voice)));
+}
+
 // ── News ──────────────────────────────────────────────────────────────────────
 
 export async function getReasonableNews(limit = 20): Promise<NewsItem[]> {
@@ -211,11 +210,7 @@ export async function getReasonableNews(limit = 20): Promise<NewsItem[]> {
 }
 
 export async function getAllNewsItems(limit = 100): Promise<NewsItem[]> {
-  return db
-    .select()
-    .from(newsItem)
-    .orderBy(desc(newsItem.published_at))
-    .limit(limit);
+  return db.select().from(newsItem).orderBy(desc(newsItem.published_at)).limit(limit);
 }
 
 export interface NewsItemInsert {

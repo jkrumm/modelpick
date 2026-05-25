@@ -67,7 +67,7 @@ your own criteria → a clear recommendation per category, with charts and an au
   (a) **IU live catalog/probe** (ground truth: access + latency + residency), (b) **OpenRouter API**
   (rankings/pricing/context), (c) **artificialanalysis API** (quality/speed/price — confirmed to exist:
   `artificialanalysis.ai/api-reference`). A `source` + `confidence` field per metric; never trust a
-  single source. Keys: `op://vps/modelpick api secrets` (also in gitignored `.env`).
+  single source. Keys: `op://vps/modelpick` (also in gitignored `.env`).
 - **Persistence:** **reuse the existing VPS Postgres** (new `modelpick` database, Drizzle migrations).
   Local dev points at the same instance over the tunnel/SSH, or a throwaway local docker Postgres.
 - **Daily refresh:** a cron-triggered job runs the collectors, writes a dated snapshot, recomputes
@@ -131,7 +131,7 @@ ones (the catalog drifts). Residency is the deciding factor for audio.
 ## Secrets / env (resolved — see `.env.example`)
 
 - IU (`IU_API_KEY`, `IU_BASE_URL`, `IU_OPENAI_BASE_URL`) — `op://common/anthropic`, resolved into `.env`.
-- `OPENROUTER_API_KEY`, `ARTIFICIALANALYSIS_API_KEY` — `op://vps/modelpick api secrets`, resolved into `.env`.
+- `OPENROUTER_API_KEY`, `ARTIFICIALANALYSIS_API_KEY` — `op://vps/modelpick`, resolved into `.env`.
 - `DATABASE_URL` — local docker Postgres (`:5433`) for dev; VPS Postgres wired at deploy (group 7).
 - `ADMIN_KEY` — generated; the lightweight client-side admin gate. `.env` is gitignored (public repo).
 

@@ -3,8 +3,9 @@ import { db } from "../../db/index.js";
 import { capabilityProbe, metricSnapshot, models, recommendation } from "../../db/schema.js";
 import type { MetricSnapshot, Modality, RecommendationCategory } from "../../db/schema.js";
 import { gatewayChat } from "../iu/client.js";
+import { curate, isDatedPin } from "../curate.js";
 import { normalizeMetrics } from "./normalize.js";
-import { CATEGORY_WEIGHTS, scoreModels } from "./score.js";
+import { CATEGORY_MIN_QUALITY, CATEGORY_WEIGHTS, scoreModels } from "./score.js";
 
 const CATEGORY_MODALITY: Record<RecommendationCategory, Modality> = {
   fast: "llm",
@@ -103,7 +104,13 @@ export async function runRecommender(snapshotDate?: string): Promise<void> {
     modalityByModel.set(m.id, m.modality);
   }
 
-  const normalizedMetrics = normalizeMetrics(latestSnapshots);
+  // Propagate leaderboard data across catalog variants and restrict picks to the
+  // "current" representative set (drops dated pins and stale, untracked models).
+  const { metrics: normalizedMetrics, currentIds } = curate(
+    allModels.map((m) => ({ id: m.id, modality: m.modality })),
+    normalizeMetrics(latestSnapshots),
+    (id) => latestProbeByModel.get(id)?.accessible === true,
+  );
 
   const persist = (
     category: RecommendationCategory,
@@ -123,18 +130,19 @@ export async function runRecommender(snapshotDate?: string): Promise<void> {
   for (const category of categories) {
     const targetModality = CATEGORY_MODALITY[category];
 
-    // Audio (tts/stt): leaderboards publish no quality/cost metrics for these, so
-    // rank accessible models by measured access latency (faster = better).
+    // Audio (tts/stt): no leaderboard publishes audio quality, and ranking by
+    // latency wrongly surfaces the legacy models (they're the simplest/fastest).
+    // Instead prefer the modern generation, breaking ties by access latency.
     if (targetModality === "tts" || targetModality === "stt") {
-      const top = pickFastestAccessible(targetModality, modalityByModel, latestProbeByModel);
+      const top = pickBestAudio(targetModality, modalityByModel, latestProbeByModel);
       if (!top) {
         console.warn(`[recommend] no accessible ${category} models — skipping`);
         continue;
       }
       const rationale =
-        `Fastest accessible ${category.toUpperCase()} model on the IU endpoint ` +
-        `(probe latency ${Math.round(top.latency_ms)}ms). Leaderboards don't publish ` +
-        `audio quality/cost metrics, so ranking uses measured access latency.`;
+        `Best accessible ${category.toUpperCase()} model on the IU endpoint: the current ` +
+        `generation preferred over legacy variants (probe latency ${Math.round(top.latency_ms)}ms). ` +
+        `No leaderboard publishes audio quality, so this uses a generation preference.`;
       await persist(category, top.model_id, top.score, rationale);
       console.log(
         `[recommend] ${category}: ${top.model_id} (latency ${Math.round(top.latency_ms)}ms)`,
@@ -143,8 +151,11 @@ export async function runRecommender(snapshotDate?: string): Promise<void> {
     }
 
     const weights = CATEGORY_WEIGHTS[category];
+    const minQuality = CATEGORY_MIN_QUALITY[category];
     const eligibleMetrics = normalizedMetrics.filter((m) => {
       if (modalityByModel.get(m.model_id) !== targetModality) return false;
+      if (!currentIds.has(m.model_id)) return false;
+      if ((m.quality ?? 0) < minQuality) return false;
       return latestProbeByModel.get(m.model_id)?.accessible === true;
     });
 
@@ -153,7 +164,11 @@ export async function runRecommender(snapshotDate?: string): Promise<void> {
       continue;
     }
 
-    const scored = scoreModels(eligibleMetrics, weights);
+    const scored = scoreModels(
+      eligibleMetrics,
+      weights,
+      category === "coding" ? "coding" : "quality",
+    );
     const top = scored[0];
     if (!top) continue;
 
@@ -173,25 +188,50 @@ export async function runRecommender(snapshotDate?: string): Promise<void> {
   console.log(`[recommend] done for ${date}`);
 }
 
-/** Picks the lowest-latency accessible model of a modality. Returns the model id,
- *  its latency, and a 0-1 score (1 = fastest in the set). Null if none qualify. */
-function pickFastestAccessible(
+/** Manual quality preference for audio models — no leaderboard exists, so this
+ *  encodes a coarse "modern generation > legacy" ordering. Higher = better. */
+function audioQualityRank(id: string, modality: Modality): number {
+  const s = id.toLowerCase();
+  if (modality === "tts") {
+    if (s.includes("gemini-3") && s.includes("tts")) return 5; // Gemini 3.x Flash TTS — our default
+    if (s.includes("gemini") && (s.includes("tts") || s.includes("audio"))) return 4; // Gemini 2.5 TTS
+    if (s.includes("4o") && s.includes("tts")) return 3; // gpt-4o(-mini)-tts: steerable
+    if (s.includes("hd")) return 2; // tts-hd: legacy high-quality
+    return 1; // tts: legacy
+  }
+  // stt
+  if (s.includes("4o") && s.includes("transcribe")) return s.includes("mini") ? 3 : 4; // gpt-4o(-mini)-transcribe
+  if (s.includes("voxtral")) return 2; // Voxtral (EU-hosted)
+  return 1; // whisper: legacy
+}
+
+/** Picks the best accessible audio model: highest quality rank, then undated
+ *  alias, then lowest latency. Score is the rank normalized to 0-1. */
+function pickBestAudio(
   modality: Modality,
   modalityByModel: Map<string, Modality>,
   probes: Map<string, { accessible: boolean; latency_ms: number | null }>,
 ): { model_id: string; latency_ms: number; score: number } | null {
-  const candidates: { model_id: string; latency_ms: number }[] = [];
+  const candidates: { model_id: string; latency_ms: number; rank: number }[] = [];
   for (const [model_id, probe] of probes) {
     if (!probe.accessible || probe.latency_ms === null) continue;
     if (modalityByModel.get(model_id) !== modality) continue;
-    candidates.push({ model_id, latency_ms: probe.latency_ms });
+    candidates.push({
+      model_id,
+      latency_ms: probe.latency_ms,
+      rank: audioQualityRank(model_id, modality),
+    });
   }
   if (candidates.length === 0) return null;
 
-  const latencies = candidates.map((c) => c.latency_ms);
-  const min = Math.min(...latencies);
-  const max = Math.max(...latencies);
-  const fastest = candidates.reduce((a, b) => (b.latency_ms < a.latency_ms ? b : a));
-  const score = max === min ? 1 : 1 - (fastest.latency_ms - min) / (max - min);
-  return { model_id: fastest.model_id, latency_ms: fastest.latency_ms, score };
+  const best = candidates.reduce((a, b) => {
+    if (b.rank !== a.rank) return b.rank > a.rank ? b : a;
+    const ad = isDatedPin(a.model_id);
+    const bd = isDatedPin(b.model_id);
+    if (ad !== bd) return ad ? b : a;
+    return b.latency_ms < a.latency_ms ? b : a;
+  });
+  const maxRank = candidates.reduce((m, c) => Math.max(m, c.rank), 0);
+  const score = maxRank > 0 ? best.rank / maxRank : 1;
+  return { model_id: best.model_id, latency_ms: best.latency_ms, score };
 }

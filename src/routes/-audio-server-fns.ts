@@ -7,6 +7,7 @@ import {
   insertDemo,
   updateDemoAudioPath,
   setDemoPublic,
+  setDemoPublicByVoice,
 } from "~/db/queries";
 import {
   checkAdminKey,
@@ -16,41 +17,25 @@ import {
   getDemosDir,
 } from "~/server/audio/generate";
 import type { Demo, Model } from "~/db/schema";
+import {
+  TTS_PRESETS,
+  TTS_CANDIDATE_VOICES,
+  type TtsPreset,
+  type CandidateVoice,
+} from "~/server/audio/presets";
 
-// ── TTS preset texts ───────────────────────────────────────────────────────────
+export { TTS_PRESETS, TTS_CANDIDATE_VOICES };
+export type { TtsPreset, CandidateVoice };
 
-export const TTS_PRESETS = [
-  {
-    id: "en-standard",
-    lang: "en" as const,
-    preset: "standard",
-    text: "The quick brown fox jumps over the lazy dog. This text demonstrates the quality and naturalness of text-to-speech voice synthesis.",
-  },
-  {
-    id: "en-expressive",
-    lang: "en" as const,
-    preset: "expressive",
-    text: "Oh wow, that's absolutely incredible! I genuinely cannot believe how natural and expressive this AI voice synthesis has become!",
-  },
-  {
-    id: "de-standard",
-    lang: "de" as const,
-    preset: "standard",
-    text: "Der schnelle braune Fuchs springt über den faulen Hund. Dieser Text demonstriert die Qualität und Natürlichkeit der Text-zu-Sprache-Synthese.",
-  },
-  {
-    id: "de-expressive",
-    lang: "de" as const,
-    preset: "expressive",
-    text: "Oh, das ist wirklich unglaublich! Ich kann kaum fassen, wie natürlich und ausdrucksstark diese KI-Sprachsynthese geworden ist!",
-  },
-] as const;
-
-export type TtsPreset = (typeof TTS_PRESETS)[number];
-export type TtsPresetId = TtsPreset["id"];
-
-// EU-resident model IDs per the IU capability matrix (tts/tts-hd/whisper = Azure Sweden).
-export const EU_TTS_MODELS = new Set(["tts", "tts-hd"]);
+// EU-resident model IDs per the IU capability matrix (tts/tts-hd/whisper = Azure
+// Sweden). Gemini TTS routes through IU's "GDPR ONLY" Gemini gateway, so it is
+// EU-resident even though the response carries no Azure region header.
+export const EU_TTS_MODELS = new Set([
+  "tts",
+  "tts-hd",
+  "gemini-3.1-flash-tts-preview",
+  "gemini-2.5-flash-preview-tts",
+]);
 export const EU_STT_MODELS = new Set(["whisper"]);
 
 // ── Shared interfaces ──────────────────────────────────────────────────────────
@@ -72,6 +57,10 @@ export interface GenerateTtsDemoInput {
   text: string;
   lang: "de" | "en";
   preset: string;
+  /** Delivery directive (Gemini only); OpenAI-route models ignore it. */
+  style?: string;
+  /** Gemini prebuilt voice name; OpenAI-route models ignore it. */
+  voice?: string;
   adminKey: string;
 }
 
@@ -106,10 +95,7 @@ export interface RunSttResult {
 
 export const getTtsPlaygroundData = createServerFn({ method: "GET" }).handler(
   async (): Promise<AudioPlaygroundData> => {
-    const [ttsModels, ttsDemos] = await Promise.all([
-      getModels("tts"),
-      getPublicDemos("tts"),
-    ]);
+    const [ttsModels, ttsDemos] = await Promise.all([getModels("tts"), getPublicDemos("tts")]);
     return { models: ttsModels, demos: ttsDemos };
   },
 );
@@ -148,15 +134,16 @@ export const generateTtsDemoFn = createServerFn({ method: "POST" })
       text_content: data.text,
       lang: data.lang,
       preset: data.preset,
+      voice: data.voice ?? null,
       public: false,
     });
 
-    const { audioBuffer, residency, latency_ms } = await generateTts(
-      data.modelId,
-      data.text,
-    );
+    const { audioBuffer, ext, residency, latency_ms } = await generateTts(data.modelId, data.text, {
+      ...(data.style ? { style: data.style } : {}),
+      ...(data.voice ? { voice: data.voice } : {}),
+    });
 
-    const audioPath = await writeDemoAudio(demoRow.id, audioBuffer);
+    const audioPath = await writeDemoAudio(demoRow.id, audioBuffer, ext);
     await updateDemoAudioPath(demoRow.id, audioPath);
 
     return { id: demoRow.id, audioPath, residency, latency_ms };
@@ -174,15 +161,9 @@ export const runSttDemoFn = createServerFn({ method: "POST" })
     }
 
     // Convert the URL path (/demos/demo-N.mp3) to an absolute FS path.
-    const audioFilePath = join(
-      getDemosDir(),
-      sourceDemoRow.audio_path.replace(/^\/demos\//, ""),
-    );
+    const audioFilePath = join(getDemosDir(), sourceDemoRow.audio_path.replace(/^\/demos\//, ""));
 
-    const { text, residency, latency_ms } = await generateStt(
-      data.modelId,
-      audioFilePath,
-    );
+    const { text, residency, latency_ms } = await generateStt(data.modelId, audioFilePath);
 
     const sttDemo = await insertDemo({
       modality: "stt",
@@ -202,4 +183,20 @@ export const toggleDemoPublicFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<void> => {
     checkAdminKey(data.adminKey);
     await setDemoPublic(data.id, data.isPublic);
+  });
+
+export interface ToggleVoiceInput {
+  modality: "tts" | "stt";
+  voice: string;
+  isPublic: boolean;
+  adminKey: string;
+}
+
+/** Enable/disable an entire voice at once — bulk public toggle for narrowing the
+ *  TTS candidate shortlist. */
+export const toggleVoicePublicFn = createServerFn({ method: "POST" })
+  .inputValidator((input: ToggleVoiceInput) => input)
+  .handler(async ({ data }): Promise<void> => {
+    checkAdminKey(data.adminKey);
+    await setDemoPublicByVoice(data.modality, data.voice, data.isPublic);
   });

@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import {
   Title,
   Text,
@@ -11,18 +11,12 @@ import {
   Button,
   Select,
   SimpleGrid,
-  TextInput,
   ActionIcon,
   Alert,
   Box,
   Divider,
 } from "@mantine/core";
-import {
-  IconMicrophone,
-  IconLock,
-  IconLockOpen,
-  IconAlertCircle,
-} from "@tabler/icons-react";
+import { IconMicrophone, IconLock, IconLockOpen, IconAlertCircle } from "@tabler/icons-react";
 import {
   getSttPlaygroundData,
   runSttDemoFn,
@@ -31,6 +25,7 @@ import {
   EU_STT_MODELS,
 } from "./-audio-server-fns";
 import type { Demo, Model } from "~/db/schema";
+import { useAdmin } from "~/admin/useAdmin";
 
 export const Route = createFileRoute("/stt")({
   loader: async () => getSttPlaygroundData(),
@@ -68,12 +63,7 @@ interface TranscriptionCardProps {
   onTogglePublic: (id: number, isPublic: boolean) => Promise<void>;
 }
 
-function TranscriptionCard({
-  demo,
-  model,
-  adminKey,
-  onTogglePublic,
-}: TranscriptionCardProps) {
+function TranscriptionCard({ demo, model, adminKey, onTogglePublic }: TranscriptionCardProps) {
   const [toggling, setToggling] = useState(false);
 
   const handleToggle = async () => {
@@ -103,18 +93,11 @@ function TranscriptionCard({
               onClick={handleToggle}
               title={demo.public ? "Make private" : "Make public"}
             >
-              {demo.public ? (
-                <IconLockOpen size={14} />
-              ) : (
-                <IconLock size={14} />
-              )}
+              {demo.public ? <IconLockOpen size={14} /> : <IconLock size={14} />}
             </ActionIcon>
           )}
         </Group>
-        <Text
-          size="sm"
-          style={{ fontFamily: "var(--mantine-font-family-monospace)" }}
-        >
+        <Text size="sm" style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
           &ldquo;{demo.text_content}&rdquo;
         </Text>
       </Stack>
@@ -129,16 +112,9 @@ interface AdminSttPanelProps {
   onGenerated: () => Promise<void>;
 }
 
-function AdminSttPanel({
-  adminKey,
-  models,
-  ttsAudioDemos,
-  onGenerated,
-}: AdminSttPanelProps) {
+function AdminSttPanel({ adminKey, models, ttsAudioDemos, onGenerated }: AdminSttPanelProps) {
   const [modelId, setModelId] = useState<string>(models[0]?.id ?? "");
-  const [sourceDemoId, setSourceDemoId] = useState<string>(
-    ttsAudioDemos[0]?.id.toString() ?? "",
-  );
+  const [sourceDemoId, setSourceDemoId] = useState<string>(ttsAudioDemos[0]?.id.toString() ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
@@ -147,8 +123,7 @@ function AdminSttPanel({
     return (
       <Paper withBorder p="md" radius="md">
         <Text size="sm" c="dimmed">
-          No TTS audio demos available. Generate TTS demos first (TTS
-          playground).
+          No TTS audio demos available. Generate TTS demos first (TTS playground).
         </Text>
       </Paper>
     );
@@ -230,32 +205,9 @@ function AdminSttPanel({
 }
 
 function SttPage() {
-  const {
-    models,
-    demos: initialDemos,
-    ttsAudioDemos,
-  } = Route.useLoaderData();
+  const { models, demos: initialDemos, ttsAudioDemos } = Route.useLoaderData();
   const [demos, setDemos] = useState(initialDemos);
-  const [adminKey, setAdminKey] = useState<string | null>(null);
-  const [adminInput, setAdminInput] = useState("");
-
-  useEffect(() => {
-    const key = localStorage.getItem("adminKey");
-    if (key) setAdminKey(key);
-  }, []);
-
-  const handleAdminKeySubmit = () => {
-    if (adminInput) {
-      localStorage.setItem("adminKey", adminInput);
-      setAdminKey(adminInput);
-      setAdminInput("");
-    }
-  };
-
-  const handleClearAdminKey = () => {
-    localStorage.removeItem("adminKey");
-    setAdminKey(null);
-  };
+  const { effectiveKey: adminKey } = useAdmin();
 
   const refreshDemos = async () => {
     if (adminKey) {
@@ -285,8 +237,8 @@ function SttPage() {
         <IconMicrophone size={20} />
       </Group>
       <Text c="dimmed" size="sm">
-        Compare speech-to-text transcription models on the same audio. EU-hosted
-        models (Azure Sweden Central) are highlighted in blue.
+        Compare speech-to-text transcription models on the same audio. EU-hosted models (Azure
+        Sweden Central) are highlighted in blue.
       </Text>
 
       {demos.length === 0 ? (
@@ -296,12 +248,15 @@ function SttPage() {
             <Text c="dimmed">No transcription demos available.</Text>
             {adminKey ? (
               <Text size="sm" c="dimmed">
-                Generate TTS demos first, then use the admin panel to run
-                transcriptions.
+                Generate TTS demos first, then use the admin panel to run transcriptions.
               </Text>
             ) : (
               <Text size="sm" c="dimmed">
-                Enter your admin key below to generate demos.
+                Enter admin mode on the{" "}
+                <Text component={Link} to="/admin" inherit c="blue">
+                  admin page
+                </Text>{" "}
+                to generate demos.
               </Text>
             )}
           </Stack>
@@ -362,19 +317,9 @@ function SttPage() {
 
       {adminKey ? (
         <Stack gap="md">
-          <Group justify="space-between">
-            <Text fw={500} size="sm">
-              Admin Mode
-            </Text>
-            <Button
-              size="xs"
-              variant="subtle"
-              color="red"
-              onClick={handleClearAdminKey}
-            >
-              Clear Key
-            </Button>
-          </Group>
+          <Text fw={500} size="sm">
+            Admin Mode
+          </Text>
           <AdminSttPanel
             adminKey={adminKey}
             models={models}
@@ -384,27 +329,13 @@ function SttPage() {
         </Stack>
       ) : (
         <Paper withBorder p="md" radius="md">
-          <Stack gap="sm">
-            <Text size="sm" c="dimmed">
-              Admin: enter key to unlock transcription generation
-            </Text>
-            <Group>
-              <TextInput
-                size="sm"
-                type="password"
-                placeholder="Admin key"
-                value={adminInput}
-                onChange={(e) => setAdminInput(e.currentTarget.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAdminKeySubmit();
-                }}
-                style={{ flex: 1 }}
-              />
-              <Button size="sm" onClick={handleAdminKeySubmit}>
-                Unlock
-              </Button>
-            </Group>
-          </Stack>
+          <Text size="sm" c="dimmed">
+            Running transcriptions is admin-only.{" "}
+            <Text component={Link} to="/admin" inherit c="blue">
+              Enter admin mode
+            </Text>{" "}
+            to unlock it.
+          </Text>
         </Paper>
       )}
     </Stack>

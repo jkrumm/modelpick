@@ -1,13 +1,13 @@
 export type LegendEntry = {
-  key: string
-  label: string
-  color: string
-  secondColor?: string
-  strokeWidth?: number
-  shape?: 'line' | 'bar' | 'split' | 'splitLine'
+  key: string;
+  label: string;
+  color: string;
+  secondColor?: string;
+  strokeWidth?: number;
+  shape?: "line" | "bar" | "split" | "splitLine";
   /** Render line-style swatches as dashed (only applies to 'line' / 'splitLine'). */
-  dashed?: boolean
-}
+  dashed?: boolean;
+};
 
 /**
  * Shared legend for all non-sparkline charts. `highlighted`/`onHighlight` are
@@ -18,17 +18,17 @@ export function ChartLegend({
   highlighted = null,
   onHighlight,
 }: {
-  items: LegendEntry[]
-  highlighted?: string | null
-  onHighlight?: (key: string | null) => void
+  items: LegendEntry[];
+  highlighted?: string | null;
+  onHighlight?: (key: string | null) => void;
 }) {
   return (
     <div
       style={{
-        display: 'flex',
+        display: "flex",
         gap: 18,
-        justifyContent: 'center',
-        padding: '8px 0 2px',
+        justifyContent: "center",
+        padding: "8px 0 2px",
         fontSize: 13,
       }}
     >
@@ -36,17 +36,17 @@ export function ChartLegend({
         <div
           key={item.key}
           style={{
-            display: 'flex',
-            alignItems: 'center',
+            display: "flex",
+            alignItems: "center",
             gap: 6,
-            cursor: 'default',
+            cursor: "default",
             opacity: highlighted === null || highlighted === item.key ? 1 : 0.3,
-            transition: 'opacity 0.15s',
+            transition: "opacity 0.15s",
           }}
           onMouseEnter={() => onHighlight?.(item.key)}
           onMouseLeave={() => onHighlight?.(null)}
         >
-          {item.shape === 'splitLine' ? (
+          {item.shape === "splitLine" ? (
             <svg width={20} height={14} style={{ flexShrink: 0 }}>
               <line
                 x1={0}
@@ -55,7 +55,7 @@ export function ChartLegend({
                 y2={7}
                 stroke={item.color}
                 strokeWidth={item.strokeWidth ?? 2.5}
-                strokeDasharray={item.dashed === true ? '3 2' : undefined}
+                strokeDasharray={item.dashed === true ? "3 2" : undefined}
               />
               <line
                 x1={10}
@@ -64,10 +64,10 @@ export function ChartLegend({
                 y2={7}
                 stroke={item.secondColor}
                 strokeWidth={item.strokeWidth ?? 2.5}
-                strokeDasharray={item.dashed === true ? '3 2' : undefined}
+                strokeDasharray={item.dashed === true ? "3 2" : undefined}
               />
             </svg>
-          ) : item.shape === 'split' ? (
+          ) : item.shape === "split" ? (
             <svg width={14} height={14} style={{ flexShrink: 0 }}>
               <defs>
                 <clipPath id={`split-top-${item.key}`}>
@@ -92,7 +92,7 @@ export function ChartLegend({
                 clipPath={`url(#split-bot-${item.key})`}
               />
             </svg>
-          ) : item.shape === 'bar' ? (
+          ) : item.shape === "bar" ? (
             <span
               style={{
                 width: 14,
@@ -112,7 +112,7 @@ export function ChartLegend({
                 y2={7}
                 stroke={item.color}
                 strokeWidth={item.strokeWidth ?? 2.5}
-                strokeDasharray={item.dashed === true ? '3 2' : undefined}
+                strokeDasharray={item.dashed === true ? "3 2" : undefined}
               />
             </svg>
           )}
@@ -120,5 +120,5 @@ export function ChartLegend({
         </div>
       ))}
     </div>
-  )
+  );
 }

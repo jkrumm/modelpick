@@ -122,11 +122,9 @@ describe("runRefresh", () => {
 
   it("probe message includes accessible/total count", async () => {
     const deps = makeDeps({
-      probe: vi.fn().mockResolvedValue([
-        { accessible: true },
-        { accessible: true },
-        { accessible: false },
-      ]),
+      probe: vi
+        .fn()
+        .mockResolvedValue([{ accessible: true }, { accessible: true }, { accessible: false }]),
     });
     const result = await runRefresh(deps);
 

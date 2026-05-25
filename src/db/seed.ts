@@ -1,197 +1,82 @@
+import { sql } from "drizzle-orm";
 import { db } from "./index.js";
-import { models } from "./schema.js";
-import type { ModelInsert } from "./schema.js";
+import { models, stackChoice } from "./schema.js";
+import type { StackChoiceInsert } from "./schema.js";
+import { IU_CATALOG } from "./iu-catalog.js";
 
-// Verified model inventory from iu-multimodal-exploration.md (2026-05-22).
-// Re-confirmed by live probes in Group 4; update residency/context as new data arrives.
-export const MODEL_SEED: ModelInsert[] = [
-  // ── LLM models ──────────────────────────────────────────────────────────
+// The model catalog is the IU self-service portal export, parsed into
+// src/db/iu-catalog.ts by scripts/import-portal.ts. The live /v1/models aliases
+// (tts, tts-hd, whisper, …) are merged in at probe time. Re-run import-portal
+// with a fresh HTML export to refresh the catalog.
+export async function seedModels(): Promise<void> {
+  if (IU_CATALOG.length === 0) return;
+  await db
+    .insert(models)
+    .values(IU_CATALOG)
+    .onConflictDoUpdate({
+      target: models.id,
+      set: {
+        provider: sql`excluded.provider`,
+        family: sql`excluded.family`,
+        modality: sql`excluded.modality`,
+        display_name: sql`excluded.display_name`,
+        context_window: sql`excluded.context_window`,
+        iu_listed: sql`excluded.iu_listed`,
+      },
+    });
+}
+
+// My current, deliberately-chosen stack — kept separate from the algorithmic
+// `recommendation`. The /stack page diffs the two to flag review-worthy drift.
+// Revise the picks here (and bump `decided_at`) when a choice actually changes.
+const MY_STACK: StackChoiceInsert[] = [
   {
-    id: "Kimi-K2.6",
-    provider: "moonshot",
-    family: "kimi-k2",
-    modality: "llm",
-    display_name: "Kimi K2.6",
-    context_window: 128000,
+    category: "fast",
+    model_id: "gpt-5.4-nano",
+    rationale: "Cheapest capable model for high-volume, latency-sensitive utility calls.",
+    decided_at: "2026-05-25",
   },
   {
-    id: "gpt-5.5",
-    provider: "openai",
-    family: "gpt-5",
-    modality: "llm",
-    display_name: "GPT-5.5",
-    context_window: 128000,
+    category: "coding",
+    model_id: "Kimi-K2.6",
+    env_note: "Routed via the LiteLLM bridge (Azure Sweden, EU/GDPR) for sideclaw workers.",
+    rationale: "Strong coding index at a fraction of frontier cost, EU-resident.",
+    decided_at: "2026-05-25",
   },
   {
-    id: "gemini-3-pro-preview",
-    provider: "google",
-    family: "gemini-3",
-    modality: "llm",
-    display_name: "Gemini 3 Pro Preview",
-    context_window: 1000000,
+    category: "orchestrator",
+    model_id: "GPT-5.5",
+    env_note: "GPT-5.5 via IU for agents; Opus 4.7 (Max) in Claude Code.",
+    rationale: "Top reasoning for planning/orchestration where capability dominates cost.",
+    decided_at: "2026-05-25",
   },
   {
-    id: "gemini-3-flash-preview",
-    provider: "google",
-    family: "gemini-3",
-    modality: "llm",
-    display_name: "Gemini 3 Flash Preview",
-    context_window: 1000000,
+    category: "tts",
+    model_id: "gemini-3.1-flash-tts-preview",
+    env_note: "Charon voice.",
+    rationale: "Most expressive IU TTS; native generateContent route, EU-resident.",
+    decided_at: "2026-05-25",
   },
   {
-    id: "claude-opus-4-7",
-    provider: "anthropic",
-    family: "claude-4",
-    modality: "llm",
-    display_name: "Claude Opus 4.7",
-    context_window: 200000,
-  },
-  {
-    id: "claude-opus-4-7-eu",
-    provider: "anthropic",
-    family: "claude-4",
-    modality: "llm",
-    display_name: "Claude Opus 4.7 (EU)",
-    context_window: 200000,
-  },
-  {
-    id: "claude-sonnet-4-6",
-    provider: "anthropic",
-    family: "claude-4",
-    modality: "llm",
-    display_name: "Claude Sonnet 4.6",
-    context_window: 200000,
-  },
-  {
-    id: "claude-sonnet-4-6-eu",
-    provider: "anthropic",
-    family: "claude-4",
-    modality: "llm",
-    display_name: "Claude Sonnet 4.6 (EU)",
-    context_window: 200000,
-  },
-  {
-    id: "claude-haiku-4-5",
-    provider: "anthropic",
-    family: "claude-4",
-    modality: "llm",
-    display_name: "Claude Haiku 4.5",
-    context_window: 200000,
-  },
-  {
-    id: "claude-haiku-4-5-eu",
-    provider: "anthropic",
-    family: "claude-4",
-    modality: "llm",
-    display_name: "Claude Haiku 4.5 (EU)",
-    context_window: 200000,
-  },
-  {
-    id: "GLM-5",
-    provider: "zhipu",
-    family: "glm",
-    modality: "llm",
-    display_name: "GLM-5",
-    context_window: 128000,
-  },
-  {
-    id: "DeepSeek-V3.2",
-    provider: "deepseek",
-    family: "deepseek-v3",
-    modality: "llm",
-    display_name: "DeepSeek V3.2",
-    context_window: 64000,
-  },
-  {
-    id: "Qwen3-Coder-480B",
-    provider: "alibaba",
-    family: "qwen3",
-    modality: "llm",
-    display_name: "Qwen3 Coder 480B",
-    context_window: 131072,
-  },
-  {
-    id: "MiniMax-M2.5",
-    provider: "minimax",
-    family: "minimax-m2",
-    modality: "llm",
-    display_name: "MiniMax M2.5",
-    context_window: 1000000,
-  },
-  // ── TTS models ──────────────────────────────────────────────────────────
-  {
-    id: "tts",
-    provider: "openai",
-    family: "tts",
-    modality: "tts",
-    display_name: "TTS (Azure Sweden EU)",
-  },
-  {
-    id: "tts-hd",
-    provider: "openai",
-    family: "tts",
-    modality: "tts",
-    display_name: "TTS HD (Azure Sweden EU)",
-  },
-  {
-    id: "gpt-4o-mini-tts",
-    provider: "openai",
-    family: "gpt-4o",
-    modality: "tts",
-    display_name: "GPT-4o Mini TTS",
-  },
-  {
-    id: "gemini-2.5-flash-tts",
-    provider: "google",
-    family: "gemini-2.5",
-    modality: "tts",
-    display_name: "Gemini 2.5 Flash TTS",
-  },
-  {
-    id: "voxtral-mini-tts",
-    provider: "mistral",
-    family: "voxtral",
-    modality: "tts",
-    display_name: "Voxtral Mini TTS",
-  },
-  // ── STT models ──────────────────────────────────────────────────────────
-  {
-    id: "whisper",
-    provider: "openai",
-    family: "whisper",
-    modality: "stt",
-    display_name: "Whisper (Azure Sweden EU)",
-  },
-  {
-    id: "gpt-4o-transcribe",
-    provider: "openai",
-    family: "gpt-4o",
-    modality: "stt",
-    display_name: "GPT-4o Transcribe",
-  },
-  {
-    id: "gpt-4o-mini-transcribe",
-    provider: "openai",
-    family: "gpt-4o",
-    modality: "stt",
-    display_name: "GPT-4o Mini Transcribe",
-  },
-  {
-    id: "gpt-4o-transcribe-diarize",
-    provider: "openai",
-    family: "gpt-4o",
-    modality: "stt",
-    display_name: "GPT-4o Transcribe (Diarization)",
-  },
-  {
-    id: "voxtral-mini-transcribe",
-    provider: "mistral",
-    family: "voxtral",
-    modality: "stt",
-    display_name: "Voxtral Mini Transcribe",
+    category: "stt",
+    model_id: "gpt-4o-transcribe",
+    rationale: "Most accurate IU STT; Whisper kept only for timestamps/verbose_json.",
+    decided_at: "2026-05-25",
   },
 ];
 
-export async function seedModels(): Promise<void> {
-  await db.insert(models).values(MODEL_SEED).onConflictDoNothing();
+// Upsert my picks keyed on category (one row per category). Re-runnable.
+export async function seedStack(): Promise<void> {
+  await db
+    .insert(stackChoice)
+    .values(MY_STACK)
+    .onConflictDoUpdate({
+      target: stackChoice.category,
+      set: {
+        model_id: sql`excluded.model_id`,
+        env_note: sql`excluded.env_note`,
+        rationale: sql`excluded.rationale`,
+        decided_at: sql`excluded.decided_at`,
+      },
+    });
 }

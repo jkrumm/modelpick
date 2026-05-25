@@ -1,4 +1,4 @@
-import { gatewayChat, parseResidency, rawFetch } from "./client.js";
+import { dialectForProvider, gatewayChat, parseResidency, rawFetch } from "./client.js";
 import { classifyProbe, isAccessible } from "./classify.js";
 import type { Modality, ProbeStatus, Residency } from "../../db/schema.js";
 
@@ -17,6 +17,7 @@ export interface ProbeResult {
 const PROBE_TIMEOUT_MS = 30_000;
 
 const openaiBase = (): string => process.env["IU_OPENAI_BASE_URL"] ?? "";
+const geminiBase = (): string => process.env["IU_GEMINI_BASE_URL"] ?? "";
 
 /** Synthesizes a short spoken clip via a known-good tts alias, reused as the STT
  *  probe fixture. A silent frame yields false negatives — STT needs real audio. */
@@ -73,13 +74,32 @@ export async function probeModel(opts: ProbeOptions): Promise<ProbeResult> {
     });
     ({ status, body, headers } = r);
   } else if (modality === "tts") {
-    const r = await rawFetch(`${openaiBase()}/audio/speech`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: model_id, input: "hi", voice: "alloy" }),
-      signal,
-    });
-    ({ status, body, headers } = r);
+    // Gemini TTS isn't served on the OpenAI-compat /audio/speech route — it only
+    // answers on the native generateContent endpoint with an AUDIO response
+    // modality. Everything else (OpenAI, Mistral voxtral) uses /audio/speech.
+    if (dialectForProvider(provider) === "gemini") {
+      const r = await rawFetch(`${geminiBase()}/models/${model_id}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: "hi" }] }],
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } },
+          },
+        }),
+        signal,
+      });
+      ({ status, body, headers } = r);
+    } else {
+      const r = await rawFetch(`${openaiBase()}/audio/speech`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: model_id, input: "hi", voice: "alloy" }),
+        signal,
+      });
+      ({ status, body, headers } = r);
+    }
   } else {
     // stt — multipart with REAL audio (filename .mp3; middleware sniffs extension)
     if (!opts.audioFixture) {

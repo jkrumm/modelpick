@@ -1,11 +1,15 @@
 import { collectOpenRouter } from "../src/server/collectors/openrouter.js";
 import { collectArtificialAnalysis } from "../src/server/collectors/artificialanalysis.js";
+import { createIdResolver } from "../src/server/collectors/normalize.js";
 import { db, client } from "../src/db/index.js";
-import { metricSnapshot } from "../src/db/schema.js";
+import { metricSnapshot, models } from "../src/db/schema.js";
+
+const catalog = await db.select({ id: models.id }).from(models);
+const resolve = createIdResolver(catalog.map((m) => m.id));
 
 const [orResult, aaResult] = await Promise.all([
-  collectOpenRouter(),
-  collectArtificialAnalysis(),
+  collectOpenRouter(resolve),
+  collectArtificialAnalysis(resolve),
 ]);
 
 const allMetrics = [...orResult.metrics, ...aaResult.metrics];

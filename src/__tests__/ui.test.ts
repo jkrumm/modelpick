@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scoreModels } from "../server/scoring/score";
+import { scoreModels, CATEGORY_MIN_QUALITY } from "../server/scoring/score";
 import type { ModelMetrics } from "../server/scoring/normalize";
 import type { ProbeInfo } from "../routes/-server-fns";
 
@@ -23,11 +23,16 @@ function getTopModels(
   weights: { quality: number; cost: number; speed: number },
   iuOnly: boolean,
   residencyFilter: "all" | "eu" | "us",
+  currentOnly = false,
+  currentIds: Set<string> = new Set(),
 ) {
   const targetModality = CATEGORY_MODALITY[category];
+  const minQuality = CATEGORY_MIN_QUALITY[category];
   const filtered = modelMetrics.filter((mm) => {
     const model = modelMap.get(mm.model_id);
     if (model?.modality !== targetModality) return false;
+    if (currentOnly && !currentIds.has(mm.model_id)) return false;
+    if ((mm.quality ?? 0) < minQuality) return false;
     if (iuOnly) {
       const p = probes[mm.model_id];
       if (p === undefined || !p.accessible) return false;
@@ -44,10 +49,10 @@ function getTopModels(
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
 const metrics: ModelMetrics[] = [
-  { model_id: "model-a", quality: 0.9, cost: 0.2, speed: 0.5 },
-  { model_id: "model-b", quality: 0.5, cost: 0.9, speed: 0.8 },
-  { model_id: "model-c", quality: 0.7, cost: 0.6, speed: 0.6 },
-  { model_id: "tts-1", quality: 0.8, cost: 0.5, speed: 0.7 },
+  { model_id: "model-a", quality: 0.9, coding: 0.9, cost: 0.2, speed: 0.5 },
+  { model_id: "model-b", quality: 0.5, coding: 0.5, cost: 0.9, speed: 0.8 },
+  { model_id: "model-c", quality: 0.7, coding: 0.7, cost: 0.6, speed: 0.6 },
+  { model_id: "tts-1", quality: 0.8, coding: 0.8, cost: 0.5, speed: 0.7 },
 ];
 
 const probes: Record<string, ProbeInfo> = {
@@ -91,8 +96,18 @@ const modelMap = new Map<string, { modality: string }>([
 const defaultWeights = { quality: 0.5, cost: 0.3, speed: 0.2 };
 
 describe("getTopModels", () => {
-  it("returns only llm models for coding category", () => {
-    const top = getTopModels(metrics, probes, modelMap, "coding", defaultWeights, false, "all");
+  // Use orchestrator (no quality floor) for structural modality/residency checks
+  // so the coding category's general-intelligence floor doesn't drop fixtures.
+  it("returns only llm models for an llm category", () => {
+    const top = getTopModels(
+      metrics,
+      probes,
+      modelMap,
+      "orchestrator",
+      defaultWeights,
+      false,
+      "all",
+    );
     const ids = top.map((m) => m.model_id);
     expect(ids).not.toContain("tts-1");
     expect(ids.length).toBe(3);
@@ -112,7 +127,15 @@ describe("getTopModels", () => {
   });
 
   it("filters by EU residency", () => {
-    const top = getTopModels(metrics, probes, modelMap, "coding", defaultWeights, false, "eu");
+    const top = getTopModels(
+      metrics,
+      probes,
+      modelMap,
+      "orchestrator",
+      defaultWeights,
+      false,
+      "eu",
+    );
     const ids = top.map((m) => m.model_id);
     expect(ids).toContain("model-a");
     expect(ids).not.toContain("model-b");
@@ -120,11 +143,26 @@ describe("getTopModels", () => {
   });
 
   it("filters by US residency", () => {
-    const top = getTopModels(metrics, probes, modelMap, "coding", defaultWeights, false, "us");
+    const top = getTopModels(
+      metrics,
+      probes,
+      modelMap,
+      "orchestrator",
+      defaultWeights,
+      false,
+      "us",
+    );
     const ids = top.map((m) => m.model_id);
     expect(ids).toContain("model-b");
     expect(ids).toContain("model-c");
     expect(ids).not.toContain("model-a");
+  });
+
+  it("applies the coding category general-intelligence floor", () => {
+    // CATEGORY_MIN_QUALITY.coding drops mid/low-intelligence models; only model-a
+    // (quality 0.9) clears it — model-b (0.5) and model-c (0.7) are gated out.
+    const top = getTopModels(metrics, probes, modelMap, "coding", defaultWeights, false, "all");
+    expect(top.map((m) => m.model_id)).toEqual(["model-a"]);
   });
 
   it("returns empty when iuOnly=true and residency=eu filters out all", () => {
@@ -156,6 +194,23 @@ describe("getTopModels", () => {
     );
     // model-a has quality=0.9, should win
     expect(top[0]?.model_id).toBe("model-a");
+  });
+
+  it("excludes non-current models when currentOnly=true", () => {
+    const currentIds = new Set(["model-a"]); // only a is "current"
+    const top = getTopModels(
+      metrics,
+      probes,
+      modelMap,
+      "fast",
+      defaultWeights,
+      false,
+      "all",
+      true,
+      currentIds,
+    );
+    const ids = top.map((m) => m.model_id);
+    expect(ids).toEqual(["model-a"]);
   });
 
   it("returns results sorted by score descending", () => {

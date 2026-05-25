@@ -6,6 +6,7 @@ import type { MetricSnapshot, Model, ProbeStatus, Recommendation } from "~/db/sc
 import { getLatestMetrics, getLatestRecommendations, getModels } from "~/db/queries";
 import { normalizeMetrics } from "~/server/scoring/normalize";
 import type { ModelMetrics } from "~/server/scoring/normalize";
+import { curate } from "~/server/curate";
 
 export interface ProbeInfo {
   accessible: boolean;
@@ -24,6 +25,8 @@ export interface DeciderData {
   modelMetrics: ModelMetrics[];
   probes: Record<string, ProbeInfo>;
   rawMetrics: RawMetricMap;
+  /** Representative model ids surfaced by the default "current only" view. */
+  currentIds: string[];
 }
 
 function buildProbeMap(
@@ -100,9 +103,16 @@ export const getDeciderData = createServerFn({ method: "GET" }).handler(
     ]);
 
     const latestMetrics = deduplicateMetrics(rawMetrics);
-    const modelMetrics = normalizeMetrics(latestMetrics);
     const probes = buildProbeMap(allProbes);
     const rawMap = buildRawMetricMap(latestMetrics);
+
+    // Propagate leaderboard data across catalog variants and pick the "current"
+    // representative per model so default views drop dated pins and stale models.
+    const { metrics: modelMetrics, currentIds } = curate(
+      allModels.map((m) => ({ id: m.id, modality: m.modality })),
+      normalizeMetrics(latestMetrics),
+      (id) => probes[id]?.accessible ?? false,
+    );
 
     return {
       recommendations: recs,
@@ -110,6 +120,7 @@ export const getDeciderData = createServerFn({ method: "GET" }).handler(
       modelMetrics,
       probes,
       rawMetrics: rawMap,
+      currentIds: [...currentIds],
     };
   },
 );

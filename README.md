@@ -61,8 +61,8 @@ sudo chown -R $(id -u):$(id -g) /var/lib/modelpick/demos
 
 - `op://vps/modelpick/DB_PASSWORD` — generate: `openssl rand -hex 24`
 - `op://vps/modelpick/ADMIN_KEY` — generate: `openssl rand -hex 20`
-- `op://vps/modelpick api secrets/OPENROUTER_API_KEY` — from openrouter.ai/keys
-- `op://vps/modelpick api secrets/ARTIFICIALANALYSIS_API_KEY` — from artificialanalysis.ai
+- `op://vps/modelpick/OPENROUTER_API_KEY` — from openrouter.ai/keys
+- `op://vps/modelpick/ARTIFICIALANALYSIS_API_KEY` — from artificialanalysis.ai
 
 **4. Materialize the env file for RollHook:**
 

@@ -1,5 +1,4 @@
-import { resolveModelId } from "./normalize.js";
-import type { CollectorResult, NormalizedMetric } from "./normalize.js";
+import type { CollectorResult, IdResolver, NormalizedMetric } from "./normalize.js";
 
 interface OpenRouterPricing {
   prompt: string;
@@ -19,7 +18,7 @@ interface OpenRouterResponse {
 
 const OR_MODELS_URL = "https://openrouter.ai/api/v1/models";
 
-export async function collectOpenRouter(): Promise<CollectorResult> {
+export async function collectOpenRouter(resolve: IdResolver): Promise<CollectorResult> {
   const key = process.env["OPENROUTER_API_KEY"] ?? "";
   if (!key) {
     console.warn("[openrouter] OPENROUTER_API_KEY not set — skipping");
@@ -45,7 +44,7 @@ export async function collectOpenRouter(): Promise<CollectorResult> {
   const unmatched: { externalId: string; name: string }[] = [];
 
   for (const model of data.data) {
-    const localId = resolveModelId(model.id);
+    const localId = resolve(model.id);
     if (!localId) {
       unmatched.push({ externalId: model.id, name: model.name });
       continue;

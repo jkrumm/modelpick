@@ -23,10 +23,7 @@ export interface RefreshDeps {
   collectNews: () => Promise<{ inserted: number }>;
 }
 
-async function runStep(
-  name: string,
-  fn: () => Promise<string>,
-): Promise<RefreshStepResult> {
+async function runStep(name: string, fn: () => Promise<string>): Promise<RefreshStepResult> {
   try {
     const message = await fn();
     console.log(`[refresh] ${name}: ${message}`);
@@ -69,13 +66,9 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
     }
 
     const orStatus =
-      orSettled.status === "fulfilled"
-        ? `${orSettled.value.metrics.length} OR`
-        : "OR failed";
+      orSettled.status === "fulfilled" ? `${orSettled.value.metrics.length} OR` : "OR failed";
     const aaStatus =
-      aaSettled.status === "fulfilled"
-        ? `${aaSettled.value.metrics.length} AA`
-        : "AA failed";
+      aaSettled.status === "fulfilled" ? `${aaSettled.value.metrics.length} AA` : "AA failed";
     return `${metrics.length} metrics (${orStatus}, ${aaStatus})`;
   });
 

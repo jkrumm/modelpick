@@ -1,16 +1,6 @@
 import * as React from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Stack,
-  Title,
-  Card,
-  Text,
-  Badge,
-  Group,
-  Anchor,
-  Alert,
-  Code,
-} from "@mantine/core";
+import { Stack, Title, Card, Text, Badge, Group, Anchor, Alert, Code } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { getNewsFeed } from "./-news-server-fns";
 import type { NewsItem } from "~/db/schema";
@@ -39,13 +29,7 @@ function NewsCard({ item }: NewsCardProps) {
     <Card withBorder padding="md" radius="md">
       <Group justify="space-between" wrap="nowrap" align="flex-start">
         <Stack gap={6} style={{ flex: 1 }}>
-          <Anchor
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            fw={600}
-            size="sm"
-          >
+          <Anchor href={item.url} target="_blank" rel="noopener noreferrer" fw={600} size="sm">
             {item.title}
           </Anchor>
           {item.summary !== null && (
@@ -76,8 +60,8 @@ function NewsPage() {
 
       {news.length === 0 ? (
         <Alert icon={<IconInfoCircle />} title="No news yet" color="blue">
-          Run <Code>bun run refresh</Code> or <Code>bun run news</Code> to
-          collect model news from OpenRouter.
+          Run <Code>bun run refresh</Code> or <Code>bun run news</Code> to collect model news from
+          OpenRouter.
         </Alert>
       ) : (
         <Stack gap="sm">

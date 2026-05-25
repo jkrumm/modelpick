@@ -100,6 +100,13 @@ function pct(v: number | null | undefined): string {
   return `${Math.round(v * 100)}`;
 }
 
+// Raw per-million-token price. Sub-$1 prices keep two decimals so cheap models
+// don't all collapse to "0".
+function price(v: number | null | undefined): string {
+  if (v === null || v === undefined) return "—";
+  return v >= 1 ? `$${v.toFixed(2)}` : `$${v.toFixed(3)}`;
+}
+
 function ResidencyBadge({ residency }: { residency: "eu" | "us" | "unknown" }) {
   if (residency === "eu")
     return (
@@ -324,7 +331,14 @@ function ThroughputBars({ data, width }: { data: BarDatum[]; width: number }) {
 
 // ── Table ────────────────────────────────────────────────────────────────────
 
-type SortField = "display_name" | "provider" | "quality" | "cost" | "speed" | "score";
+type SortField =
+  | "display_name"
+  | "provider"
+  | "quality"
+  | "price_in"
+  | "price_out"
+  | "speed"
+  | "score";
 type SortDir = "asc" | "desc";
 
 interface TableRow {
@@ -334,6 +348,8 @@ interface TableRow {
   modality: Modality;
   quality: number | null;
   cost: number | null;
+  price_in: number | null;
+  price_out: number | null;
   speed: number | null;
   score: number;
   accessible: boolean;
@@ -400,8 +416,15 @@ function ModelTable({
             <SortTh field="quality" sortField={sortField} sortDir={sortDir} onSort={onSort}>
               Quality
             </SortTh>
-            <SortTh field="cost" sortField={sortField} sortDir={sortDir} onSort={onSort}>
-              Cost
+            <SortTh field="price_in" sortField={sortField} sortDir={sortDir} onSort={onSort}>
+              <Tooltip label="Input price per 1M tokens" withArrow>
+                <span>$/1M in</span>
+              </Tooltip>
+            </SortTh>
+            <SortTh field="price_out" sortField={sortField} sortDir={sortDir} onSort={onSort}>
+              <Tooltip label="Output price per 1M tokens" withArrow>
+                <span>$/1M out</span>
+              </Tooltip>
             </SortTh>
             <SortTh field="speed" sortField={sortField} sortDir={sortDir} onSort={onSort}>
               Speed
@@ -441,7 +464,8 @@ function ModelTable({
                 </Badge>
               </Table.Td>
               <Table.Td ta="right">{pct(row.quality)}</Table.Td>
-              <Table.Td ta="right">{pct(row.cost)}</Table.Td>
+              <Table.Td ta="right">{price(row.price_in)}</Table.Td>
+              <Table.Td ta="right">{price(row.price_out)}</Table.Td>
               <Table.Td ta="right">{pct(row.speed)}</Table.Td>
               <Table.Td ta="right">
                 <Text size="sm" fw={500}>
@@ -472,13 +496,16 @@ function ModelTable({
 function buildTableRows(
   data: DeciderData,
   iuOnly: boolean,
+  currentOnly: boolean,
   modalityFilter: "all" | Modality,
   search: string,
 ): TableRow[] {
   const metricsMap = new Map<string, ModelMetrics>(data.modelMetrics.map((m) => [m.model_id, m]));
+  const currentSet = new Set(data.currentIds);
 
   return data.models
     .filter((m) => {
+      if (currentOnly && !currentSet.has(m.id)) return false;
       if (modalityFilter !== "all" && m.modality !== modalityFilter) return false;
       if (search.length > 0) {
         const q = search.toLowerCase();
@@ -495,6 +522,7 @@ function buildTableRows(
     .map((m) => {
       const mm = metricsMap.get(m.id);
       const probe = data.probes[m.id];
+      const raw = data.rawMetrics[m.id];
       const quality = mm?.quality ?? null;
       const cost = mm?.cost ?? null;
       const speed = mm?.speed ?? null;
@@ -506,6 +534,8 @@ function buildTableRows(
         modality: m.modality,
         quality,
         cost,
+        price_in: raw?.["price_in"] ?? null,
+        price_out: raw?.["price_out"] ?? null,
         speed,
         score,
         accessible: probe?.accessible ?? false,
@@ -533,6 +563,7 @@ function sortRows(rows: TableRow[], field: SortField, dir: SortDir): TableRow[] 
 function CatalogPage() {
   const data = Route.useLoaderData();
   const [iuOnly, setIuOnly] = useState(false);
+  const [currentOnly, setCurrentOnly] = useState(true);
   const [modalityFilter, setModalityFilter] = useState<"all" | Modality>("all");
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>("score");
@@ -542,8 +573,8 @@ function CatalogPage() {
   const [barRef, barEntry] = useResizeObserver<HTMLDivElement>();
 
   const filteredRows = useMemo(
-    () => buildTableRows(data, iuOnly, modalityFilter, search),
-    [data, iuOnly, modalityFilter, search],
+    () => buildTableRows(data, iuOnly, currentOnly, modalityFilter, search),
+    [data, iuOnly, currentOnly, modalityFilter, search],
   );
 
   const sortedRows = useMemo(
@@ -632,6 +663,19 @@ function CatalogPage() {
               size="xs"
             />
           </Box>
+          <Tooltip
+            label="Hide dated snapshot pins and models no longer tracked on leaderboards"
+            withArrow
+            multiline
+            maw={260}
+          >
+            <Switch
+              label="Current only"
+              checked={currentOnly}
+              onChange={(e) => setCurrentOnly(e.currentTarget.checked)}
+              size="sm"
+            />
+          </Tooltip>
           <Switch
             label="IU only"
             checked={iuOnly}

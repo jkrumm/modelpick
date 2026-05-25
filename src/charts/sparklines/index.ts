@@ -1,2 +1,2 @@
-export { LineSparkline } from './LineSparkline'
-export { BarSparkline } from './BarSparkline'
+export { LineSparkline } from "./LineSparkline";
+export { BarSparkline } from "./BarSparkline";

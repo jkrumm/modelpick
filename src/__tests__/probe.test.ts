@@ -352,6 +352,32 @@ describe("probeModel — TTS", () => {
     expect(result.accessible).toBe(false);
     expect(result.probe_status).toBe("not_routed");
   });
+
+  it("routes Gemini TTS to native generateContent with an AUDIO response modality", async () => {
+    fetchMock.mockResolvedValueOnce(
+      makeFetchResponse(200, {
+        candidates: [
+          { content: { parts: [{ inlineData: { mimeType: "audio/L16", data: "AA" } }] } },
+        ],
+      }),
+    );
+
+    const result = await probeModel({
+      model_id: "gemini-3.1-flash-tts-preview",
+      modality: "tts",
+      provider: "google",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(
+      "https://iu-test.example/gemini/v1beta/models/gemini-3.1-flash-tts-preview:generateContent",
+    );
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      generationConfig: { responseModalities: ["AUDIO"] },
+    });
+    expect(result.accessible).toBe(true);
+    expect(result.probe_status).toBe("available");
+  });
 });
 
 describe("probeModel — STT", () => {

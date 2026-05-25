@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { resolveModelId } from "../server/collectors/normalize.js";
+import { createIdResolver } from "../server/collectors/normalize.js";
 import { collectOpenRouter } from "../server/collectors/openrouter.js";
 import { collectArtificialAnalysis } from "../server/collectors/artificialanalysis.js";
+
+const resolve = createIdResolver(["claude-sonnet-4-6", "gpt-5.5", "tts-hd", "whisper"]);
 
 const fetchMock = vi.fn<typeof fetch>();
 vi.stubGlobal("fetch", fetchMock);
@@ -20,36 +22,40 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as unknown as Response;
 }
 
-// ── resolveModelId ─────────────────────────────────────────────────────────────
+// ── createIdResolver ─────────────────────────────────────────────────────────────
 
-describe("resolveModelId", () => {
+describe("createIdResolver", () => {
   it("returns exact match for a known local ID", () => {
-    expect(resolveModelId("claude-sonnet-4-6")).toBe("claude-sonnet-4-6");
+    expect(resolve("claude-sonnet-4-6")).toBe("claude-sonnet-4-6");
   });
 
   it("strips provider prefix for OpenRouter-style IDs", () => {
-    expect(resolveModelId("anthropic/claude-sonnet-4-6")).toBe("claude-sonnet-4-6");
+    expect(resolve("anthropic/claude-sonnet-4-6")).toBe("claude-sonnet-4-6");
   });
 
   it("strips provider prefix for a different provider", () => {
-    expect(resolveModelId("openai/gpt-5.5")).toBe("gpt-5.5");
+    expect(resolve("openai/gpt-5.5")).toBe("gpt-5.5");
   });
 
   it("returns null for unknown external ID", () => {
-    expect(resolveModelId("some/unknown-model-xyz-9000")).toBeNull();
+    expect(resolve("some/unknown-model-xyz-9000")).toBeNull();
   });
 
-  it("handles fuzzy case-insensitive match", () => {
-    // "claude-sonnet-4-6" normalised = "claude-sonnet-4-6" — should still match
-    expect(resolveModelId("Claude-Sonnet-4-6")).toBe("claude-sonnet-4-6");
+  it("matches case-insensitively via canonical form", () => {
+    expect(resolve("Claude-Sonnet-4-6")).toBe("claude-sonnet-4-6");
+  });
+
+  it("matches across separator/date noise via canonical form", () => {
+    // "gpt-5-5" canonicalises to the same form as known "gpt-5.5"
+    expect(resolve("openai/gpt-5-5-2026-04-23")).toBe("gpt-5.5");
   });
 
   it("returns exact match for TTS model", () => {
-    expect(resolveModelId("tts-hd")).toBe("tts-hd");
+    expect(resolve("tts-hd")).toBe("tts-hd");
   });
 
   it("returns exact match for STT model", () => {
-    expect(resolveModelId("whisper")).toBe("whisper");
+    expect(resolve("whisper")).toBe("whisper");
   });
 });
 
@@ -82,7 +88,7 @@ describe("collectOpenRouter", () => {
   it("normalizes matched models into price_in, price_out, context_window metrics", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(OR_FIXTURE));
 
-    const result = await collectOpenRouter();
+    const result = await collectOpenRouter(resolve);
 
     // claude-sonnet-4-6 and gpt-5.5 both match → 3 metrics each = 6 total
     expect(result.metrics).toHaveLength(6);
@@ -99,7 +105,7 @@ describe("collectOpenRouter", () => {
 
   it("converts per-token pricing to per-million-token pricing", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(OR_FIXTURE));
-    const result = await collectOpenRouter();
+    const result = await collectOpenRouter(resolve);
 
     const priceOut = result.metrics.find(
       (m) => m.model_id === "gpt-5.5" && m.metric === "price_out",
@@ -110,7 +116,7 @@ describe("collectOpenRouter", () => {
 
   it("captures context_window metric", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(OR_FIXTURE));
-    const result = await collectOpenRouter();
+    const result = await collectOpenRouter(resolve);
 
     const ctx = result.metrics.find(
       (m) => m.model_id === "claude-sonnet-4-6" && m.metric === "context_window",
@@ -120,7 +126,7 @@ describe("collectOpenRouter", () => {
 
   it("records unmatched external models separately", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(OR_FIXTURE));
-    const result = await collectOpenRouter();
+    const result = await collectOpenRouter(resolve);
 
     expect(result.unmatched).toHaveLength(1);
     expect(result.unmatched[0]?.externalId).toBe("some/totally-unknown-model");
@@ -128,7 +134,7 @@ describe("collectOpenRouter", () => {
 
   it("returns empty result on HTTP error", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: "forbidden" }, 403));
-    const result = await collectOpenRouter();
+    const result = await collectOpenRouter(resolve);
 
     expect(result.metrics).toHaveLength(0);
     expect(result.unmatched).toHaveLength(0);
@@ -136,14 +142,14 @@ describe("collectOpenRouter", () => {
 
   it("returns empty result on fetch throw", async () => {
     fetchMock.mockRejectedValueOnce(new Error("network error"));
-    const result = await collectOpenRouter();
+    const result = await collectOpenRouter(resolve);
 
     expect(result.metrics).toHaveLength(0);
   });
 
   it("returns empty result when API key is missing", async () => {
     delete process.env["OPENROUTER_API_KEY"];
-    const result = await collectOpenRouter();
+    const result = await collectOpenRouter(resolve);
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.metrics).toHaveLength(0);
@@ -151,7 +157,7 @@ describe("collectOpenRouter", () => {
 
   it("sets Authorization header with the API key", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(OR_FIXTURE));
-    await collectOpenRouter();
+    await collectOpenRouter(resolve);
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const headers = new Headers(init.headers as HeadersInit);
@@ -163,7 +169,8 @@ describe("collectOpenRouter", () => {
 
 const AA_FIXTURE_ARRAY: unknown[] = [
   {
-    id: "claude-sonnet-4-6",
+    id: "c99f3bde-7c08-4de8-bd5c-8ee9123ebffa",
+    slug: "claude-sonnet-4-6",
     name: "Claude Sonnet 4.6",
     evaluations: {
       artificial_analysis_intelligence_index: 78.5,
@@ -177,7 +184,8 @@ const AA_FIXTURE_ARRAY: unknown[] = [
     median_time_to_first_token_seconds: 0.42,
   },
   {
-    id: "gpt-5.5",
+    id: "f0083258-8646-45b8-8082-7aaf6c2ea82a",
+    slug: "gpt-5-5",
     name: "GPT-5.5",
     evaluations: {
       artificial_analysis_intelligence_index: 85.0,
@@ -187,7 +195,8 @@ const AA_FIXTURE_ARRAY: unknown[] = [
     median_time_to_first_token_seconds: 0.31,
   },
   {
-    id: "completely-unknown-model-abc",
+    id: "16149b9c-a1e9-4669-a5cb-ff3c00d78f89",
+    slug: "completely-unknown-model-abc",
     name: "Unknown Model",
     evaluations: { artificial_analysis_intelligence_index: 60.0 },
     pricing: null,
@@ -202,16 +211,16 @@ const AA_FIXTURE_WRAPPED = { models: AA_FIXTURE_ARRAY };
 describe("collectArtificialAnalysis — direct array response", () => {
   it("maps quality, throughput, latency_p50, price_in, price_out from LLMs endpoint", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(AA_FIXTURE_ARRAY));
-    const result = await collectArtificialAnalysis();
+    const result = await collectArtificialAnalysis(resolve);
 
-    // claude-sonnet-4-6: quality + throughput + latency_p50 + price_in + price_out = 5
+    // claude-sonnet-4-6: quality + coding_index + throughput + latency_p50 + price_in + price_out = 6
     // gpt-5.5: quality + latency_p50 = 2
-    expect(result.metrics.length).toBe(7);
+    expect(result.metrics.length).toBe(8);
   });
 
   it("maps quality metric from intelligence_index", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(AA_FIXTURE_ARRAY));
-    const result = await collectArtificialAnalysis();
+    const result = await collectArtificialAnalysis(resolve);
 
     const quality = result.metrics.find(
       (m) => m.model_id === "claude-sonnet-4-6" && m.metric === "quality",
@@ -221,9 +230,24 @@ describe("collectArtificialAnalysis — direct array response", () => {
     expect(quality?.confidence).toBe(0.9);
   });
 
+  it("maps coding_index metric from coding_index", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(AA_FIXTURE_ARRAY));
+    const result = await collectArtificialAnalysis(resolve);
+
+    const coding = result.metrics.find(
+      (m) => m.model_id === "claude-sonnet-4-6" && m.metric === "coding_index",
+    );
+    expect(coding?.value).toBeCloseTo(82.0);
+    // gpt-5.5 has no coding index — must be skipped
+    const gptCoding = result.metrics.find(
+      (m) => m.model_id === "gpt-5.5" && m.metric === "coding_index",
+    );
+    expect(gptCoding).toBeUndefined();
+  });
+
   it("maps throughput from median_output_tokens_per_second", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(AA_FIXTURE_ARRAY));
-    const result = await collectArtificialAnalysis();
+    const result = await collectArtificialAnalysis(resolve);
 
     const throughput = result.metrics.find(
       (m) => m.model_id === "claude-sonnet-4-6" && m.metric === "throughput",
@@ -233,7 +257,7 @@ describe("collectArtificialAnalysis — direct array response", () => {
 
   it("maps latency_p50 from median_time_to_first_token_seconds", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(AA_FIXTURE_ARRAY));
-    const result = await collectArtificialAnalysis();
+    const result = await collectArtificialAnalysis(resolve);
 
     const latency = result.metrics.find(
       (m) => m.model_id === "claude-sonnet-4-6" && m.metric === "latency_p50",
@@ -243,7 +267,7 @@ describe("collectArtificialAnalysis — direct array response", () => {
 
   it("skips null metric values gracefully", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(AA_FIXTURE_ARRAY));
-    const result = await collectArtificialAnalysis();
+    const result = await collectArtificialAnalysis(resolve);
 
     // gpt-5.5 has null pricing and null throughput — should not appear
     const gptMetrics = result.metrics.filter((m) => m.model_id === "gpt-5.5");
@@ -255,7 +279,7 @@ describe("collectArtificialAnalysis — direct array response", () => {
 
   it("records unmatched external model IDs", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(AA_FIXTURE_ARRAY));
-    const result = await collectArtificialAnalysis();
+    const result = await collectArtificialAnalysis(resolve);
 
     expect(result.unmatched).toHaveLength(1);
     expect(result.unmatched[0]?.externalId).toBe("completely-unknown-model-abc");
@@ -265,7 +289,7 @@ describe("collectArtificialAnalysis — direct array response", () => {
 describe("collectArtificialAnalysis — wrapped object response", () => {
   it("extracts models from { models: [] } wrapper", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(AA_FIXTURE_WRAPPED));
-    const result = await collectArtificialAnalysis();
+    const result = await collectArtificialAnalysis(resolve);
 
     expect(result.metrics.length).toBeGreaterThan(0);
   });
@@ -274,21 +298,21 @@ describe("collectArtificialAnalysis — wrapped object response", () => {
 describe("collectArtificialAnalysis — error handling", () => {
   it("returns empty result on HTTP error", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: "unauthorized" }, 401));
-    const result = await collectArtificialAnalysis();
+    const result = await collectArtificialAnalysis(resolve);
 
     expect(result.metrics).toHaveLength(0);
   });
 
   it("returns empty result on fetch throw", async () => {
     fetchMock.mockRejectedValueOnce(new Error("network error"));
-    const result = await collectArtificialAnalysis();
+    const result = await collectArtificialAnalysis(resolve);
 
     expect(result.metrics).toHaveLength(0);
   });
 
   it("returns empty result when API key is missing", async () => {
     delete process.env["ARTIFICIALANALYSIS_API_KEY"];
-    const result = await collectArtificialAnalysis();
+    const result = await collectArtificialAnalysis(resolve);
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.metrics).toHaveLength(0);
@@ -296,7 +320,7 @@ describe("collectArtificialAnalysis — error handling", () => {
 
   it("sets x-api-key header", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(AA_FIXTURE_ARRAY));
-    await collectArtificialAnalysis();
+    await collectArtificialAnalysis(resolve);
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const headers = new Headers(init.headers as HeadersInit);

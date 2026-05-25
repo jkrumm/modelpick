@@ -1,13 +1,13 @@
-import type { ScaleLinear } from 'd3-scale'
+import type { ScaleLinear } from "d3-scale";
 
 export type ZoneSpec = {
   /** Lower bound on the anchored axis. Use -Infinity for "bottom of axis". */
-  from: number
+  from: number;
   /** Upper bound. Use Infinity for "top of axis". */
-  to: number
-  fill: string
-  axisSide?: 'left' | 'right'
-}
+  to: number;
+  fill: string;
+  axisSide?: "left" | "right";
+};
 
 /**
  * Full-width horizontal zone backgrounds — one <rect> per zone, spanning
@@ -22,22 +22,22 @@ export function ZoneRects({
   leftScale,
   rightScale,
 }: {
-  zones: ZoneSpec[]
+  zones: ZoneSpec[];
   /** Plot-area width (xMax); rects span from 0 to this. */
-  width: number
-  leftScale: ScaleLinear<number, number>
+  width: number;
+  leftScale: ScaleLinear<number, number>;
   /** Required only when any zone has axisSide='right'. */
-  rightScale?: ScaleLinear<number, number> | null
+  rightScale?: ScaleLinear<number, number> | null;
 }) {
   return (
     <>
       {zones.map((z, i) => {
-        const scale = z.axisSide === 'right' && rightScale ? rightScale : leftScale
-        const [domainMin, domainMax] = scale.domain() as [number, number]
-        const zTo = z.to === Infinity ? domainMax : z.to
-        const zFrom = z.from === -Infinity ? domainMin : z.from
-        const yTop = scale(zTo)
-        const yBottom = scale(zFrom)
+        const scale = z.axisSide === "right" && rightScale ? rightScale : leftScale;
+        const [domainMin, domainMax] = scale.domain() as [number, number];
+        const zTo = z.to === Infinity ? domainMax : z.to;
+        const zFrom = z.from === -Infinity ? domainMin : z.from;
+        const yTop = scale(zTo);
+        const yBottom = scale(zFrom);
         return (
           <rect
             key={`zone-${i}`}
@@ -47,8 +47,8 @@ export function ZoneRects({
             height={yBottom - yTop}
             fill={z.fill}
           />
-        )
+        );
       })}
     </>
-  )
+  );
 }

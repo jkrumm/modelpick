@@ -67,9 +67,7 @@ export async function collectNews(): Promise<NewsCollectResult> {
 
   // Limit to recent models to avoid flooding the feed on the first run.
   const cutoffSecs = Math.floor(Date.now() / 1000) - SIXTY_DAYS_SECS;
-  const recentModels = modelList.filter(
-    (m) => !m.created || m.created >= cutoffSecs,
-  );
+  const recentModels = modelList.filter((m) => !m.created || m.created >= cutoffSecs);
 
   // Dynamic import keeps this module safe to import in test environments
   // where DATABASE_URL is unset and postgres() would throw on module load.
@@ -81,9 +79,7 @@ export async function collectNews(): Promise<NewsCollectResult> {
   for (const model of recentModels) {
     const url = `https://openrouter.ai/models/${model.id}`;
     const reasonable = isReasonable(model.id);
-    const publishedAt = model.created
-      ? new Date(model.created * 1000).toISOString()
-      : null;
+    const publishedAt = model.created ? new Date(model.created * 1000).toISOString() : null;
 
     const wasInserted = await upsertNewsItem({
       title: model.name ?? model.id,

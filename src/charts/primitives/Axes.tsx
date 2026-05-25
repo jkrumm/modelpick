@@ -1,9 +1,9 @@
-import { AxisBottom, AxisLeft, AxisRight, type AxisScale } from '@visx/axis'
-import { useVxTheme } from '../theme'
-import { VX } from '../tokens'
-import { fmtAxisDate } from '../utils/format'
+import { AxisBottom, AxisLeft, AxisRight, type AxisScale } from "@visx/axis";
+import { useVxTheme } from "../theme";
+import { VX } from "../tokens";
+import { fmtAxisDate } from "../utils/format";
 
-type NumericTickFormat = (v: number) => string
+type NumericTickFormat = (v: number) => string;
 
 /** Themed left numeric axis — baked-in theme colors + font size. */
 export function AxisLeftNumeric({
@@ -11,11 +11,11 @@ export function AxisLeftNumeric({
   numTicks = 5,
   tickFormat,
 }: {
-  scale: AxisScale
-  numTicks?: number
-  tickFormat?: NumericTickFormat
+  scale: AxisScale;
+  numTicks?: number;
+  tickFormat?: NumericTickFormat;
 }) {
-  const { axis, axisStroke } = useVxTheme()
+  const { axis, axisStroke } = useVxTheme();
   return (
     <AxisLeft
       scale={scale}
@@ -25,7 +25,7 @@ export function AxisLeftNumeric({
       stroke={axisStroke}
       tickStroke={axisStroke}
     />
-  )
+  );
 }
 
 /** Themed right numeric axis — mirrors AxisLeftNumeric for dual-axis charts. */
@@ -35,13 +35,13 @@ export function AxisRightNumeric({
   numTicks = 5,
   tickFormat,
 }: {
-  scale: AxisScale
+  scale: AxisScale;
   /** Left offset inside the Group (typically xMax). Required since AxisRight needs positioning. */
-  left: number
-  numTicks?: number
-  tickFormat?: NumericTickFormat
+  left: number;
+  numTicks?: number;
+  tickFormat?: NumericTickFormat;
 }) {
-  const { axis, axisStroke } = useVxTheme()
+  const { axis, axisStroke } = useVxTheme();
   return (
     <AxisRight
       left={left}
@@ -52,7 +52,7 @@ export function AxisRightNumeric({
       stroke={axisStroke}
       tickStroke={axisStroke}
     />
-  )
+  );
 }
 
 /** Themed bottom date axis — baked-in smartTicks + DD.MM formatting. */
@@ -61,20 +61,20 @@ export function AxisBottomDate({
   top,
   tickValues,
 }: {
-  scale: AxisScale
-  top: number
-  tickValues: string[]
+  scale: AxisScale;
+  top: number;
+  tickValues: string[];
 }) {
-  const { axis, axisStroke } = useVxTheme()
+  const { axis, axisStroke } = useVxTheme();
   return (
     <AxisBottom
       top={top}
       scale={scale}
       tickValues={tickValues}
       tickFormat={fmtAxisDate}
-      tickLabelProps={{ fill: axis, fontSize: VX.axisFont, textAnchor: 'middle' }}
+      tickLabelProps={{ fill: axis, fontSize: VX.axisFont, textAnchor: "middle" }}
       stroke={axisStroke}
       tickStroke={axisStroke}
     />
-  )
+  );
 }

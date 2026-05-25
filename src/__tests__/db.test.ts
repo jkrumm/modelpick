@@ -12,11 +12,11 @@ import {
   demo,
   newsItem,
 } from "../db/schema.js";
-import { MODEL_SEED } from "../db/seed.js";
+import { IU_CATALOG } from "../db/iu-catalog.js";
 
 describe("schema enum values", () => {
   it("modality has correct values", () => {
-    expect(modalityEnum.enumValues).toEqual(["llm", "tts", "stt"]);
+    expect(modalityEnum.enumValues).toEqual(["llm", "tts", "stt", "image", "embedding"]);
   });
 
   it("residency has correct values", () => {
@@ -24,13 +24,7 @@ describe("schema enum values", () => {
   });
 
   it("category has correct values", () => {
-    expect(categoryEnum.enumValues).toEqual([
-      "fast",
-      "coding",
-      "orchestrator",
-      "tts",
-      "stt",
-    ]);
+    expect(categoryEnum.enumValues).toEqual(["fast", "coding", "orchestrator", "tts", "stt"]);
   });
 
   it("lang has correct values", () => {
@@ -38,11 +32,7 @@ describe("schema enum values", () => {
   });
 
   it("metric source has correct values", () => {
-    expect(metricSourceEnum.enumValues).toEqual([
-      "iu",
-      "openrouter",
-      "artificialanalysis",
-    ]);
+    expect(metricSourceEnum.enumValues).toEqual(["iu", "openrouter", "artificialanalysis"]);
   });
 });
 
@@ -100,16 +90,19 @@ describe("schema table definitions", () => {
   });
 });
 
-describe("model seed", () => {
-  it("has entries for all three modalities", () => {
-    const modalities = new Set(MODEL_SEED.map((m) => m.modality));
+describe("IU catalog", () => {
+  it("is non-empty and spans the expected modalities", () => {
+    expect(IU_CATALOG.length).toBeGreaterThan(50);
+    const modalities = new Set(IU_CATALOG.map((m) => m.modality));
     expect(modalities.has("llm")).toBe(true);
     expect(modalities.has("tts")).toBe(true);
     expect(modalities.has("stt")).toBe(true);
+    expect(modalities.has("image")).toBe(true);
+    expect(modalities.has("embedding")).toBe(true);
   });
 
   it("all entries have required fields", () => {
-    for (const m of MODEL_SEED) {
+    for (const m of IU_CATALOG) {
       expect(m.id).toBeTruthy();
       expect(m.provider).toBeTruthy();
       expect(m.modality).toBeTruthy();
@@ -118,16 +111,14 @@ describe("model seed", () => {
   });
 
   it("has no duplicate ids", () => {
-    const ids = MODEL_SEED.map((m) => m.id);
-    const unique = new Set(ids);
-    expect(unique.size).toBe(ids.length);
+    const ids = IU_CATALOG.map((m) => m.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("contains known IU models", () => {
-    const ids = new Set(MODEL_SEED.map((m) => m.id));
-    expect(ids.has("claude-sonnet-4-6")).toBe(true);
-    expect(ids.has("whisper")).toBe(true);
-    expect(ids.has("tts-hd")).toBe(true);
+  it("contains known IU catalog models", () => {
+    const ids = new Set(IU_CATALOG.map((m) => m.id));
+    expect(ids.has("gpt-image-1")).toBe(true);
     expect(ids.has("gpt-4o-transcribe")).toBe(true);
+    expect(ids.has("claude-opus-4-5-20251101")).toBe(true);
   });
 });

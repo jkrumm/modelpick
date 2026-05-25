@@ -155,7 +155,7 @@ describe("normalizeMetrics", () => {
 describe("scoreModels", () => {
   it("scores a single model as the weighted sum of its dimensions", () => {
     const metrics: ModelMetrics[] = [
-      { model_id: "a", quality: 0.8, cost: 0.6, speed: 0.4 },
+      { model_id: "a", quality: 0.8, coding: 0.8, cost: 0.6, speed: 0.4 },
     ];
     const weights = { quality: 0.5, cost: 0.3, speed: 0.2 };
     const result = scoreModels(metrics, weights);
@@ -165,19 +165,19 @@ describe("scoreModels", () => {
 
   it("treats null dimensions as 0 in scoring", () => {
     const metrics: ModelMetrics[] = [
-      { model_id: "a", quality: 1.0, cost: null, speed: null },
+      { model_id: "a", quality: 1.0, coding: 1.0, cost: null, speed: null },
     ];
     const weights = CATEGORY_WEIGHTS["orchestrator"];
     const result = scoreModels(metrics, weights);
-    // score = 0.70 * 1.0 + 0.15 * 0 + 0.15 * 0 = 0.70
-    expect(result[0]?.score).toBeCloseTo(0.70);
+    // score = 0.88 * 1.0 + 0.04 * 0 + 0.08 * 0 = 0.88
+    expect(result[0]?.score).toBeCloseTo(0.88);
   });
 
   it("returns models sorted highest score first", () => {
     const metrics: ModelMetrics[] = [
-      { model_id: "low", quality: 0.2, cost: 0.2, speed: 0.2 },
-      { model_id: "high", quality: 0.8, cost: 0.8, speed: 0.8 },
-      { model_id: "mid", quality: 0.5, cost: 0.5, speed: 0.5 },
+      { model_id: "low", quality: 0.2, coding: 0.2, cost: 0.2, speed: 0.2 },
+      { model_id: "high", quality: 0.8, coding: 0.8, cost: 0.8, speed: 0.8 },
+      { model_id: "mid", quality: 0.5, coding: 0.5, cost: 0.5, speed: 0.5 },
     ];
     const result = scoreModels(metrics, { quality: 0.4, cost: 0.3, speed: 0.3 });
     expect(result[0]?.model_id).toBe("high");
@@ -189,24 +189,35 @@ describe("scoreModels", () => {
   // model-x: high quality (1.0), low cost (0.0), low speed (0.0)
   // model-y: low quality (0.0), high cost (1.0), high speed (1.0)
   const tradeoffMetrics: ModelMetrics[] = [
-    { model_id: "model-x", quality: 1.0, cost: 0.0, speed: 0.0 },
-    { model_id: "model-y", quality: 0.0, cost: 1.0, speed: 1.0 },
+    { model_id: "model-x", quality: 1.0, coding: 1.0, cost: 0.0, speed: 0.0 },
+    { model_id: "model-y", quality: 0.0, coding: 0.0, cost: 1.0, speed: 1.0 },
   ];
 
   it("quality-heavy weights (orchestrator) favor the high-quality model", () => {
     const scored = scoreModels(tradeoffMetrics, CATEGORY_WEIGHTS["orchestrator"]);
-    // model-x: 0.70*1 + 0.15*0 + 0.15*0 = 0.70
-    // model-y: 0.70*0 + 0.15*1 + 0.15*1 = 0.30
+    // model-x: 0.88*1 + 0.04*0 + 0.08*0 = 0.88
+    // model-y: 0.88*0 + 0.04*1 + 0.08*1 = 0.12
     expect(scored[0]?.model_id).toBe("model-x");
-    expect(scored[0]?.score).toBeCloseTo(0.70);
+    expect(scored[0]?.score).toBeCloseTo(0.88);
+  });
+
+  it("scores on the coding dimension when qualityDim='coding'", () => {
+    // smart generalist vs strong coder: coding dim must flip the winner
+    const metrics: ModelMetrics[] = [
+      { model_id: "generalist", quality: 1.0, coding: 0.3, cost: 0.0, speed: 0.0 },
+      { model_id: "coder", quality: 0.3, coding: 1.0, cost: 0.0, speed: 0.0 },
+    ];
+    const weights = CATEGORY_WEIGHTS["coding"];
+    expect(scoreModels(metrics, weights, "quality")[0]?.model_id).toBe("generalist");
+    expect(scoreModels(metrics, weights, "coding")[0]?.model_id).toBe("coder");
   });
 
   it("speed+cost-heavy weights (fast) favor the fast/cheap model", () => {
     const scored = scoreModels(tradeoffMetrics, CATEGORY_WEIGHTS["fast"]);
-    // model-x: 0.30*1 + 0.30*0 + 0.40*0 = 0.30
-    // model-y: 0.30*0 + 0.30*1 + 0.40*1 = 0.70
+    // model-x: 0.25*1 + 0.40*0 + 0.35*0 = 0.25
+    // model-y: 0.25*0 + 0.40*1 + 0.35*1 = 0.75
     expect(scored[0]?.model_id).toBe("model-y");
-    expect(scored[0]?.score).toBeCloseTo(0.70);
+    expect(scored[0]?.score).toBeCloseTo(0.75);
   });
 
   it("custom weight override changes ranking", () => {
@@ -215,7 +226,7 @@ describe("scoreModels", () => {
     // model-x: 0.1*1 + 0.1*0 + 0.8*0 = 0.10
     // model-y: 0.1*0 + 0.1*1 + 0.8*1 = 0.90
     expect(scored[0]?.model_id).toBe("model-y");
-    expect(scored[0]?.score).toBeCloseTo(0.90);
+    expect(scored[0]?.score).toBeCloseTo(0.9);
   });
 
   it("all five categories have predefined weights that sum to 1", () => {

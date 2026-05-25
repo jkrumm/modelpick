@@ -9,15 +9,20 @@ import {
   Progress,
   SegmentedControl,
   SimpleGrid,
-  Slider,
   Stack,
   Switch,
   Text,
   Title,
   Tooltip,
 } from "@mantine/core";
-import { IconBolt, IconBrain, IconCode, IconMicrophone, IconSpeakerphone } from "@tabler/icons-react";
-import { scoreModels, CATEGORY_WEIGHTS } from "~/server/scoring/score";
+import {
+  IconBolt,
+  IconBrain,
+  IconCode,
+  IconMicrophone,
+  IconSpeakerphone,
+} from "@tabler/icons-react";
+import { scoreModels, CATEGORY_WEIGHTS, CATEGORY_MIN_QUALITY } from "~/server/scoring/score";
 import type { CategoryWeights } from "~/server/scoring/score";
 import type { ModelMetrics } from "~/server/scoring/normalize";
 import type { RecommendationCategory } from "~/db/schema";
@@ -79,12 +84,17 @@ function getTopModels(
   category: RecommendationCategory,
   weights: CategoryWeights,
   iuOnly: boolean,
+  currentOnly: boolean,
+  currentIds: Set<string>,
   residencyFilter: "all" | "eu" | "us",
 ) {
   const targetModality = CATEGORY_MODALITY[category];
+  const minQuality = CATEGORY_MIN_QUALITY[category];
   const filtered = modelMetrics.filter((mm) => {
     const model = modelMap.get(mm.model_id);
     if (model?.modality !== targetModality) return false;
+    if (currentOnly && !currentIds.has(mm.model_id)) return false;
+    if ((mm.quality ?? 0) < minQuality) return false;
     if (iuOnly) {
       const p = probes[mm.model_id];
       if (p === undefined || !p.accessible) return false;
@@ -95,31 +105,33 @@ function getTopModels(
     }
     return true;
   });
-  return scoreModels(filtered, weights);
+  return scoreModels(filtered, weights, category === "coding" ? "coding" : "quality");
 }
 
 function CategoryCard({
   category,
   data,
-  weights,
   iuOnly,
+  currentOnly,
   residencyFilter,
 }: {
   category: RecommendationCategory;
   data: DeciderData;
-  weights: CategoryWeights;
   iuOnly: boolean;
+  currentOnly: boolean;
   residencyFilter: "all" | "eu" | "us";
 }) {
-  const modelMap = useMemo(
-    () => new Map(data.models.map((m) => [m.id, m])),
-    [data.models],
-  );
+  // Each category ranks with its own weight profile — a single shared slider would
+  // make every card pick the same model (and mismatch the persisted rationale).
+  const weights = CATEGORY_WEIGHTS[category];
+  const modelMap = useMemo(() => new Map(data.models.map((m) => [m.id, m])), [data.models]);
 
   const modalityMap = useMemo(
     () => new Map(data.models.map((m) => [m.id, { modality: m.modality }])),
     [data.models],
   );
+
+  const currentIds = useMemo(() => new Set(data.currentIds), [data.currentIds]);
 
   const topModels = useMemo(
     () =>
@@ -130,17 +142,38 @@ function CategoryCard({
         category,
         weights,
         iuOnly,
+        currentOnly,
+        currentIds,
         residencyFilter,
       ),
-    [data.modelMetrics, data.probes, modalityMap, category, weights, iuOnly, residencyFilter],
+    [
+      data.modelMetrics,
+      data.probes,
+      modalityMap,
+      category,
+      weights,
+      iuOnly,
+      currentOnly,
+      currentIds,
+      residencyFilter,
+    ],
   );
 
   const top = topModels[0];
   const runnerUps = topModels.slice(1, 3);
   const topModel = top !== undefined ? modelMap.get(top.model_id) : undefined;
-  const topProbe = top !== undefined ? data.probes[top.model_id] : undefined;
 
   const dbRec = data.recommendations.find((r) => r.category === category);
+
+  // Audio categories (tts/stt) have no leaderboard metrics, so getTopModels yields
+  // nothing — fall back to the persisted recommendation, which is chosen by the
+  // probe-based audio ranking in the recommender. (For LLM categories an empty
+  // result means the filters excluded everything, so keep the empty message.)
+  const isAudio = CATEGORY_MODALITY[category] !== "llm";
+  const fallbackModel =
+    isAudio && top === undefined && dbRec !== undefined ? modelMap.get(dbRec.model_id) : undefined;
+  const shownId = top?.model_id ?? fallbackModel?.id;
+  const shownProbe = shownId !== undefined ? data.probes[shownId] : undefined;
 
   return (
     <Paper p="md" withBorder style={{ height: "100%" }}>
@@ -153,17 +186,17 @@ function CategoryCard({
             </Text>
           </Group>
           <Group gap={4}>
-            {topProbe?.residency === "eu" && (
+            {shownProbe?.residency === "eu" && (
               <Badge color="blue" size="xs" variant="light">
                 EU
               </Badge>
             )}
-            {topProbe?.residency === "us" && (
+            {shownProbe?.residency === "us" && (
               <Badge color="orange" size="xs" variant="light">
                 US
               </Badge>
             )}
-            {topProbe?.accessible === true && (
+            {shownProbe?.accessible === true && (
               <Badge color="green" size="xs" variant="light">
                 IU
               </Badge>
@@ -190,9 +223,7 @@ function CategoryCard({
 
             <Text size="xs" c="dimmed" style={{ fontStyle: "italic", lineHeight: 1.4 }}>
               Score: {(top.score * 100).toFixed(1)}
-              {dbRec !== undefined && dbRec.model_id === top.model_id && (
-                <> — default pick</>
-              )}
+              {dbRec !== undefined && dbRec.model_id === top.model_id && <> — default pick</>}
             </Text>
 
             {dbRec?.rationale !== undefined && dbRec?.rationale !== null && (
@@ -225,6 +256,33 @@ function CategoryCard({
               </>
             )}
           </>
+        ) : fallbackModel !== undefined && dbRec !== undefined ? (
+          <>
+            <Box>
+              <Text fw={700} size="md" style={{ lineHeight: 1.2 }}>
+                {fallbackModel.display_name}
+              </Text>
+              <Text size="xs" c="dimmed">
+                {fallbackModel.provider}
+              </Text>
+            </Box>
+
+            {shownProbe?.latency_ms !== null && shownProbe?.latency_ms !== undefined && (
+              <Text size="xs" c="dimmed">
+                Probe latency {Math.round(shownProbe.latency_ms)}ms
+              </Text>
+            )}
+
+            <Text size="xs" c="dimmed" style={{ fontStyle: "italic" }}>
+              Default pick
+            </Text>
+
+            {dbRec.rationale !== null && dbRec.rationale !== undefined && (
+              <Text size="xs" c="dimmed" style={{ lineHeight: 1.5 }}>
+                {dbRec.rationale}
+              </Text>
+            )}
+          </>
         ) : (
           <Text size="sm" c="dimmed">
             No eligible models with current filters
@@ -235,110 +293,14 @@ function CategoryCard({
   );
 }
 
-function WeightSliders({
-  weights,
-  onChange,
-}: {
-  weights: CategoryWeights;
-  onChange: (w: CategoryWeights) => void;
-}) {
-  const total = weights.quality + weights.cost + weights.speed;
-  const isDefault =
-    Math.abs(weights.quality - 0.5) < 0.01 &&
-    Math.abs(weights.cost - 0.3) < 0.01 &&
-    Math.abs(weights.speed - 0.2) < 0.01;
-
-  function update(key: keyof CategoryWeights, val: number) {
-    onChange({ ...weights, [key]: val });
-  }
-
-  return (
-    <Stack gap="xs">
-      <Group justify="space-between">
-        <Text size="sm" fw={500}>
-          Weights
-        </Text>
-        {!isDefault && (
-          <Text
-            size="xs"
-            c="blue"
-            style={{ cursor: "pointer" }}
-            onClick={() =>
-              onChange({ quality: 0.5, cost: 0.3, speed: 0.2 })
-            }
-          >
-            Reset
-          </Text>
-        )}
-      </Group>
-      <Group gap="md" grow>
-        <Box>
-          <Text size="xs" c="dimmed" mb={4}>
-            Quality — {Math.round(weights.quality * 100)}%
-          </Text>
-          <Slider
-            value={weights.quality}
-            onChange={(v) => update("quality", v)}
-            min={0}
-            max={1}
-            step={0.05}
-            color={VX.series.quality}
-            size="sm"
-            label={null}
-          />
-        </Box>
-        <Box>
-          <Text size="xs" c="dimmed" mb={4}>
-            Cost — {Math.round(weights.cost * 100)}%
-          </Text>
-          <Slider
-            value={weights.cost}
-            onChange={(v) => update("cost", v)}
-            min={0}
-            max={1}
-            step={0.05}
-            color={VX.series.cost}
-            size="sm"
-            label={null}
-          />
-        </Box>
-        <Box>
-          <Text size="xs" c="dimmed" mb={4}>
-            Speed — {Math.round(weights.speed * 100)}%
-          </Text>
-          <Slider
-            value={weights.speed}
-            onChange={(v) => update("speed", v)}
-            min={0}
-            max={1}
-            step={0.05}
-            color={VX.series.speed}
-            size="sm"
-            label={null}
-          />
-        </Box>
-      </Group>
-      <Text size="xs" c="dimmed">
-        Total: {Math.round(total * 100)}% (weights are independent — not normalized)
-      </Text>
-    </Stack>
-  );
-}
-
-const CATEGORIES: RecommendationCategory[] = [
-  "fast",
-  "coding",
-  "orchestrator",
-  "tts",
-  "stt",
-];
+const CATEGORIES: RecommendationCategory[] = ["fast", "coding", "orchestrator", "tts", "stt"];
 
 function DeciderPage() {
   const data = Route.useLoaderData();
   const snapshotDate = data.recommendations[0]?.snapshot_date;
 
-  const [weights, setWeights] = useState<CategoryWeights>(CATEGORY_WEIGHTS.orchestrator);
   const [iuOnly, setIuOnly] = useState(true);
+  const [currentOnly, setCurrentOnly] = useState(true);
   const [residencyFilter, setResidencyFilter] = useState<"all" | "eu" | "us">("all");
 
   return (
@@ -365,6 +327,14 @@ function DeciderPage() {
                 size="sm"
               />
             </Tooltip>
+            <Tooltip label="Hide dated pins and models no longer tracked on leaderboards">
+              <Switch
+                label="Current only"
+                checked={currentOnly}
+                onChange={(e) => setCurrentOnly(e.currentTarget.checked)}
+                size="sm"
+              />
+            </Tooltip>
             <Box>
               <Text size="xs" c="dimmed" mb={4}>
                 Residency
@@ -381,7 +351,6 @@ function DeciderPage() {
               />
             </Box>
           </Group>
-          <WeightSliders weights={weights} onChange={setWeights} />
         </Stack>
       </Paper>
 
@@ -391,8 +360,8 @@ function DeciderPage() {
             key={cat}
             category={cat}
             data={data}
-            weights={weights}
             iuOnly={iuOnly}
+            currentOnly={currentOnly}
             residencyFilter={residencyFilter}
           />
         ))}

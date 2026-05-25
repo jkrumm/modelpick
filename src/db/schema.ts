@@ -135,6 +135,28 @@ export const recommendation = mp.table(
   ],
 );
 
+// ── My Stack (the models I have actually decided to use) ─────────────────────
+// One row per category: my deliberate pick, kept separate from the algorithmic
+// `recommendation`. The /stack page diffs the two to flag when a better model
+// has appeared and my choice is due for review.
+
+export const stackChoice = mp.table(
+  "stack_choice",
+  {
+    id: serial("id").primaryKey(),
+    category: categoryEnum("category").notNull(),
+    model_id: text("model_id")
+      .notNull()
+      .references(() => models.id, { onDelete: "cascade" }),
+    // Environment caveat where the real-world pick differs from the IU model id,
+    // e.g. "GPT-5.5 via IU for agents; Opus 4.7 in Claude Code" or "Charon voice".
+    env_note: text("env_note"),
+    rationale: text("rationale"),
+    decided_at: text("decided_at").notNull(), // yyyy-mm-dd
+  },
+  (t) => [uniqueIndex("uq_stack_choice_category").on(t.category)],
+);
+
 // ── Audio demos (TTS/STT, curated by admin) ──────────────────────────────────
 
 export const demo = mp.table(
@@ -148,6 +170,8 @@ export const demo = mp.table(
     text_content: text("text_content").notNull(),
     lang: langEnum("lang").notNull().default("en"),
     preset: text("preset"),
+    /** Gemini prebuilt voice name used for this demo (null for OpenAI-route models). */
+    voice: text("voice"),
     audio_path: text("audio_path"),
     public: boolean("public").notNull().default(false),
     created_at: timestamp("created_at", {
@@ -199,6 +223,8 @@ export type ModelInsert = typeof models.$inferInsert;
 export type CapabilityProbe = typeof capabilityProbe.$inferSelect;
 export type MetricSnapshot = typeof metricSnapshot.$inferSelect;
 export type Recommendation = typeof recommendation.$inferSelect;
+export type StackChoice = typeof stackChoice.$inferSelect;
+export type StackChoiceInsert = typeof stackChoice.$inferInsert;
 export type Demo = typeof demo.$inferSelect;
 export type NewsItem = typeof newsItem.$inferSelect;
 

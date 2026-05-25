@@ -1,4 +1,4 @@
-import type { MouseEventHandler } from 'react'
+import type { MouseEventHandler } from "react";
 
 /** Transparent <rect> that captures mouse events for tooltip + crosshair sync. */
 export function HoverOverlay({
@@ -7,10 +7,10 @@ export function HoverOverlay({
   onMove,
   onLeave,
 }: {
-  width: number
-  height: number
-  onMove: MouseEventHandler<SVGRectElement>
-  onLeave: MouseEventHandler<SVGRectElement>
+  width: number;
+  height: number;
+  onMove: MouseEventHandler<SVGRectElement>;
+  onLeave: MouseEventHandler<SVGRectElement>;
 }) {
   return (
     <rect
@@ -20,5 +20,5 @@ export function HoverOverlay({
       onMouseMove={onMove}
       onMouseLeave={onLeave}
     />
-  )
+  );
 }

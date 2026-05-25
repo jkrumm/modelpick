@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { checkAdminKey, generateTts, generateStt } from "../server/audio/generate.js";
+import { checkAdminKey, generateTts, generateStt, pcmToWav } from "../server/audio/generate.js";
 
 const fetchMock = vi.fn<typeof fetch>();
 vi.stubGlobal("fetch", fetchMock);
@@ -30,6 +30,7 @@ function makeFetchResponse(
 beforeEach(() => {
   fetchMock.mockReset();
   process.env["IU_OPENAI_BASE_URL"] = "https://iu-test.example/openai/v1";
+  process.env["IU_GEMINI_BASE_URL"] = "https://iu-test.example/gemini/v1beta";
   process.env["IU_API_KEY"] = "test-key";
   process.env["ADMIN_KEY"] = "secret-admin";
 });
@@ -110,13 +111,94 @@ describe("generateTts", () => {
   });
 
   it("includes numeric latency_ms in result", async () => {
-    fetchMock.mockResolvedValueOnce(
-      makeFetchResponse(200, new ArrayBuffer(512), {}, true),
-    );
+    fetchMock.mockResolvedValueOnce(makeFetchResponse(200, new ArrayBuffer(512), {}, true));
 
     const result = await generateTts("tts", "Test");
     expect(result.latency_ms).toBeTypeOf("number");
     expect(result.latency_ms).toBeGreaterThanOrEqual(0);
+  });
+
+  it("reports mp3 ext for OpenAI-route models", async () => {
+    fetchMock.mockResolvedValueOnce(makeFetchResponse(200, new ArrayBuffer(512), {}, true));
+    const result = await generateTts("tts-hd", "Test");
+    expect(result.ext).toBe("mp3");
+  });
+});
+
+// ── generateTts (Gemini native route) ───────────────────────────────────────────
+
+describe("generateTts — Gemini", () => {
+  const pcmBase64 = Buffer.from(new Uint8Array(64)).toString("base64");
+
+  function geminiResponse(): Response {
+    return makeFetchResponse(200, {
+      candidates: [
+        {
+          content: {
+            parts: [
+              { inlineData: { mimeType: "audio/L16;codec=pcm;rate=24000", data: pcmBase64 } },
+            ],
+          },
+        },
+      ],
+    });
+  }
+
+  it("routes to native :generateContent with an AUDIO response modality + style prompt", async () => {
+    fetchMock.mockResolvedValueOnce(geminiResponse());
+
+    const result = await generateTts("gemini-3.1-flash-tts-preview", "Guten Morgen.", {
+      style: "Sprich ruhig",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(
+      "https://iu-test.example/gemini/v1beta/models/gemini-3.1-flash-tts-preview:generateContent",
+    );
+    const body = JSON.parse(init.body as string);
+    expect(body.generationConfig.responseModalities).toEqual(["AUDIO"]);
+    expect(body.contents[0].parts[0].text).toBe("Sprich ruhig: Guten Morgen.");
+    expect(result.ext).toBe("wav");
+  });
+
+  it("returns a playable WAV (RIFF header) wrapping the PCM payload", async () => {
+    fetchMock.mockResolvedValueOnce(geminiResponse());
+    const result = await generateTts("gemini-3.1-flash-tts-preview", "hi");
+    const header = Buffer.from(result.audioBuffer.slice(0, 4)).toString("ascii");
+    expect(header).toBe("RIFF");
+    expect(result.audioBuffer.byteLength).toBe(44 + 64); // header + PCM
+  });
+
+  it("uses the default voice when none is supplied", async () => {
+    fetchMock.mockResolvedValueOnce(geminiResponse());
+    await generateTts("gemini-3.1-flash-tts-preview", "hi");
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName).toBe(
+      "Charon",
+    );
+  });
+
+  it("throws when Gemini returns no audio data", async () => {
+    fetchMock.mockResolvedValueOnce(makeFetchResponse(200, { candidates: [] }));
+    await expect(generateTts("gemini-3.1-flash-tts-preview", "hi")).rejects.toThrow(
+      "no audio data",
+    );
+  });
+});
+
+// ── pcmToWav ─────────────────────────────────────────────────────────────────
+
+describe("pcmToWav", () => {
+  it("prepends a 44-byte RIFF/WAVE header with the right sample rate", () => {
+    const pcm = new Uint8Array(100);
+    const wav = pcmToWav(pcm, 24000, 1, 16);
+    const view = new DataView(wav);
+    expect(Buffer.from(wav.slice(0, 4)).toString("ascii")).toBe("RIFF");
+    expect(Buffer.from(wav.slice(8, 12)).toString("ascii")).toBe("WAVE");
+    expect(view.getUint32(24, true)).toBe(24000); // sample rate
+    expect(view.getUint16(22, true)).toBe(1); // channels
+    expect(wav.byteLength).toBe(44 + 100);
   });
 });
 
@@ -124,9 +206,7 @@ describe("generateTts", () => {
 
 describe("generateStt", () => {
   it("POSTs to /audio/transcriptions as multipart with .mp3 filename", async () => {
-    fetchMock.mockResolvedValueOnce(
-      makeFetchResponse(200, { text: "hello world" }),
-    );
+    fetchMock.mockResolvedValueOnce(makeFetchResponse(200, { text: "hello world" }));
 
     const result = await generateStt("whisper", "/tmp/test.mp3");
 
@@ -151,9 +231,7 @@ describe("generateStt", () => {
   });
 
   it("throws on non-2xx status", async () => {
-    fetchMock.mockResolvedValueOnce(
-      makeFetchResponse(400, { error: { message: "invalid file" } }),
-    );
+    fetchMock.mockResolvedValueOnce(makeFetchResponse(400, { error: { message: "invalid file" } }));
 
     await expect(generateStt("whisper", "/tmp/test.mp3")).rejects.toThrow(
       "STT transcription failed: HTTP 400",
@@ -197,9 +275,7 @@ describe("groupBySource", () => {
   });
 
   it("falls back to text prefix when audio_path is null", () => {
-    const demos: DemoLike[] = [
-      { id: 1, audio_path: null, text_content: "hello" },
-    ];
+    const demos: DemoLike[] = [{ id: 1, audio_path: null, text_content: "hello" }];
 
     const groups = groupBySource(demos);
     expect(groups.has("text:hello")).toBe(true);
