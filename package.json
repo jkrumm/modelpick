@@ -13,8 +13,7 @@
     "format": "oxfmt 'src/**' --write",
     "format:check": "oxfmt 'src/**' --check",
     "test": "vitest run",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "bun run scripts/migrate.ts",
+    "db:push": "drizzle-kit push",
     "db:seed": "bun run scripts/seed-run.ts",
     "demos:seed": "bun run scripts/seed-demos.ts",
     "probe": "bun run scripts/probe.ts",
@@ -24,6 +23,7 @@
     "refresh": "bun run scripts/refresh.ts"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.3",
     "@mantine/core": "^9.2.1",
     "@mantine/hooks": "^9.2.1",
     "@tabler/icons-react": "^3.44.0",
@@ -39,7 +39,6 @@
     "@visx/shape": "^4.0.0-alpha.11",
     "@visx/threshold": "^4.0.0-alpha.11",
     "drizzle-orm": "^0.45.2",
-    "postgres": "^3.4.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",

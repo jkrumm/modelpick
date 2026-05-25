@@ -1,6 +1,6 @@
 ---
 name: update-iu-models
-description: Refresh the IU model catalog in modelpick from a check-key portal HTML export — parse, diff, migrate, seed, optionally probe, and commit the snapshot. Trigger when the user mentions a new IU model list, the check-key page (ue-self-service.app.iu-it.org/check-key), an HTML/export they saved, or that the modelpick catalog looks stale or missing recent models.
+description: Refresh the IU model catalog in modelpick from a check-key portal HTML export — parse, diff, sync, seed, optionally probe, and commit the snapshot. Trigger when the user mentions a new IU model list, the check-key page (ue-self-service.app.iu-it.org/check-key), an HTML/export they saved, or that the modelpick catalog looks stale or missing recent models.
 ---
 
 # Update IU Models
@@ -33,11 +33,10 @@ Inline skill — orchestrate in the main session, keep output tight.
    Summarize **added** and **removed** model ids. New families/flagships are the interesting
    part — call them out (they may warrant `/investigate-models` and a My Stack review).
 
-4. **Apply to DB (if a DB is available).** The catalog snapshot is enough for build/tests,
-   but to reflect changes live:
+4. **Apply to DB.** The catalog snapshot is enough for build/tests, but to reflect changes in
+   the local SQLite file:
    ```bash
-   make db-up         # if Postgres isn't running
-   bun run db:migrate # applies any pending hand-written migrations
+   bun run db:push    # syncs schema → modelpick.db (only needed after a schema.ts change)
    bun run db:seed    # upserts models + My Stack
    ```
 
@@ -48,12 +47,12 @@ Inline skill — orchestrate in the main session, keep output tight.
    ```
    Skip unless the user wants live access data now (the daily `refresh` cron does this anyway).
 
-6. **Commit.** Stage the regenerated snapshot (and any new migration) and commit:
+6. **Commit.** Stage the regenerated snapshot and commit:
    `feat(iu): refresh model catalog from portal export`. Don't bundle unrelated changes.
 
 ## Notes
 
-- **Never run `bun run db:generate`** — modelpick uses hand-written idempotent migrations; the
-  generator corrupts the drizzle journal. See CLAUDE.md → Migrations.
+- Schema changes sync with `bun run db:push` (`drizzle-kit push`) — there is no migration
+  folder. See CLAUDE.md → Database / schema changes.
 - If new flagship models appeared, suggest running `/investigate-models` to check whether any
   My Stack pick is now outdated.

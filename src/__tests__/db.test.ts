@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
-  modalityEnum,
-  residencyEnum,
-  categoryEnum,
-  langEnum,
-  metricSourceEnum,
+  MODALITY,
+  RESIDENCY,
+  CATEGORY,
+  LANG,
+  METRIC_SOURCE,
   models,
   capabilityProbe,
   metricSnapshot,
@@ -16,23 +16,23 @@ import { IU_CATALOG } from "../db/iu-catalog.js";
 
 describe("schema enum values", () => {
   it("modality has correct values", () => {
-    expect(modalityEnum.enumValues).toEqual(["llm", "tts", "stt", "image", "embedding"]);
+    expect(MODALITY).toEqual(["llm", "tts", "stt", "image", "embedding"]);
   });
 
   it("residency has correct values", () => {
-    expect(residencyEnum.enumValues).toEqual(["eu", "us", "unknown"]);
+    expect(RESIDENCY).toEqual(["eu", "us", "unknown"]);
   });
 
   it("category has correct values", () => {
-    expect(categoryEnum.enumValues).toEqual(["fast", "coding", "orchestrator", "tts", "stt"]);
+    expect(CATEGORY).toEqual(["fast", "coding", "orchestrator", "tts", "stt"]);
   });
 
   it("lang has correct values", () => {
-    expect(langEnum.enumValues).toEqual(["de", "en"]);
+    expect(LANG).toEqual(["de", "en"]);
   });
 
   it("metric source has correct values", () => {
-    expect(metricSourceEnum.enumValues).toEqual(["iu", "openrouter", "artificialanalysis"]);
+    expect(METRIC_SOURCE).toEqual(["iu", "openrouter", "artificialanalysis"]);
   });
 });
 

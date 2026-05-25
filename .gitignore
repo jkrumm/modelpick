@@ -7,6 +7,12 @@ secrets/
 *.key
 *.pem
 
+# Local SQLite database (libsql) + its WAL/SHM sidecars
+modelpick.db
+modelpick.db-*
+*.sqlite
+*.sqlite-*
+
 # Dependencies / build
 node_modules/
 dist/
@@ -26,8 +32,3 @@ public/demos/*.wav
 .DS_Store
 .idea/
 .vscode/
-
-# RALPH loop state/logs (scaffold + prompts ARE tracked)
-.ralph-tasks.json
-.ralph-logs/
-.ralph-secrets.env

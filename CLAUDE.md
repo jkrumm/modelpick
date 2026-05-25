@@ -9,7 +9,8 @@ records the models I have actually committed to. It is the single source of trut
 choice — rationale that used to live scattered in `dotfiles` now consolidates here (see
 `docs/decisions/`).
 
-Public, daily-refreshed, one-person curation. Not production-critical.
+Local-only, one-person curation. Not deployed, not production-critical. All state lives in a
+single SQLite file (`modelpick.db`, gitignored).
 
 ## Stack
 
@@ -17,9 +18,9 @@ Public, daily-refreshed, one-person curation. Not production-critical.
   `createServerFn` in colocated `-*-server-fns.ts` files (no separate API).
 - **Mantine** UI + **visx** charts (charts follow the global `visx-charts` rule:
   `ChartCard`/`ChartLegend`/`ChartTooltip` primitives, `useVxTheme()`, no raw hex).
-- **Drizzle ORM + Postgres**, schema in `src/db/schema.ts` (pg schema `modelpick`).
-- Secrets via 1Password `op run`; Docker + Cloudflare tunnel + RollHook deploy.
-- Use **Makefile targets** (`make up`, `make dev`, `make db-up`) — never raw docker.
+- **Drizzle ORM + local SQLite** (libsql, `@libsql/client`), schema in `src/db/schema.ts`.
+  The driver (`drizzle-orm/libsql`) runs under both node (the SSR server) and bun (the scripts).
+- **Makefile targets**: `make dev`, `make build`, `make db-push`, `make db-seed`.
 
 ## The category model
 
@@ -38,17 +39,18 @@ actually changes. Current picks: fast `gpt-5.4-nano`, coding `Kimi-K2.6`, orches
 `GPT-5.5` (Opus 4.7 in Claude Code), tts `gemini-3.1-flash-tts-preview` (Charon),
 stt `gpt-4o-transcribe`.
 
-## Migrations — IMPORTANT
+## Database / schema changes
 
-Migrations are **hand-written idempotent SQL** in `drizzle/NNNN_name.sql`, applied in
-filename order by the custom `scripts/migrate.ts` (tracks applied files by name-hash in
-`__drizzle_migrations`). The drizzle-kit journal/meta snapshots are **vestigial**.
+`src/db/schema.ts` is the single source of truth; there is **no migration folder**. The schema
+syncs to the SQLite file with `bun run db:push` (`drizzle-kit push`, dialect `sqlite`).
 
-- **NEVER run `bun run db:generate`** — it rewrites `drizzle/meta/_journal.json` from a stale
-  0000 baseline and re-bundles already-applied changes, corrupting the migration state.
-- To add a table/column: edit `schema.ts`, then **hand-author** the next `drizzle/NNNN_*.sql`
-  using `IF NOT EXISTS` / inline FKs (match `0001`–`0003`). Apply with `bun run db:migrate`.
+- To add/change a table or column: edit `schema.ts`, then run `bun run db:push` — it diffs the
+  schema against `modelpick.db` and applies the change. No hand-written SQL, no `db:generate`.
+- For a clean rebuild: `rm modelpick.db && bun run db:push && bun run db:seed`.
 - Seed with `bun run db:seed` (models + my stack), demos with `bun run demos:seed`.
+- SQLite has no native enums — they're `text({ enum: [...] })` with value tuples (`MODALITY`,
+  `CATEGORY`, …) exported from `schema.ts`. Booleans are `integer({ mode: "boolean" })`;
+  timestamps are text (`CURRENT_TIMESTAMP`), which sort lexically.
 
 ## IU model catalog — how it stays current
 
@@ -61,7 +63,7 @@ verifies real access and residency.
 
 ## Daily refresh pipeline
 
-`bun run refresh` (cron, VPS) runs `scripts/refresh.ts`: probe access → collect external
+`bun run refresh` runs `scripts/refresh.ts` locally: probe access → collect external
 metrics (OpenRouter, ArtificialAnalysis) → recommend (re-score + persist picks + rationale)
 → news. Steps are independent; one failure doesn't abort the rest. Green tests ≠ working
 pipeline — confirm against live data after changes.
@@ -72,7 +74,7 @@ Two skills live in `.claude/skills/` and load only inside this repo. **Proactive
 them** when the situation matches — I rarely remember to invoke them by name:
 
 - **`/update-iu-models`** — refresh the IU catalog from a check-key HTML export (import →
-  diff → migrate → seed → optional probe → commit snapshot). Trigger when I mention a new
+  diff → push → seed → optional probe → commit snapshot). Trigger when I mention a new
   IU model list, the check-key page, an export/HTML I saved, or that models look stale.
 - **`/investigate-models`** — analyze catalog + metrics to recommend the optimal model for a
   use-case, and surface My Stack drift. Trigger when I ask "which model for X", "is there

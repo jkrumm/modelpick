@@ -1,24 +1,21 @@
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import postgres from "postgres";
-import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema.js";
 
-const DATABASE_URL = process.env["DATABASE_URL"] ?? "";
+// Local SQLite file (libsql). Works under both node (the SSR server) and bun
+// (the scripts). Override with DATABASE_URL=file:/abs/path.db if needed.
+const url = process.env["DATABASE_URL"] ?? "file:modelpick.db";
 
-export const client = postgres(DATABASE_URL);
-export const db = drizzle(client, { schema });
+const sqlite = createClient({ url });
+export const db = drizzle(sqlite, { schema });
 
-const moduleDir = dirname(fileURLToPath(import.meta.url));
-// In dev: src/db/ → ../../drizzle; in built output the path resolves at runtime
-const migrationsFolder = join(moduleDir, "../../drizzle");
-
-export async function runMigrations(): Promise<void> {
-  const migrationClient = postgres(DATABASE_URL, { max: 1 });
-  await migrate(drizzle(migrationClient), {
-    migrationsFolder,
-    migrationsSchema: "modelpick",
-  });
-  await migrationClient.end();
-}
+// Scripts call `await client.end()` to release the connection before the
+// process exits — keep that name as a thin, idempotent shim over the client.
+let closed = false;
+export const client = {
+  end: async (): Promise<void> => {
+    if (closed) return;
+    closed = true;
+    sqlite.close();
+  },
+};

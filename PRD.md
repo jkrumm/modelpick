@@ -4,8 +4,13 @@
 > models *you actually have access to* (IU unified endpoint), cross-checked against external
 > leaderboards, plus an interactive audio playground for trialling and curating voice demos.
 
-Status: planned. Author: Johannes. Date: 2026-05-24. Target: new public GitHub repo `modelpick`
-(`master`), deployed to the VPS at `modelpick.jkrumm.com`. Vibe project — not production-critical.
+Status: built. Author: Johannes. Date: 2026-05-24. Public GitHub repo `modelpick` (`master`).
+Vibe project — not production-critical.
+
+> **Pivot (2026-05-25):** dropped the original VPS/Postgres/RollHook deploy trajectory. modelpick
+> is now **local-only** — a single SQLite file (`modelpick.db`), run on the Mac, no docker, no CI,
+> no public hosting. The persistence/deploy details below are superseded by this note; the product
+> vision and decider/scoring design still hold.
 
 ---
 
@@ -33,15 +38,15 @@ your own criteria → a clear recommendation per category, with charts and an au
 4. **External cross-check without scraping.** Pull structured rankings/pricing from aggregator APIs
    (OpenRouter; artificialanalysis if it exposes an API) and normalize into one schema alongside the IU
    catalog. No fragile HTML scraping in v1.
-5. **Daily refresh + cached re-render.** A morning cron gathers data, writes a dated snapshot to
-   Postgres, and re-renders the public pages. Trend charts read the snapshot history.
+5. **Daily refresh.** A local run gathers data and writes a dated snapshot to SQLite. Trend charts
+   read the snapshot history.
 6. **Model news** — surface notable *reasonable* new model releases (filtered, not a firehose).
 7. **Audio demos as static assets.** Public users hear *pre-computed* TTS/STT demos served as static
    audio (no IU token spend, no key exposure on the public path). Admin (you) can generate fresh demos
    live, configure texts/emotions, and curate which demos appear publicly.
 8. **Charts** reuse the Argo visx primitive system (ChartCard / ChartLegend / ChartTooltip / axes /
    tokens) — consistent, theme-aware, no raw hex.
-9. **One-command local bring-up** (`make up`) and a clean VPS deploy via rollhook + Cloudflare tunnel.
+9. **One-command local bring-up** (`make db-push && make db-seed && make dev`).
 
 ## Non-goals
 
@@ -68,11 +73,11 @@ your own criteria → a clear recommendation per category, with charts and an au
   (rankings/pricing/context), (c) **artificialanalysis API** (quality/speed/price — confirmed to exist:
   `artificialanalysis.ai/api-reference`). A `source` + `confidence` field per metric; never trust a
   single source. Keys: `op://vps/modelpick` (also in gitignored `.env`).
-- **Persistence:** **reuse the existing VPS Postgres** (new `modelpick` database, Drizzle migrations).
-  Local dev points at the same instance over the tunnel/SSH, or a throwaway local docker Postgres.
-- **Daily refresh:** a cron-triggered job runs the collectors, writes a dated snapshot, recomputes
-  scores + recommendations, generates/refreshes the LLM rationale blurbs, and triggers re-render of the
-  prerendered public pages. Snapshots give the trend charts their history.
+- **Persistence:** **local SQLite** (`modelpick.db` via libsql), schema synced with `drizzle-kit
+  push` from `src/db/schema.ts`. No migration folder, no DB server.
+- **Daily refresh:** a local job (`bun run refresh`) runs the collectors, writes a dated snapshot,
+  recomputes scores + recommendations, and generates/refreshes the LLM rationale blurbs. Snapshots
+  give the trend charts their history.
 - **Recommender:** deterministic weighted score over normalized metrics
   (`score = w_quality·Q + w_cost·C + w_speed·S`, weights adjustable in the UI), filtered to
   IU-available; a cheap fast model (e.g. `gpt-4o-mini` / `claude-haiku-4-5-eu`) writes a 1–2 sentence
@@ -81,8 +86,7 @@ your own criteria → a clear recommendation per category, with charts and an au
   assets (object storage or a served volume) + a `demo` row (text, model, emotion/preset, public flag).
   Public playground reads only the curated static demos. EU-residency respected per the memo (Azure
   Sweden `tts`/`tts-hd`/`whisper` for anything voice-sensitive; US-vendor models flagged).
-- **Deploy:** add a service to the VPS compose stack, Cloudflare tunnel ingress `modelpick.jkrumm.com`,
-  rollhook for zero-downtime deploys. `make` targets wrap all docker/op invocations (no raw docker).
+- **Deploy:** none — runs locally (`make dev`). Superseded by the pivot note above.
 
 ## Capability probe — seed inventory (verified 2026-05-22, re-confirm live)
 
@@ -126,18 +130,17 @@ ones (the catalog drifts). Residency is the deciding factor for audio.
 5. Public site is fully usable without spending IU tokens (static demos, cached pages); admin gate
    unlocks live generation + curation.
 6. Daily cron writes a snapshot and the trend charts reflect history across days.
-7. Deployed at `modelpick.jkrumm.com` via CF tunnel + rollhook; charts/theming match Argo's quality bar.
+7. Runs locally (`make dev`) off a single SQLite file; charts/theming match Argo's quality bar.
 
 ## Secrets / env (resolved — see `.env.example`)
 
 - IU (`IU_API_KEY`, `IU_BASE_URL`, `IU_OPENAI_BASE_URL`) — `op://common/anthropic`, resolved into `.env`.
 - `OPENROUTER_API_KEY`, `ARTIFICIALANALYSIS_API_KEY` — `op://vps/modelpick`, resolved into `.env`.
-- `DATABASE_URL` — local docker Postgres (`:5433`) for dev; VPS Postgres wired at deploy (group 7).
+- `DATABASE_URL` — optional libsql file URL; defaults to `file:modelpick.db` in the repo root.
 - `ADMIN_KEY` — generated; the lightweight client-side admin gate. `.env` is gitignored (public repo).
 
 ## Open questions (resolve during implementation)
 
-- Static audio host: served volume vs object storage (`backblaze-s3` exists at `op://common/backblaze-s3`)
-  — pick the simplest that survives redeploys.
+- Static audio host: resolved — local files under `public/demos/` (gitignored), served directly.
 - German-accent quality is subjective — define a fixed eval text + a small rubric the admin scores once
   per model so the "native German" axis isn't hand-wavy.

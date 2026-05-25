@@ -17,8 +17,6 @@ export default defineConfig({
       srcDirectory: 'src',
     }),
     viteReact(),
-    nitro({
-      handlers: [{ route: '/health', handler: './src/server/health' }],
-    }),
+    nitro(),
   ],
 })

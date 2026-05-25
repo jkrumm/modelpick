@@ -69,8 +69,8 @@ export async function collectNews(): Promise<NewsCollectResult> {
   const cutoffSecs = Math.floor(Date.now() / 1000) - SIXTY_DAYS_SECS;
   const recentModels = modelList.filter((m) => !m.created || m.created >= cutoffSecs);
 
-  // Dynamic import keeps this module safe to import in test environments
-  // where DATABASE_URL is unset and postgres() would throw on module load.
+  // Dynamic import keeps this module free of a db-connection side effect at
+  // import time, so it stays safe to import in test environments.
   const { upsertNewsItem } = await import("../../db/queries.js");
 
   let inserted = 0;
