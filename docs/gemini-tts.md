@@ -2,7 +2,9 @@
 
 `gemini-3.1-flash-tts-preview` is Google's expressive text-to-speech model. On the
 IU gateway it is **EU-resident** (routed through the "GDPR ONLY" Gemini gateway).
-modelpick uses it for the TTS playground demos.
+modelpick uses it for the TTS playground demos; the `audio-proxy` service
+(`~/SourceRoot/audio-proxy`) productionizes the same prep-then-synth pattern to
+give Hermes longform expressive TTS over an OpenAI-compatible `/v1/audio/speech`.
 
 ## Why it needs a special route
 
