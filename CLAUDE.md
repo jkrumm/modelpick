@@ -20,6 +20,10 @@ single SQLite file (`modelpick.db`, gitignored).
   `ChartCard`/`ChartLegend`/`ChartTooltip` primitives, `useVxTheme()`, no raw hex).
 - **Drizzle ORM + local SQLite** (libsql, `@libsql/client`), schema in `src/db/schema.ts`.
   The driver (`drizzle-orm/libsql`) runs under both node (the SSR server) and bun (the scripts).
+- **Secrets via 1Password** — no plaintext `.env`. `.env.tpl` (tracked) holds `op://` refs; the
+  secret-needing scripts wrap their command in `op run --account tkrumm --env-file=.env.tpl`. IU
+  key in `op://common/anthropic`, leaderboard/admin keys in `op://vps/modelpick`. You must be
+  signed into `op` to run `dev`/`refresh`/`probe`/etc.
 - **Makefile targets**: `make dev`, `make build`, `make db-push`, `make db-seed`.
 
 ## The category model

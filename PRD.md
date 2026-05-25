@@ -72,7 +72,7 @@ your own criteria → a clear recommendation per category, with charts and an au
   (a) **IU live catalog/probe** (ground truth: access + latency + residency), (b) **OpenRouter API**
   (rankings/pricing/context), (c) **artificialanalysis API** (quality/speed/price — confirmed to exist:
   `artificialanalysis.ai/api-reference`). A `source` + `confidence` field per metric; never trust a
-  single source. Keys: `op://vps/modelpick` (also in gitignored `.env`).
+  single source. Keys: `op://vps/modelpick` (resolved at runtime via `op run`).
 - **Persistence:** **local SQLite** (`modelpick.db` via libsql), schema synced with `drizzle-kit
   push` from `src/db/schema.ts`. No migration folder, no DB server.
 - **Daily refresh:** a local job (`bun run refresh`) runs the collectors, writes a dated snapshot,
@@ -132,12 +132,14 @@ ones (the catalog drifts). Residency is the deciding factor for audio.
 6. Daily cron writes a snapshot and the trend charts reflect history across days.
 7. Runs locally (`make dev`) off a single SQLite file; charts/theming match Argo's quality bar.
 
-## Secrets / env (resolved — see `.env.example`)
+## Secrets / env (resolved at runtime — see `.env.tpl`)
 
-- IU (`IU_API_KEY`, `IU_BASE_URL`, `IU_OPENAI_BASE_URL`) — `op://common/anthropic`, resolved into `.env`.
-- `OPENROUTER_API_KEY`, `ARTIFICIALANALYSIS_API_KEY` — `op://vps/modelpick`, resolved into `.env`.
+No plaintext `.env`. `.env.tpl` (tracked) holds `op://` references; scripts wrap their command in
+`op run --account tkrumm --env-file=.env.tpl`, so secrets are injected into the process, never disk.
+
+- `IU_API_KEY` — `op://common/anthropic`. The IU base-URL routes are non-secret config in `.env.tpl`.
+- `OPENROUTER_API_KEY`, `ARTIFICIALANALYSIS_API_KEY`, `ADMIN_KEY` — `op://vps/modelpick`.
 - `DATABASE_URL` — optional libsql file URL; defaults to `file:modelpick.db` in the repo root.
-- `ADMIN_KEY` — generated; the lightweight client-side admin gate. `.env` is gitignored (public repo).
 
 ## Open questions (resolve during implementation)
 

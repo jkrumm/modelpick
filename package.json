@@ -4,9 +4,9 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "op run --account tkrumm --env-file=.env.tpl -- vite dev",
     "build": "vite build",
-    "start": "node .output/server/index.mjs",
+    "start": "op run --account tkrumm --env-file=.env.tpl -- node .output/server/index.mjs",
     "typecheck": "tsr generate && tsc --noEmit",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
@@ -15,12 +15,12 @@
     "test": "vitest run",
     "db:push": "drizzle-kit push",
     "db:seed": "bun run scripts/seed-run.ts",
-    "demos:seed": "bun run scripts/seed-demos.ts",
-    "probe": "bun run scripts/probe.ts",
-    "collect": "bun run scripts/collect.ts",
-    "recommend": "bun run scripts/recommend.ts",
-    "news": "bun run scripts/news.ts",
-    "refresh": "bun run scripts/refresh.ts"
+    "demos:seed": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/seed-demos.ts",
+    "probe": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/probe.ts",
+    "collect": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/collect.ts",
+    "recommend": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/recommend.ts",
+    "news": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/news.ts",
+    "refresh": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/refresh.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",

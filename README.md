@@ -10,13 +10,13 @@ Single-user, local-only. State lives in one SQLite file (`modelpick.db`, gitigno
 ## Quick start
 
 ```bash
-cp .env.example .env     # fill in IU + leaderboard keys (or resolve from 1Password)
 make db-push             # create the SQLite schema from src/db/schema.ts
 make db-seed             # seed the model catalog + My Stack
 make dev                 # start the dev server
 ```
 
-The app runs at `http://localhost:3001`.
+The app runs at `http://localhost:3001`. No `.env` file needed — secrets resolve from 1Password at
+runtime (see Env below). You must be signed into the `op` CLI (account `tkrumm`).
 
 ## Database
 
@@ -53,5 +53,13 @@ bun run build       # SSR build
 
 ## Env
 
-See `.env.example` for required variables. Copy to `.env` and fill in values. The `.env` file is
-gitignored — never commit real keys.
+Secrets resolve from 1Password at runtime — there is **no plaintext `.env`**. `.env.tpl` (tracked)
+holds `op://` references; the `dev`/`refresh`/`probe`/… scripts wrap their command in
+`op run --account tkrumm --env-file=.env.tpl`, so keys are injected into the process and never rest
+on disk. IU key lives in `op://common/anthropic`, the leaderboard/admin keys in `op://vps/modelpick`.
+
+Run a one-off script manually:
+
+```bash
+op run --account tkrumm --env-file=.env.tpl -- bun run scripts/probe.ts
+```
