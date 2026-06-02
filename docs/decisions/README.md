@@ -37,8 +37,9 @@ Two cross-cutting principles:
 
 ## Records
 
-- [audio-stack.md](./audio-stack.md) — local TTS (Fish S2 Pro) + STT (Parakeet) selection,
-  the rejected-alternatives eval table, the reference-clip-quality insight, German Tier-2 note.
+- [audio-stack.md](./audio-stack.md) — cloud TTS (`gemini-3.1-flash-tts-preview`, Charon) + STT
+  (`gpt-4o-transcribe`, EU `whisper` fallback) on the IU endpoint via audio-proxy; why the local
+  Fish/Parakeet stack was retired; the chunking / long-generation-drift carryover.
 - [kimi-bridge.md](./kimi-bridge.md) — why Kimi-K2.6 is the EU/GDPR worker model, the
   non-obvious LiteLLM bridge fixes as lessons learned, fallback to `claude-sonnet-4-6-eu`.
 - [vision-and-image.md](./vision-and-image.md) — `gemini-3-pro-preview` for dense diagrams
