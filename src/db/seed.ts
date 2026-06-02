@@ -32,16 +32,20 @@ export async function seedModels(): Promise<void> {
 const MY_STACK: StackChoiceInsert[] = [
   {
     category: "fast",
-    model_id: "gpt-5.4-nano",
-    rationale: "Cheapest capable model for high-volume, latency-sensitive utility calls.",
-    decided_at: "2026-05-25",
+    model_id: "DeepSeek-V4-Flash",
+    env_note: "Residency unverified (probe: unknown) — not yet confirmed EU.",
+    rationale:
+      "Beats gpt-5.4-nano on the fast profile: ~6x cheaper output, sub-second TTFT, higher quality (AA 46.5 vs 44.0), 1M context.",
+    decided_at: "2026-06-02",
   },
   {
     category: "coding",
-    model_id: "Kimi-K2.6",
-    env_note: "Routed via the LiteLLM bridge (Azure Sweden, EU/GDPR) for sideclaw workers.",
-    rationale: "Strong coding index at a fraction of frontier cost, EU-resident.",
-    decided_at: "2026-05-25",
+    model_id: "DeepSeek-V4-Pro",
+    env_note:
+      "Intended for the LiteLLM bridge / sideclaw workers; residency unverified (probe: unknown) — confirm EU before relying on it for GDPR-sensitive work.",
+    rationale:
+      "Ties Kimi-K2.6 on coding index (47.5 vs 47.1) at ~4x cheaper output and higher throughput; 1M context. Slightly lower general intelligence (51.5 vs 53.9).",
+    decided_at: "2026-06-02",
   },
   {
     category: "orchestrator",
