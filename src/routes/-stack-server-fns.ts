@@ -1,9 +1,19 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getModels, getLatestRecommendations, getStackChoices } from "~/db/queries";
-import type { RecommendationCategory } from "~/db/schema";
+import type { Recommendation, StackCategory } from "~/db/schema";
 
-// Display order for the stack table — mirrors the Decider.
-const CATEGORY_ORDER: RecommendationCategory[] = ["fast", "coding", "orchestrator", "tts", "stt"];
+// Display order for the stack table — scored categories first (mirrors the
+// Decider), then the manual categories that have no algorithmic recommendation.
+const CATEGORY_ORDER: StackCategory[] = [
+  "fast",
+  "coding",
+  "orchestrator",
+  "tts",
+  "stt",
+  "embedding",
+  "vision",
+  "image",
+];
 
 export interface StackPick {
   model_id: string;
@@ -12,7 +22,7 @@ export interface StackPick {
 }
 
 export interface StackEntry {
-  category: RecommendationCategory;
+  category: StackCategory;
   pick: StackPick;
   env_note: string | null;
   rationale: string | null;
@@ -38,7 +48,9 @@ export const getMyStack = createServerFn({ method: "GET" }).handler(
 
     const modelMap = new Map(allModels.map((m) => [m.id, m]));
     const choiceByCategory = new Map(choices.map((c) => [c.category, c]));
-    const recByCategory = new Map(recs.map((r) => [r.category, r]));
+    // Keyed by string: manual categories (embedding/vision/image) never have a
+    // recommendation row, so their lookup is a miss → algo null → no drift flag.
+    const recByCategory = new Map<string, Recommendation>(recs.map((r) => [r.category, r]));
 
     const entries: StackEntry[] = [];
     for (const category of CATEGORY_ORDER) {

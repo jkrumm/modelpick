@@ -1,6 +1,6 @@
 ---
 name: investigate-models
-description: Analyze the modelpick catalog, metrics, and probes to recommend the optimal model for a given use-case, and surface My Stack drift. Trigger when the user asks which model to use for something (fast/coding/orchestrator/tts/stt or a custom need), whether a better model exists for a task, to compare candidate models, or to review/refresh their decided stack.
+description: Analyze the modelpick catalog, metrics, and probes to recommend the optimal model for a given use-case, and surface My Stack drift. Trigger when the user asks which model to use for something (scored fast/coding/orchestrator/tts/stt, the research-only embedding/vision/image categories, or a custom need), whether a better model exists for a task, to compare candidate models, or to review/refresh their decided stack.
 ---
 
 # Investigate Models
@@ -11,9 +11,11 @@ can act on it (e.g. update My Stack).
 
 ## Inputs to gather
 
-1. **The use-case / category.** Map it to one of `fast | coding | orchestrator | tts | stt`
-   if it fits; otherwise reason from raw metrics. Note hard constraints: EU residency
-   required? Must be IU-accessible? Cost ceiling? Latency-sensitive?
+1. **The use-case / category.** Map it to a **scored** category (`fast | coding |
+   orchestrator | tts | stt`) and use the metric-driven method below, or a **manual**
+   category (`embedding | vision | image`) and use the research method below; otherwise
+   reason from raw metrics. Note hard constraints: EU residency required? Must be
+   IU-accessible? Cost ceiling? Latency-sensitive?
 
 ## Where the data lives
 
@@ -43,11 +45,34 @@ metrics and say so.
 4. **Check against My Stack.** If the recommendation beats the current `stack_choice` for
    that category, say so plainly and offer to update it.
 
+## Manual categories (embedding / vision / image)
+
+These have **no leaderboard** — `metric_snapshot` carries no quality/price for them, so the
+recommender never scores them and there is no drift signal. Investigate via research, not
+metrics:
+
+1. **Shortlist from the DB** what's actually callable: query `models` + latest
+   `capability_probe` for the modality (`embedding`, or `llm` for vision = image-input
+   models, or `image` for generation). Note residency where the probe confirmed it.
+2. **Rank externally with `/research`** (sideclaw, off Max), **constrained to that
+   shortlist** — embeddings against MTEB / retrieval benchmarks, vision against
+   document/diagram-understanding evals, image-gen against LMArena Image Arena. Ask for
+   price + latency + (for embeddings) dimensions/Matryoshka. The research is the rationale.
+3. **Recommend one pick** honoring the user's constraints (e.g. "small over large", EU
+   residency), then update My Stack as below. The pick is recorded, not algorithmically
+   tracked — re-run this when revisiting.
+
+Note residency gotchas (e.g. the cheapest embedder may be residency-unverified while a
+pricier one is EU-confirmed) and catalog hygiene (deprecated models may still be listed —
+e.g. `dall-e-3`/`gpt-image-1`). Listed ≠ current.
+
 ## Updating My Stack
 
 If the user accepts a new pick, edit `MY_STACK` in `src/db/seed.ts`: change `model_id`
 (and `env_note`/`rationale`), **bump `decided_at`** to today, then `bun run db:seed` to
-upsert. Commit: `feat(stack): switch <category> to <model>`.
+upsert. Commit: `feat(stack): switch <category> to <model>`. Manual categories
+(embedding/vision/image) are added/edited the same way — they just never get a
+`recommendation` row.
 
 ## Notes
 

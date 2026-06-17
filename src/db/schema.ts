@@ -16,7 +16,14 @@ export const PROBE_STATUS = [
   "timeout", // probe aborted before a response
   "unknown", // unclassified non-2xx
 ] as const;
+// Scored categories — driven by the recommender against leaderboard metrics.
 export const CATEGORY = ["fast", "coding", "orchestrator", "tts", "stt"] as const;
+// Manual stack-only categories: real model choices I track, but with no public
+// leaderboard to score them — so they live in My Stack with a researched rationale
+// and never get an algorithmic recommendation (hence no drift flag). Refresh the
+// rationale via /research + /investigate-models when revisiting the pick.
+export const MANUAL_CATEGORY = ["embedding", "vision", "image"] as const;
+export const STACK_CATEGORY = [...CATEGORY, ...MANUAL_CATEGORY] as const;
 export const LANG = ["de", "en"] as const;
 export const METRIC_SOURCE = ["iu", "openrouter", "artificialanalysis"] as const;
 
@@ -114,12 +121,14 @@ export const stackChoice = sqliteTable(
   "stack_choice",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    category: text("category", { enum: CATEGORY }).notNull(),
+    // Widened beyond the scored CATEGORY to include manual categories
+    // (embedding/vision/image) that have no algorithmic recommendation.
+    category: text("category", { enum: STACK_CATEGORY }).notNull(),
     model_id: text("model_id")
       .notNull()
       .references(() => models.id, { onDelete: "cascade" }),
     // Environment caveat where the real-world pick differs from the IU model id,
-    // e.g. "GPT-5.5 via IU for agents; Opus 4.7 in Claude Code" or "Charon voice".
+    // e.g. "Opus 4.8 in Claude Code (Max)" or "Charon voice".
     env_note: text("env_note"),
     rationale: text("rationale"),
     decided_at: text("decided_at").notNull(), // yyyy-mm-dd
@@ -189,5 +198,6 @@ export type Modality = (typeof MODALITY)[number];
 export type Residency = (typeof RESIDENCY)[number];
 export type ProbeStatus = (typeof PROBE_STATUS)[number];
 export type RecommendationCategory = (typeof CATEGORY)[number];
+export type StackCategory = (typeof STACK_CATEGORY)[number];
 export type Lang = (typeof LANG)[number];
 export type MetricSource = (typeof METRIC_SOURCE)[number];

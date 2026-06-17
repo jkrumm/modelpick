@@ -4,10 +4,13 @@ import {
   IconBolt,
   IconBrain,
   IconCode,
+  IconEye,
   IconMicrophone,
+  IconPhoto,
   IconSpeakerphone,
+  IconVector,
 } from "@tabler/icons-react";
-import type { RecommendationCategory } from "~/db/schema";
+import type { StackCategory } from "~/db/schema";
 import { getMyStack } from "./-stack-server-fns";
 import type { StackEntry } from "./-stack-server-fns";
 
@@ -16,21 +19,27 @@ export const Route = createFileRoute("/stack")({
   component: StackPage,
 });
 
-const CATEGORY_LABELS: Record<RecommendationCategory, string> = {
+const CATEGORY_LABELS: Record<StackCategory, string> = {
   fast: "Fast",
   coding: "Coding",
   orchestrator: "Orchestrator",
   tts: "TTS",
   stt: "STT",
+  embedding: "Embedding",
+  vision: "Vision",
+  image: "Image Gen",
 };
 
-function CategoryIcon({ category }: { category: RecommendationCategory }) {
+function CategoryIcon({ category }: { category: StackCategory }) {
   const size = 16;
   if (category === "fast") return <IconBolt size={size} />;
   if (category === "coding") return <IconCode size={size} />;
   if (category === "orchestrator") return <IconBrain size={size} />;
   if (category === "tts") return <IconSpeakerphone size={size} />;
-  return <IconMicrophone size={size} />;
+  if (category === "stt") return <IconMicrophone size={size} />;
+  if (category === "embedding") return <IconVector size={size} />;
+  if (category === "vision") return <IconEye size={size} />;
+  return <IconPhoto size={size} />; // image
 }
 
 function StackRow({ entry }: { entry: StackEntry }) {

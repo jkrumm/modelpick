@@ -28,10 +28,18 @@ single SQLite file (`modelpick.db`, gitignored).
 
 ## The category model
 
-Five decision buckets, used by both the recommender and My Stack:
-`fast | coding | orchestrator | tts | stt`. Each has its own weight profile
-(`CATEGORY_WEIGHTS` in `src/server/scoring/score.ts`) and a min-quality floor so cheap
-models can't win on price alone.
+Two tiers (`schema.ts`):
+
+- **Scored** (`CATEGORY` = `fast | coding | orchestrator | tts | stt`) — driven by the
+  recommender. Each has its own weight profile (`CATEGORY_WEIGHTS` in
+  `src/server/scoring/score.ts`) and a min-quality floor so cheap models can't win on price
+  alone.
+- **Manual** (`MANUAL_CATEGORY` = `embedding | vision | image`) — no public leaderboard
+  scores these, so there is **no algorithmic recommendation** and no drift flag. They live in
+  My Stack with a research-backed rationale; refresh via `/research` + `/investigate-models`.
+
+`STACK_CATEGORY` is the union (scored + manual) and types `stack_choice.category`;
+`recommendation.category` stays scored-only.
 
 ## My Stack (`/stack`)
 
@@ -39,9 +47,12 @@ models can't win on price alone.
 algorithmic `recommendation`. The `/stack` page diffs the two and flags **drift** when the
 algorithm prefers a different model — my cue to reconsider. Picks live in `MY_STACK` in
 `src/db/seed.ts` (upserted on category); revise there and bump `decided_at` when a choice
-actually changes. Current picks: fast `DeepSeek-V4-Flash`, coding `DeepSeek-V4-Pro`
-(GPT-5.5 dropped as too expensive), orchestrator `claude-opus-4-8` (Opus 4.8 in Claude Code),
-tts `gemini-3.1-flash-tts-preview` (Charon), stt `gpt-4o-transcribe`.
+actually changes. Manual categories carry no `recommendation`, so the `/stack` page shows
+them as "no recommendation" (gray `—`) rather than ok/drift. Current picks: fast
+`DeepSeek-V4-Flash`, coding `DeepSeek-V4-Pro` (GPT-5.5 dropped as too expensive), orchestrator
+`claude-opus-4-8` (Opus 4.8 in Claude Code), tts `gemini-3.1-flash-tts-preview` (Charon),
+stt `gpt-4o-transcribe`, embedding `text-embedding-3-small`, vision `gemini-3.5-flash`,
+image `gpt-image-2`.
 
 ## Database / schema changes
 

@@ -69,6 +69,36 @@ const MY_STACK: StackChoiceInsert[] = [
     rationale: "Most accurate IU STT; Whisper kept only for timestamps/verbose_json.",
     decided_at: "2026-05-25",
   },
+  // Manual categories — no leaderboard scores these, so there is no algorithmic
+  // recommendation and no drift flag. Rationale is research-backed; refresh via
+  // /research + /investigate-models when revisiting.
+  {
+    category: "embedding",
+    model_id: "text-embedding-3-small",
+    env_note:
+      "Use dimensions=512 (Matryoshka) for ~3x storage/latency savings at ~1% quality loss. Residency unverified on IU — for non-sensitive RAG; switch to text-embedding-3-large (EU-confirmed) when residency is required.",
+    rationale:
+      "Best small embedder on speed + price + quality: $0.02/1M (joint-cheapest), MTEB 62.3, lowest API latency, native Matryoshka truncation. text-embedding-3-large ranks below cheaper models on domain retrieval — 'large' buys size, not quality.",
+    decided_at: "2026-06-17",
+  },
+  {
+    category: "vision",
+    model_id: "gemini-3.5-flash",
+    env_note:
+      "Used by sideclaw read_image/read_drawing. Non-EU vendor — fine for git-committed/non-sensitive images. Enable context caching ($0.15/M, 90% off) for repeated document reads.",
+    rationale:
+      "Best flash-tier vision model for document/chart/diagram reading: tops Roboflow Vision Evals across 67 prompts; AA quality 50 vs GPT-5.4-mini's 17 (the cheaper option is a false economy for structured extraction). $1.50/$9.00 per 1M, 155 tok/s.",
+    decided_at: "2026-06-17",
+  },
+  {
+    category: "image",
+    model_id: "gpt-image-2",
+    env_note:
+      "Quality tiers: Low $0.005 (prompt iteration), Medium ~$0.05 (production), High $0.21 (hero/4K). For photorealism or 4-6x faster generation, use gemini-3.1-flash-image instead.",
+    rationale:
+      "Outright image-generation leader: sweeps LMArena Image Arena (+242 ELO in text-to-image, 1512 vs 1270), #1 on single/multi-image edit, near-perfect in-image text. dall-e-3 and gpt-image-1 are deprecated.",
+    decided_at: "2026-06-17",
+  },
 ];
 
 // Upsert my picks keyed on category (one row per category). Re-runnable.
