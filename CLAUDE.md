@@ -39,9 +39,9 @@ models can't win on price alone.
 algorithmic `recommendation`. The `/stack` page diffs the two and flags **drift** when the
 algorithm prefers a different model — my cue to reconsider. Picks live in `MY_STACK` in
 `src/db/seed.ts` (upserted on category); revise there and bump `decided_at` when a choice
-actually changes. Current picks: fast `gpt-5.4-nano`, coding `Kimi-K2.6`, orchestrator
-`GPT-5.5` (Opus 4.7 in Claude Code), tts `gemini-3.1-flash-tts-preview` (Charon),
-stt `gpt-4o-transcribe`.
+actually changes. Current picks: fast `DeepSeek-V4-Flash`, coding `DeepSeek-V4-Pro`
+(GPT-5.5 dropped as too expensive), orchestrator `claude-opus-4-8` (Opus 4.8 in Claude Code),
+tts `gemini-3.1-flash-tts-preview` (Charon), stt `gpt-4o-transcribe`.
 
 ## Database / schema changes
 

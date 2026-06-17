@@ -49,10 +49,12 @@ const MY_STACK: StackChoiceInsert[] = [
   },
   {
     category: "orchestrator",
-    model_id: "GPT-5.5",
-    env_note: "GPT-5.5 via IU for agents; Opus 4.7 (Max) in Claude Code.",
-    rationale: "Top reasoning for planning/orchestration where capability dominates cost.",
-    decided_at: "2026-05-25",
+    model_id: "claude-opus-4-8",
+    env_note:
+      "Opus 4.8 in Claude Code (Max plan — no per-token cost). Replaced GPT-5.5, dropped as too expensive via IU.",
+    rationale:
+      "Tops the orchestrator profile (recommender score 0.834). Runs on the Max subscription in Claude Code, so capability dominates with no marginal token cost — unlike GPT-5.5 via IU.",
+    decided_at: "2026-06-17",
   },
   {
     category: "tts",
