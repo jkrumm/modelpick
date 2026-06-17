@@ -4,7 +4,7 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "dev": "op run --account tkrumm --env-file=.env.tpl -- vite dev",
+    "dev": "npx kill-port 7727 && op run --account tkrumm --env-file=.env.tpl -- vite dev",
     "build": "vite build",
     "start": "op run --account tkrumm --env-file=.env.tpl -- node .output/server/index.mjs",
     "typecheck": "tsr generate && tsc --noEmit",

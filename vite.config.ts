@@ -5,7 +5,9 @@ import { nitro } from 'nitro/vite'
 
 export default defineConfig({
   server: {
-    port: 3001,
+    port: 7727,
+    strictPort: true,
+    allowedHosts: ['modelpick.test'],
   },
   resolve: {
     alias: {
