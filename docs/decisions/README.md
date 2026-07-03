@@ -51,3 +51,7 @@ Two cross-cutting principles:
 - [execution-modes.md](./execution-modes.md) — the orchestrator execution-mode framework
   (inline / subprocess / MCP / fork), model tiers, and "never switch the orchestrator model
   mid-session."
+- [ca-launcher.md](./ca-launcher.md) — why the `ca` non-Max launcher routes through the
+  LiteLLM bridge to DeepSeek-V4-Pro, the abandoned direct-IU-Anthropic iteration and the
+  usage-tracker billing-misclassification bug it caused, and the deliberate no-model-switching
+  scope.
