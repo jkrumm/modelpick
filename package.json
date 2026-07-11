@@ -21,7 +21,8 @@
     "recommend": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/recommend.ts",
     "news": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/news.ts",
     "refresh": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/refresh.ts",
-    "benchmark": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/benchmark-throughput.ts"
+    "benchmark": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/benchmark-throughput.ts",
+    "benchmark:tools": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/benchmark-tool-calling.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
