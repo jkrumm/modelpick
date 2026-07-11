@@ -20,9 +20,11 @@ work.
 - **Cost** — Anthropic Max quota is the scarcest resource; IU per-token billing and local
   inference are effectively free for the volumes involved. Work is pushed off Max wherever
   capability allows.
-- **Data residency** — anything touching personal data (calendar, health, email, recorded
-  voice) must stay EU/GDPR-resident. This hard-gates model selection regardless of
-  capability or cost.
+- **Data residency** — one input into model selection where personal data (calendar, health,
+  email, recorded voice) is involved, weighed alongside capability and cost rather than an
+  absolute override. It matters more when a residency-verified alternative is otherwise
+  equivalent; it doesn't by itself disqualify a model that's clearly better on capability/cost
+  (see [hermes-brain.md](./hermes-brain.md) for how this played out in practice).
 
 Two cross-cutting principles:
 
@@ -46,8 +48,11 @@ Two cross-cutting principles:
 - [vision-and-image.md](./vision-and-image.md) — `gemini-3-pro-preview` for dense diagrams
   (bake-off result), `gpt-image-2` for generation, the EU/US residency table, the
   "stateless HTTP call vs multi-step agent loop" placement insight.
-- [hermes-brain.md](./hermes-brain.md) — Hermes Sonnet → Kimi-K2.6 brain switch and the
-  EU-safe fallback (deliberately *not* Kimi-K2.5, which routes US).
+- [hermes-brain.md](./hermes-brain.md) — Hermes brain history (Sonnet → Kimi-K2.6 →
+  DeepSeek-V4-Pro) and the 2026-07 live bake-off against GLM-5.2 and the rest of the
+  refreshed catalog — the new `benchmark`/`benchmark:tools` live-metric scripts, why
+  DeepSeek-V4-Pro stayed despite GLM-5.2 measuring faster, and why Qwen3.7-Max/Kimi-K2.7-Code
+  were ruled out on tool-calling reliability.
 - [execution-modes.md](./execution-modes.md) — the orchestrator execution-mode framework
   (inline / subprocess / MCP / fork), model tiers, and "never switch the orchestrator model
   mid-session."
