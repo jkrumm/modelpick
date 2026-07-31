@@ -49,10 +49,12 @@ Two cross-cutting principles:
   (bake-off result), `gpt-image-2` for generation, the EU/US residency table, the
   "stateless HTTP call vs multi-step agent loop" placement insight.
 - [hermes-brain.md](./hermes-brain.md) — Hermes brain history (Sonnet → Kimi-K2.6 →
-  DeepSeek-V4-Pro) and the 2026-07 live bake-off against GLM-5.2 and the rest of the
-  refreshed catalog — the new `benchmark`/`benchmark:tools` live-metric scripts, why
-  DeepSeek-V4-Pro stayed despite GLM-5.2 measuring faster, and why Qwen3.7-Max/Kimi-K2.7-Code
-  were ruled out on tool-calling reliability.
+  DeepSeek-V4-Pro → DeepSeek-V4-Flash): the 2026-07-11 live bake-off against GLM-5.2 and the
+  refreshed catalog (the `benchmark`/`benchmark:tools` live-metric scripts, why Pro stayed
+  despite GLM-5.2 measuring faster, why Qwen3.7-Max/Kimi-K2.7-Code failed on tool-calling),
+  then the 2026-07-31 switch to Flash after the `-0731` re-post-training — what it wins
+  (index, cost, time-to-first-token), what it gives up (factual recall), and the two things
+  that could not be verified.
 - [execution-modes.md](./execution-modes.md) — the orchestrator execution-mode framework
   (inline / subprocess / MCP / fork), model tiers, and "never switch the orchestrator model
   mid-session."

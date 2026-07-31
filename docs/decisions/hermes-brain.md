@@ -1,9 +1,11 @@
-# Hermes Brain — Sonnet → Kimi-K2.6 → DeepSeek-V4-Pro (GLM-5.2 bake-off, stayed)
+# Hermes Brain — Sonnet → Kimi-K2.6 → DeepSeek-V4-Pro → DeepSeek-V4-Flash
 
-**Current:** `DeepSeek-V4-Pro` since 2026-06-02, with fallback `claude-sonnet-4-6-eu` unchanged.
-Verified EU-resident (Azure Spain Central) at switch time. A 2026-07 bake-off against GLM-5.2
-confirmed DeepSeek-V4-Pro as the right call — closer than expected, but no benefit strong
-enough to justify switching a running system.
+**Current:** `DeepSeek-V4-Flash` since 2026-07-31, with fallback `claude-sonnet-4-6-eu`
+unchanged. Flash overtook Pro on the day DeepSeek re-post-trained it (`DeepSeek-V4-Flash-0731`)
+— it now leads Pro on the Artificial Analysis Intelligence Index while costing ~3× less per
+output token and answering ~2.5× sooner on the IU endpoint. See the 2026-07-31 section below,
+including what that switch gives up (factual recall) and what could not be verified (which
+Flash weights IU actually serves).
 
 ## History
 
@@ -83,7 +85,7 @@ independently re-confirm it today (the generic proxy layer doesn't expose region
 This is a real, unresolved gap for GLM-5.2 — one input into the decision, not disqualifying on
 its own.
 
-## Verdict
+## Verdict (2026-07-11 bake-off)
 
 **Stay on DeepSeek-V4-Pro.** Closer than the external leaderboard numbers suggested — GLM-5.2
 is a genuine, verified-fast, verified-reliable alternative — but "faster and equally reliable"
@@ -91,6 +93,98 @@ isn't "clearly better," and DeepSeek-V4-Pro still leads on quality, cost, contex
 only verified residency precedent of the two. No demonstrated benefit strong enough to change
 a running, prompt-tuned system. Revisit if GLM-5.2's residency gets independently verified or
 its quality gap closes further.
+
+## 2026-07-31: DeepSeek-V4-Flash-0731 takes the brain
+
+Three weeks after the bake-off above, DeepSeek re-post-trained Flash and shipped it the same
+day this was evaluated. `DeepSeek-V4-Flash-0731` keeps the April architecture and size
+(284B total / 13B active, against Pro's 1.6T / 49B) and changes only the weights — the API
+alias `deepseek-v4-flash` moves with it, so there is no new model id to point at.
+
+**What the update did to the agentic numbers** (external, cross-verified; Artificial Analysis
+plus DeepSeek's own changelog):
+
+| Signal | April Flash | Flash-0731 | V4-Pro |
+|-|-|-|-|
+| AA Intelligence Index | 40 | **50** | 44 |
+| GDPval-AA (agentic work) Elo | 1189 | **1559** | — |
+| Terminal-Bench | 56.9% (2.0) | **79–82.7%** (2.1) | 67.9% (2.0) |
+| Toolathlon | 47.8% | **70.3%** (verified) | 51.8% |
+| AA-Omniscience hallucination | — | +7…12 pts better | — |
+
+Benchmark versions moved (Terminal-Bench 2.0 → 2.1) and Pro was not re-run on the new
+harness, so the right-hand column is a reference point, not a like-for-like control. The
+directional claim — Flash-0731 is now at least Pro-class for tool-driven agent work, at a
+fraction of the cost — is carried by the AA index, which does score both on the same scale.
+
+**Where Pro still wins, and why it doesn't decide this.** Pro leads on factual recall:
+SimpleQA-Verified 57.9% vs 34.1%, MRCR 1M-context recall 83.5% vs 78.7%, BrowseComp 83.4% vs
+73.2% (preview-weights numbers). That is a real gap and the one thing this switch gives up.
+It matters less for Hermes than the headline suggests: Hermes answers factual questions by
+*calling* something — argo for personal data, the research-gateway skill for anything
+substantive — and SOUL.md already routes it that way. The failure mode to watch for is Flash
+answering from memory instead of reaching for a tool; ToolFailBench puts Flash in the
+"disciplined" cluster (1.20% unnecessary-tool-use, 75.84% clean tool-use), which is the
+opposite failure mode, but that measurement predates 0731.
+
+**Live against IU** (`bun run benchmark` / `benchmark:tools`, two throughput passes):
+
+| Measure | DeepSeek-V4-Pro | DeepSeek-V4-Flash |
+|-|-|-|
+| TTFT, avg over 3 turns | 26.4s / 10.7s | **4.3s / 4.5s** |
+| Decode throughput | 98–611 tok/s (unstable) | 121–165 tok/s |
+| 3-tool scenario | 3/3 tools, args valid, finished — 16.2s | 3/3 tools, args valid, finished — **12.3s** |
+
+Time-to-first-token is the number that decides this for a Slack assistant, and it is not
+close: Pro takes 10–26s to start talking, Flash ~4s. Pro's throughput figures are unstable
+because the IU stream reports reasoning tokens in the same completion count (one pass
+recorded 4662 tokens against a 600-token cap), so treat the tok/s column as indicative and
+TTFT as the real signal. The scripted 3-tool scenario no longer discriminates — both models
+pass it cleanly, as they did on 2026-07-11 — so it now works as a regression gate, not as a
+selection criterion.
+
+**Post-switch routing check** (five prompts through the gateway API against the live agent,
+German in / German out, side-effect-free by design): sleep + recovery → argo-api Garmin (19s);
+"today and tomorrow" → both calendars merged, personal and work (35s); "which MRs need my
+review" → GitLab MRs joined to their Jira tickets, with a judgment call to close an 18-month
+stale revert instead of reviewing it (30s); "search my notes for Hermes" → obsidian across
+seven files, synthesized rather than dumped (35s); and a control question needing no tool
+("capital of Australia") answered in 2s without reaching for one. No misroutes, no dropped
+tool, no over-calling — this is the resilience requirement #5 re-test, and Flash passed it.
+
+**Two things could not be verified, and both are recorded as open.**
+
+1. **Which Flash weights IU serves.** The IU catalog id is unchanged (`DeepSeek-V4-Flash`,
+   no `-0731` variant in `/v1/models`), the Requesty proxy layer exposes no version or
+   region header, and asking the model directly is worthless — V4-Pro self-reports as
+   "DeepSeek-V3-0324". If IU follows the upstream alias it is already serving 0731; if its
+   provider pins a snapshot it may lag by days. The live IU measurements above hold either
+   way, because they measure what IU actually serves.
+2. **Leaderboard metrics in `modelpick.db` are stale** (2026-07-11) and could not be
+   refreshed during this decision: `bun run collect` needs `op://vps/modelpick/*`, which is
+   not in the mini's `headless.refs` allowlist, and `op` cannot run interactively on a
+   headless box. The external numbers above therefore come from research, not from
+   `metric_snapshot`. Seeding those three refs would let the full `refresh` pipeline run on
+   the mini.
+
+**Residency is unchanged in substance.** Both DeepSeek aliases were verified EU-resident
+(Azure Spain Central) on 2026-06-02; since the Requesty proxy layer went in, `capability_probe`
+records `residency: unknown` for both and neither can be re-confirmed from headers. Flash is
+not a new exposure either way — it has been the auxiliary model since 2026-06-02, and
+compression already feeds it full conversation content.
+
+### Verdict
+
+**Switch the brain to `DeepSeek-V4-Flash`**, fallback `claude-sonnet-4-6-eu` unchanged. The
+case is cost (~3× cheaper per output token), latency (~2.5× faster to first token, measured on
+IU), and an intelligence index that now puts Flash *ahead* of Pro rather than 4 points behind.
+Pro was not added as an intermediate fallback deliberately: both aliases traverse the same
+IU → proxy → DeepSeek path, so Pro would not survive the outage class the fallback exists for,
+and Flash's 2500-vs-500 concurrency ceiling makes it the less throttle-prone of the two.
+
+Revert is one line in `hermes-agent/config.yaml` plus `hermes gateway restart`. Re-open this
+if factual-recall regressions show up in daily use (the SimpleQA gap is the predicted failure
+mode) or if IU turns out to be pinning pre-0731 weights.
 
 ## Resilience requirements (carried over, still current)
 
