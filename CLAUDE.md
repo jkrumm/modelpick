@@ -49,7 +49,8 @@ algorithm prefers a different model — my cue to reconsider. Picks live in `MY_
 `src/db/seed.ts` (upserted on category); revise there and bump `decided_at` when a choice
 actually changes. Manual categories carry no `recommendation`, so the `/stack` page shows
 them as "no recommendation" (gray `—`) rather than ok/drift. Current picks: fast
-`DeepSeek-V4-Flash`, coding `DeepSeek-V4-Pro` (GPT-5.5 dropped as too expensive), orchestrator
+`DeepSeek-V4-Flash`, coding `DeepSeek-V4-Flash` (2026-08-02, was `DeepSeek-V4-Pro` — see
+`docs/decisions/coding-model.md`; GPT-5.5 dropped as too expensive), orchestrator
 `claude-opus-4-8` (Opus 4.8 in Claude Code), tts `gemini-3.1-flash-tts-preview` (Charon),
 stt `gpt-4o-transcribe`, embedding `text-embedding-3-small`, vision `gemini-3.5-flash`,
 image `gpt-image-2`.

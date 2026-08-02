@@ -55,6 +55,11 @@ Two cross-cutting principles:
   then the 2026-07-31 switch to Flash after the `-0731` re-post-training — what it wins
   (index, cost, time-to-first-token), what it gives up (factual recall), and the two things
   that could not be verified.
+- [coding-model.md](./coding-model.md) — why the coding pick moved from `DeepSeek-V4-Pro` to
+  `DeepSeek-V4-Flash` on 2026-08-02: the AA coding index flipped 69.1 vs 59.4 while Pro sat
+  unchanged since April, the agentic-coding sweep (Terminal-Bench, DeepSWE, NL2Repo) that
+  matters for `ca`/`claude_bridge`/opencode, and what Pro keeps (long-context retrieval, the
+  only SWE-bench Verified score).
 - [execution-modes.md](./execution-modes.md) — the orchestrator execution-mode framework
   (inline / subprocess / MCP / fork), model tiers, and "never switch the orchestrator model
   mid-session."

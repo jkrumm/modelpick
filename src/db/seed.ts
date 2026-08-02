@@ -40,12 +40,12 @@ const MY_STACK: StackChoiceInsert[] = [
   },
   {
     category: "coding",
-    model_id: "DeepSeek-V4-Pro",
+    model_id: "DeepSeek-V4-Flash",
     env_note:
-      "Intended for the LiteLLM bridge / sideclaw workers; residency unverified (probe: unknown) — confirm EU before relying on it for GDPR-sensitive work.",
+      "Drives the ca launcher / claude_bridge / opencode — agentic harnesses, which is the axis this pick is made on. IU serves the alias only (no -0731 id in the catalog), so which weights back it is unverified. Residency unverified (probe: unknown).",
     rationale:
-      "Ties Kimi-K2.6 on coding index (47.5 vs 47.1) at ~4x cheaper output and higher throughput; 1M context. Slightly lower general intelligence (51.5 vs 53.9).",
-    decided_at: "2026-06-02",
+      "Flash-0731 overtook Pro on coding while Pro sat unchanged since April: AA coding index 69.1 vs 59.4, Terminal-Bench 2.1 82.7 vs 72.1, DeepSWE 54.4 vs 12.8, at 3x cheaper output and 2.6x faster TTFT on IU. Pro keeps long-context retrieval (MRCR 83.5 vs 78.7) and the only SWE-bench Verified score.",
+    decided_at: "2026-08-02",
   },
   {
     category: "orchestrator",
