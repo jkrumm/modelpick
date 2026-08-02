@@ -319,6 +319,15 @@ export const IU_CATALOG: ModelInsert[] = [
     "iu_listed": true
   },
   {
+    "id": "gemini-3.5-flash-lite",
+    "provider": "google",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Google Gemini 3.5 Flash EU",
+    "context_window": 1000000,
+    "iu_listed": true
+  },
+  {
     "id": "gemini-3.5-live-translate-preview",
     "provider": "google",
     "family": null,
@@ -328,12 +337,21 @@ export const IU_CATALOG: ModelInsert[] = [
     "iu_listed": true
   },
   {
+    "id": "gemini-3.6-flash",
+    "provider": "google",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Gemini 3.6 Flash",
+    "context_window": null,
+    "iu_listed": true
+  },
+  {
     "id": "gemini-embedding-001",
     "provider": "google",
     "family": null,
     "modality": "embedding",
-    "display_name": "Google Gemini 3.5 Flash EU",
-    "context_window": 1000000,
+    "display_name": "Gemini Embedding 001",
+    "context_window": null,
     "iu_listed": true
   },
   {
@@ -396,7 +414,7 @@ export const IU_CATALOG: ModelInsert[] = [
     "family": null,
     "modality": "llm",
     "display_name": "Gemini Robotics Er 1.5 Preview",
-    "context_window": 128000,
+    "context_window": null,
     "iu_listed": true
   },
   {
@@ -405,6 +423,24 @@ export const IU_CATALOG: ModelInsert[] = [
     "family": null,
     "modality": "llm",
     "display_name": "Gemini Robotics Er 1.6 Preview",
+    "context_window": null,
+    "iu_listed": true
+  },
+  {
+    "id": "gemini-robotics-er-2-preview",
+    "provider": "google",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Gemini Robotics Er 2 Preview",
+    "context_window": 128000,
+    "iu_listed": true
+  },
+  {
+    "id": "gemini-robotics-er-2-streaming-preview",
+    "provider": "google",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Gemini Robotics Er 2 Streaming Preview",
     "context_window": 128000,
     "iu_listed": true
   },
@@ -440,8 +476,8 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "other",
     "family": null,
     "modality": "llm",
-    "display_name": "GLM 5.2",
-    "context_window": 200000,
+    "display_name": "GLM 5.2 Fast",
+    "context_window": 1000000,
     "iu_listed": true
   },
   {
@@ -449,7 +485,7 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "openai",
     "family": null,
     "modality": "llm",
-    "display_name": "GPT 3.5 Turbo",
+    "display_name": "GLM 5.2 Fast",
     "context_window": 1000000,
     "iu_listed": true
   },
@@ -458,7 +494,7 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "openai",
     "family": null,
     "modality": "llm",
-    "display_name": "GPT 3.5 Turbo 0125",
+    "display_name": "GLM 5.2 Fast",
     "context_window": 1000000,
     "iu_listed": true
   },
@@ -1097,7 +1133,16 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "openai",
     "family": null,
     "modality": "image",
-    "display_name": "GPT Image 2 2026 04 21",
+    "display_name": "GPT Image 2",
+    "context_window": 1,
+    "iu_listed": true
+  },
+  {
+    "id": "gpt-live-transcribe",
+    "provider": "openai",
+    "family": null,
+    "modality": "stt",
+    "display_name": "GPT Live Transcribe",
     "context_window": 128000,
     "iu_listed": true
   },
@@ -1106,8 +1151,8 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "openai",
     "family": null,
     "modality": "llm",
-    "display_name": "GPT Image 2",
-    "context_window": 1,
+    "display_name": "GPT Oss 120b",
+    "context_window": null,
     "iu_listed": true
   },
   {
@@ -1197,7 +1242,7 @@ export const IU_CATALOG: ModelInsert[] = [
     "family": null,
     "modality": "tts",
     "display_name": "GPT Realtime Translate",
-    "context_window": 128000,
+    "context_window": null,
     "iu_listed": true
   },
   {
@@ -1206,6 +1251,15 @@ export const IU_CATALOG: ModelInsert[] = [
     "family": null,
     "modality": "stt",
     "display_name": "GPT Realtime Whisper",
+    "context_window": 128000,
+    "iu_listed": true
+  },
+  {
+    "id": "gpt-transcribe",
+    "provider": "openai",
+    "family": null,
+    "modality": "stt",
+    "display_name": "GPT Transcribe",
     "context_window": 128000,
     "iu_listed": true
   },
@@ -1471,15 +1525,6 @@ export const IU_CATALOG: ModelInsert[] = [
     "iu_listed": true
   },
   {
-    "id": "mistral-small-2506",
-    "provider": "mistral",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Mistral OCR",
-    "context_window": 8000,
-    "iu_listed": true
-  },
-  {
     "id": "mistral-small-2603",
     "provider": "mistral",
     "family": null,
@@ -1493,26 +1538,8 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "mistral",
     "family": null,
     "modality": "llm",
-    "display_name": "Mistral Small Latest",
-    "context_window": null,
-    "iu_listed": true
-  },
-  {
-    "id": "mistral-tiny-2407",
-    "provider": "mistral",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Mistral Tiny 2407",
-    "context_window": null,
-    "iu_listed": true
-  },
-  {
-    "id": "mistral-tiny-latest",
-    "provider": "mistral",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Mistral Tiny Latest",
-    "context_window": null,
+    "display_name": "Mistral OCR",
+    "context_window": 8000,
     "iu_listed": true
   },
   {
@@ -1656,15 +1683,6 @@ export const IU_CATALOG: ModelInsert[] = [
     "family": null,
     "modality": "llm",
     "display_name": "O3 Pro 2025 06 10",
-    "context_window": 200000,
-    "iu_listed": true
-  },
-  {
-    "id": "o4-mini",
-    "provider": "openai",
-    "family": null,
-    "modality": "llm",
-    "display_name": "O4 Mini",
     "context_window": 200000,
     "iu_listed": true
   },
