@@ -71,7 +71,10 @@ export const capabilityProbe = sqliteTable(
 );
 
 // ── Metric snapshots (quality/price/throughput per source) ───────────────────
-// metric values: 'quality' | 'price_in' | 'price_out' | 'throughput' | 'latency_p50'
+// metric values: 'quality' | 'coding_index' | 'price_in' | 'price_out' | 'context_window'
+//   | 'throughput' | 'latency_p50' (leaderboard, seconds)
+//   | 'ttft_ms' (live, milliseconds — measured against IU by benchmark-throughput.ts)
+//   | 'tool_call_coverage' | 'tool_call_success' | 'tool_call_rounds' (live)
 
 export const metricSnapshot = sqliteTable(
   "metric_snapshot",

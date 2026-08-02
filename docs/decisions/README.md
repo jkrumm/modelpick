@@ -55,6 +55,10 @@ Two cross-cutting principles:
   then the 2026-07-31 switch to Flash after the `-0731` re-post-training — what it wins
   (index, cost, time-to-first-token), what it gives up (factual recall), and the two things
   that could not be verified.
+- [fast-model.md](./fast-model.md) — why `DeepSeek-V4-Flash` holds the fast pick against a
+  GLM-5.2 recommendation: AA overstated GLM's throughput by 3.8× (37.7 tok/s measured live),
+  GLM reports no TTFT at all, and it costs 3.75–15× more. Also records the scoring defect this
+  exposed — live `ttft_ms` was collected and never read by the scorer.
 - [coding-model.md](./coding-model.md) — why the coding pick moved from `DeepSeek-V4-Pro` to
   `DeepSeek-V4-Flash` on 2026-08-02: the AA coding index flipped 69.1 vs 59.4 while Pro sat
   unchanged since April, the agentic-coding sweep (Terminal-Bench, DeepSWE, NL2Repo) that

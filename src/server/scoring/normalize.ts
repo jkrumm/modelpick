@@ -62,7 +62,7 @@ export function normalizeMetrics(rawMetrics: MetricInput[]): ModelMetrics[] {
 
   // A non-positive price / latency / throughput is missing data (no model is free
   // or has 0s time-to-first-token) — drop it so it isn't read as best-in-class.
-  const POSITIVE_ONLY = new Set(["price_in", "price_out", "throughput", "latency_p50"]);
+  const POSITIVE_ONLY = new Set(["price_in", "price_out", "throughput", "latency_p50", "ttft_ms"]);
 
   // Group by model_id → metric → [(value, confidence)]
   const grouped = new Map<string, Map<string, { value: number; confidence: number }[]>>();
@@ -95,9 +95,16 @@ export function normalizeMetrics(rawMetrics: MetricInput[]): ModelMetrics[] {
   const rawThroughput = modelIds.map((id) =>
     weightedAverage(grouped.get(id)?.get("throughput") ?? []),
   );
-  const rawLatency = modelIds.map((id) =>
-    weightedAverage(grouped.get(id)?.get("latency_p50") ?? []),
-  );
+  // Latency: prefer our own live time-to-first-token over the leaderboard's
+  // latency_p50. Leaderboards measure their own infra, not IU's, and have been
+  // wrong here by 3-4x (GLM-5.2: AA 141 tok/s vs 37.7 measured) — while a model
+  // we never benchmarked keeps whatever the leaderboard says. ttft_ms is in
+  // milliseconds; latency_p50 is in seconds.
+  const rawLatency = modelIds.map((id) => {
+    const live = weightedAverage(grouped.get(id)?.get("ttft_ms") ?? []);
+    if (live !== null) return live / 1000;
+    return weightedAverage(grouped.get(id)?.get("latency_p50") ?? []);
+  });
 
   // Min-max normalize across models
   const normQuality = minmax(rawQuality);

@@ -32,7 +32,7 @@ describe("schema enum values", () => {
   });
 
   it("metric source has correct values", () => {
-    expect(METRIC_SOURCE).toEqual(["iu", "openrouter", "artificialanalysis"]);
+    expect(METRIC_SOURCE).toEqual(["iu", "openrouter", "artificialanalysis", "live"]);
   });
 });
 
