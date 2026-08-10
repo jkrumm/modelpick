@@ -186,6 +186,116 @@ Revert is one line in `hermes-agent/config.yaml` plus `hermes gateway restart`. 
 if factual-recall regressions show up in daily use (the SimpleQA gap is the predicted failure
 mode) or if IU turns out to be pinning pre-0731 weights.
 
+## 2026-08-10: Luna (`gpt-5.6-luna`) bake-off — residency prompts a re-look
+
+OpenAI's Luna pricing refresh prompted a check on whether it now beats DeepSeek-V4-Flash for
+Hermes. Two catalog traps first: the display name "GPT 5.6 Luna" is shared by three catalog
+ids, and only `gpt-5.6-luna` is actually routed on IU — `gpt-5.5-pro` and
+`gpt-5.5-pro-2026-04-23` both read `not_routed` in every `capability_probe` since June.
+
+**Residency — the deciding signal.** `capability_probe`'s residency check reads live response
+headers (`x-ms-region` / `x-middleware-forwarded-server` for "sweden"), not guesswork.
+`gpt-5.6-luna` verifies **`eu` (Azure Sweden Central)** as of 2026-08-02. `DeepSeek-V4-Flash`
+reads **`unknown`** on every probe since the Requesty proxy layer went in — it strips the
+headers the check relies on. Both models are believed to run on Azure infrastructure, but that
+can't currently be independently re-confirmed for DeepSeek from IU's response headers, and
+"on Azure" alone doesn't guarantee EU data residency — only a Regional or Data-Zone-EU
+deployment type does; a Global deployment can still leave the region. Which deployment type IU
+configured for either model is unverified from this end.
+
+**Live IU benchmark, 4 independent runs each** (`bun run benchmark`, `bun run benchmark:tools`,
+2026-08-10 — one initial run plus 3 same-day repeats per model, to separate real stability from
+a lucky sample):
+
+| Run | DeepSeek-V4-Flash TTFT avg | DeepSeek-V4-Flash tok/s | gpt-5.6-luna TTFT avg | gpt-5.6-luna tok/s |
+|-|-|-|-|-|
+| 1 | 2639ms | 124.3 | 808ms | 136.7 |
+| 2 | 3435ms | 168.8 | 954ms | 143.6 |
+| 3 | 2386ms | 120.9 | 779ms | 119.4 |
+| 4 | 5380ms (one turn spiked to 11.5s / 702 tok/s — the reasoning-token miscount bug previously seen on Pro, now also hit Flash) | 328.3 (same outlier) | 833ms | 132.0 |
+
+Tool-calling (3 fresh runs, both 3/3 tools + valid args + finished on every run — reliability is
+a wash): Flash total time 10.7s / 14.3s / 12.1s; Luna 3.7s / 4.2s / 3.9s. **Luna is both faster
+(3–8x on TTFT, ~3x on the tool-calling scenario) and the more stable of the two** — its TTFT
+across all 4 runs stays inside a 175ms band, while Flash swings 2.4–5.4s and produced a fresh
+reasoning-token-inflation outlier. Not close.
+
+**Validation run (5th throughput/4th tool-calling pass, same day).** Confirms the pattern, not a
+fluke: Flash TTFT 2940ms avg (range across all 5 runs: 2.4–5.4s), Luna 823ms avg (range across
+all 5 runs: 779–954ms — still inside a 175ms band). Tool-calling: Flash 13.0s, Luna 3.7s, both
+3/3 again. Re-ran the caching probe against Luna a second time too: `cached_tokens: 0` on all
+three calls again, latency still drops call-over-call (1023→738→758ms) without being reflected
+in usage — the non-reporting is consistent, not a one-off.
+
+**Cost and quality** (Artificial Analysis, 2026-08-02): quality index 51.2 vs 49.9, coding
+index 71.4 vs 69.1 — Luna edges Flash on both. External pricing is unreliable: OpenRouter says
+$0.10/$0.60 per 1M in/out for Luna, Artificial Analysis says $0.20/$1.20 — a 2x disagreement
+between sources, neither confirmed as IU's actual billed rate.
+
+**Caching — live-probed, not just documented.** Sent an identical ~1,700-token static prefix
+3x back-to-back to each model on IU. DeepSeek-V4-Flash's cache is real and audited: cold call
+`cached_tokens: 0`, cost $0.000264; both warm calls hit `cached_tokens: 1664/1713` at
+cost $0.0000608 / $0.0000493 — the effective cache-hit input rate backs out to exactly
+DeepSeek's official $0.0028/M, so IU passes the real discount through, verifiably, via a `cost`
+field on every response. **`gpt-5.6-luna` reported `cached_tokens: 0` on all three calls**
+despite an identical prefix well over the 1,024-token minimum, seconds apart — either IU's Luna
+route doesn't cache, or it caches without reporting it (total latency did drop 1750ms → ~760ms
+call-over-call, and IU's own `latency_checkpoint.service_ttft_ms` trended down too, so *something*
+sped up) — and Luna's response carries no `cost` field at all, so there's no way to bill or
+verify it either way. Matches a Microsoft-confirmed bug (July 2026) where GPT-5.6 Luna doesn't
+report cache hits on the Responses API — this test hit Chat Completions, which MS's docs say is
+unaffected, so either the bug is broader than documented or IU's routing triggers it regardless.
+**Bottom line: Flash's caching is proven and cheap on IU today; Luna's cannot currently be
+trusted or verified through IU**, which cuts against its cost advantage on repeat-prefix-heavy
+workloads like Hermes's system prompt, even though Luna wins decisively on raw latency.
+
+**GDPR, external research (2026-08-10, cross-verified via research-gateway).** DeepSeek's own
+API (`api.deepseek.com`) is not GDPR-viable for personal data: China-hosted, no EU adequacy,
+trains on user data by default per its April 2026 ToS, no DPA with SCCs. Italy ordered it
+blocked (Jan 2025); Germany, Poland, Belgium, France, and Ireland have open investigations.
+Azure OpenAI Standard/Data-Zone-EU deployments are covered by Microsoft's EU Data Boundary
+(completed Feb 2025) and the standard Microsoft Products DPA — no training on customer data,
+contractually. Under EDPB Opinion 28/2024, an EU-hosted deployment of an open-weight model
+(DeepSeek included) resolves the data-*flow* risk but not the model-*provenance* risk
+(whether personal data survives unlawfully in the trained weights) — a residual, documented-
+assessment-only risk that doesn't apply to OpenAI's models. None of this tells us which path
+IU's `DeepSeek-V4-Flash` alias actually uses; that's the open item below.
+
+### Verdict
+
+**`gpt-5.6-luna` is the stronger candidate on latency, stability, and residency;
+DeepSeek-V4-Flash is the stronger candidate on proven cache economics.** Neither axis is close:
+Luna is 3–8x faster and visibly more stable across repeated same-day runs; Flash has a
+live-verified, audited cache discount that Luna's route doesn't demonstrate at all. The
+residency gap matters most for an agent that touches calendar/health/email, and latency is the
+metric that decided the previous Pro→Flash switch too — both favor Luna, so it wins on balance
+despite Flash's caching edge (economically immaterial at personal-assistant scale).
+
+Still open, doesn't block the switch: get IU to confirm the Azure deployment type behind both
+models (Regional/Data-Zone-EU vs Global — a live "eu" header reading is a positive signal, not
+a deployment-type guarantee), and ask IU/Microsoft why `gpt-5.6-luna` isn't reporting cache hits
+through their Chat Completions route.
+
+**2026-08-10: switched.** All three IU consumers of `DeepSeek-V4-Flash` for this brain/gateway
+role moved to `gpt-5.6-luna`:
+
+- **hermes-agent** — `config.yaml` (brain + `web_extract`/`compression`/`approval`/
+  `title_generation` auxiliaries) and every doc/skill naming the brain by id, committed direct
+  to master (`dfadbb3`). Gateway restart is a separate manual step, not done as part of this.
+- **research-gateway** — `IU_LEAD_MODEL`/`IU_WORKER_MODEL` defaults + a `gpt-5.6-luna` cost-rate
+  entry (cache discount deliberately *not* assumed, per the live probe above), draft PR
+  [jkrumm/research-gateway#2](https://github.com/jkrumm/research-gateway/pull/2). Tests pass
+  (269/269); not yet smoke-tested against the live IU endpoint from inside that repo.
+- **argo** — the `/ai/v1/*` AI gateway (`DEEPSEEK_MODEL` env default, titling/classification
+  only, not the Hermes agent itself) + a cost-rate entry, draft PR
+  [jkrumm/argo#5](https://github.com/jkrumm/argo/pull/5). Typecheck + lint pass.
+
+All three still carry the same open item: the OpenRouter reference price used for
+`gpt-5.6-luna` ($0.10/$0.60 per 1M in/out) is not IU's confirmed billed rate — flagged in-line
+at each rate table. `usage-tracker/src/pricing.ts` (separate repo, documented there as the
+authoritative copy of these rates) still needs a matching entry, tracked as a manual follow-up
+in both PRs.
+
 ## Resilience requirements (carried over, still current)
 
 1. DeepSeek-V4-Pro primary over the OpenAI-compat transport.
