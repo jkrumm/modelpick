@@ -7,7 +7,11 @@ export default defineConfig({
   server: {
     port: 7727,
     strictPort: true,
-    allowedHosts: ['modelpick.test'],
+    // '.mini.jkrumm.com' (leading dot = that domain and all subdomains) is the
+    // Caddy-fronted tailnet door on the Mac mini — see dotfiles
+    // scripts/caddy-tailnet.sh. Without it Vite 403s every request whose Host
+    // isn't localhost, and the door looks broken at the proxy rather than here.
+    allowedHosts: ['modelpick.test', '.mini.jkrumm.com'],
   },
   resolve: {
     alias: {
