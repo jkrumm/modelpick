@@ -54,7 +54,10 @@ Two cross-cutting principles:
   despite GLM-5.2 measuring faster, why Qwen3.7-Max/Kimi-K2.7-Code failed on tool-calling),
   then the 2026-07-31 switch to Flash after the `-0731` re-post-training — what it wins
   (index, cost, time-to-first-token), what it gives up (factual recall), and the two things
-  that could not be verified.
+  that could not be verified; the 2026-08-10 switch to `gpt-5.6-luna` on latency + Sweden
+  Central residency; and the 2026-08-20 `gemini-3.7-flash` bake-off — why IU's `/gemini` native
+  route has no EU path for it (the `iu-ai-6123` / `europe-west1` 404 that proves it), why 4.7×
+  slower TTFT beats 4× faster decode for a Slack agent, and the 8–10× cost gap.
 - [fast-model.md](./fast-model.md) — why `DeepSeek-V4-Flash` holds the fast pick against a
   GLM-5.2 recommendation: AA overstated GLM's throughput by 3.8× (37.7 tok/s measured live),
   GLM reports no TTFT at all, and it costs 3.75–15× more. Also records the scoring defect this

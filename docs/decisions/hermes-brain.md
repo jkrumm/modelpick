@@ -1,11 +1,11 @@
-# Hermes Brain — Sonnet → Kimi-K2.6 → DeepSeek-V4-Pro → DeepSeek-V4-Flash
+# Hermes Brain — Sonnet → Kimi-K2.6 → DeepSeek-V4-Pro → DeepSeek-V4-Flash → gpt-5.6-luna
 
-**Current:** `DeepSeek-V4-Flash` since 2026-07-31, with fallback `claude-sonnet-4-6-eu`
-unchanged. Flash overtook Pro on the day DeepSeek re-post-trained it (`DeepSeek-V4-Flash-0731`)
-— it now leads Pro on the Artificial Analysis Intelligence Index while costing ~3× less per
-output token and answering ~2.5× sooner on the IU endpoint. See the 2026-07-31 section below,
-including what that switch gives up (factual recall) and what could not be verified (which
-Flash weights IU actually serves).
+**Current:** `gpt-5.6-luna` since 2026-08-10, with fallback `claude-sonnet-4-6-eu` unchanged.
+Luna won on latency (3–8× faster to first token than DeepSeek-V4-Flash, and stable across
+repeated runs) and on the only live-verifiable residency signal on IU (`x-ms-region: Sweden
+Central`). Its one open weakness at the time — cache hits not reported through IU — closed on
+2026-08-20, when a re-probe measured 99.9% cache hits with a 9× cost drop. Held against
+`gemini-3.7-flash` on 2026-08-20; see the last section for why.
 
 ## History
 
@@ -309,3 +309,185 @@ in both PRs.
 Operational specifics (credential resolution, request-layer wiring, validation skill) stay in
 the hermes-agent repo and dotfiles. This record captures the *choice* and the reasoning behind
 it.
+
+## 2026-08-20: `gemini-3.7-flash` bake-off — Luna holds
+
+IU announced `gemini-3.7-flash` on the `/gemini` **and** `/openai` endpoints (alongside
+`glm-5.3` and `qwen-3.8-max` on `/openai`, and `deepseek-v4-pro` now pointing at
+`deepseek-v4-pro-0813`). Headline claim was speed. Measured live against IU with a new
+`scripts/benchmark-bakeoff.ts` (`bun run benchmark:bakeoff [routing|throughput|cache|tools]`),
+which extends the existing benchmarks with hidden-reasoning-token accounting, prompt-cache
+economics, per-turn cost at vendor list rates, and backend routing headers.
+
+**`/gemini` is a real native passthrough.** `POST /gemini/v1beta/models/{id}:generateContent`
+and `:streamGenerateContent?alt=sse` with `x-goog-api-key` behave like Google's own API:
+`usageMetadata` (`thoughtsTokenCount`, `cachedContentTokenCount`), `thoughtSignature` parts,
+`functionDeclarations` tools, `systemInstruction`. 44 models listed there vs 290 on `/openai`.
+
+### Residency: it is *not* EU, and IU's own error message proves it
+
+| Model | `x-middleware-forwarded-server` | Region evidence |
+|-|-|-|
+| `gpt-5.6-luna` | `IU AI Middleware Sweden Central Azure` | `x-ms-region: Sweden Central` |
+| `gemini-3.7-flash` (both routes) | `Gemini API` / `Gemini API OpenAI direct` | none — no region header at all |
+| `gemini-3.5-flash-eu` | `LiteLLM 2026 Gateway GDPR` | response `model: vertex_ai_eu/gemini-3.5-flash` |
+| `glm-5.3`, `qwen3.8-max` | `Requesty-Global` | none (same unverifiable class as before) |
+
+IU runs two Gemini paths: a **GDPR path** (LiteLLM → Vertex project `iu-ai-6123`, EU regions)
+exposed under the `-eu` name suffix, and a **direct path** to Google's global Gemini API for
+everything else. `gemini-3.7-flash` is only on the direct path — there is no
+`gemini-3.7-flash-eu`, and the native model list even labels the EU one "3.5 Flash via EU".
+
+This is not inference from a missing header. Sending tool *results* back on the `/openai`
+route makes LiteLLM take over the request and fail loudly:
+
+```
+litellm.NotFoundError: Vertex_aiException - 404
+Publisher model `projects/iu-ai-6123/locations/europe-west1/publishers/google/models/gemini-3.7-flash`
+was not found or your project does not have access to it.
+Received Model Group=vertex_ai_europe_west_1/gemini-3.7-flash
+```
+
+IU's EU Vertex project does not carry 3.7 Flash. Google's own position is the same, from the
+other end: the AI Studio / `generativelanguage.googleapis.com` API offers **no data-residency
+guarantee of any kind** — a Google moderator's answer is "use Vertex AI if residency is a
+concern." The paid tier does give Art. 28 processor status, ZDR and a no-training commitment
+via the `business.safety.google` DPA + SCCs, so this is a *location* gap, not a training gap.
+For a brain that reads calendar, health and email, that is the same gate that decided
+Kimi→DeepSeek and DeepSeek→Luna.
+
+### Latency: Luna wins where it is felt, Gemini wins where it isn't
+
+Short Hermes-shaped prompts (10 German one-liners, system prompt, streamed):
+
+| | TTFT median | TTFT min–max | wall median | thinking tokens (median) |
+|-|-|-|-|-|
+| `gpt-5.6-luna` | **674ms** | 494–2600ms | **1152ms** | **0** |
+| `gemini-3.7-flash` | 3156ms | 1827–13728ms | 3231ms | 300 |
+
+3-turn long-form conversation, 4 passes each: Luna TTFT 1107–1514ms, Gemini native
+3792–5239ms. Gemini decodes far faster once it starts (253–452 tok/s vs Luna 68–100), but that
+is partly chunk granularity, not smoothness — on the same 250-word prompt Luna emitted **389
+text chunks (median 4 chars)** and Gemini **15 chunks (median 117 chars)**, and both finished
+within ~200ms of each other (Luna last chunk 6271ms, Gemini 6070ms). Total conversation time is
+a wash (Luna 15.6–16.2s, Gemini 13.9–19.0s). **Same finish time, 3s later start, chunkier
+delivery** — for a Slack assistant that is strictly worse.
+
+The cause is thinking, which is on by default at `medium` — and it **can** be turned down, which
+was worth chasing before writing the model off. `generationConfig.thinkingConfig.thinkingLevel:
+"low"` (native) and `reasoning_effort: "none"` (`/openai`) both work; `"MINIMAL"` is rejected
+outright ("Thinking level MINIMAL is not supported"), and `thinkingBudget: 0` works but is the
+weaker lever. "Low" is a budget hint, not an off switch: on trivial prompts it lands at 0 thought
+tokens, on real generation it still spends 380–650 per turn (think/visible ratio 2.0–2.4 → 0.7–0.8,
+not → 0).
+
+Gemini 3 also counts thoughts against `maxOutputTokens`, so a 600-token cap spends the whole
+budget thinking and truncates the answer — the first pass of this bake-off had to be thrown away
+and re-run at 4000.
+
+**Best-config vs best-config** (`thinkingLevel: "low"` against Luna at `reasoning_effort: "none"`,
+3 passes each plus 20 short-prompt samples). Turning thinking down is worth a lot to Gemini — it
+roughly halves TTFT, cuts cost ~40%, and makes it the *fastest* of the four on total conversation
+time. It does not close the gap that matters:
+
+| | Luna, effort=none | Gemini 3.7, thinking=low |
+|-|-|-|
+| TTFT median, short prompts (n=20) | **652ms** (p90 921ms) | 1324ms (p90 2178ms) |
+| TTFT, 3-turn long-form | **562–689ms** | 1821–1875ms |
+| 3-turn conversation wall | 11.5–12.4s | **9.2–9.4s** |
+| 3-tool scenario | **3/3, 3.6–4.0s** | 3/3, 4.0–5.5s |
+| 20 short prompts, cost | **$0.00122** | $0.01141 (9.4×) |
+| 3-turn conversation, cost | **$0.00126** | $0.00713 (5.7×) |
+
+Two side findings from the same sweep. Luna at `reasoning_effort: "none"` beats Luna at default
+on every axis in this workload — TTFT 1071→605ms, tool scenario 5.7→3.6s, cost −20% — worth a
+separate look for Hermes, where the brain's job is routing to tools rather than reasoning in
+place. And Gemini at *default* thinking failed the tool scenario once (2/3 tools, no final
+answer) where `thinking=low` passed 3/3 in every run; more thinking made the agent loop less
+reliable, not more.
+
+### Tokens and cost
+
+Verified list rates: Luna **$0.20 / $0.02 cached / $1.20** per 1M (post-2026-07-30 cut, Azure
+matches, re-confirmed live against `openrouter.ai/api/v1/models` on 2026-08-20). Gemini 3.7 Flash
+**$0.75 / $0.075 / $3.75** intro — **doubling to $1.50/$7.50 on 2027-01-01**. Both bill thinking
+at the output rate. IU no longer returns a `cost` field on any route (DeepSeek's is gone too), so
+these are vendor list prices, not IU's billed rate.
+
+**The $0.10/$0.60 trap.** Luna's *batch* tier is exactly half its standard rate, and that is the
+figure the argo and research-gateway rate tables were carrying — not a later price cut. Same
+shape one model over: `gpt-5.6-terra` reads $2.00/$12.00 today while `gpt-5.6-sol` reads
+$2.50/$15.00, which is Terra's stale launch price, so a stale Terra entry looks plausible
+forever. Any rate lifted from a reseller needs its tier checked before it lands in a cost table.
+
+**Sensitivity.** These are vendor list prices. OpenRouter resells Gemini 3.7 Flash at
+$0.375/$1.875 — half Google's list, i.e. flex-tier — while pricing Luna at Google-list parity
+($0.20/$1.20). If IU bills nearer resale than list, the cost gap narrows from ~5.7× to ~2.8×.
+Luna stays the cheaper model under either assumption, so this does not move the verdict, but the
+size of the gap is softer than a single number suggests.
+
+| Measured scenario | `gpt-5.6-luna` | `gemini-3.7-flash` | ratio |
+|-|-|-|-|
+| 3-turn conversation | $0.00152 | $0.01183 | 7.8× |
+| 3-tool agent scenario | $0.000623 | $0.005941 | 9.5× |
+| thinking / visible-output ratio | 0.07–0.12 | 1.97–2.42 | ~20× |
+| billed output over 8 mixed prompts | 163 tok | 825 tok | 5.1× |
+| input tokens for the same 3-round tool loop | 1123 | 2066 | 1.8× (thought signatures re-sent) |
+
+After the January price change this is a ~19× gap. Both columns are default-config; the
+best-config-vs-best-config table above narrows it to 5.7–9.4×, which is the number to argue
+with.
+
+### Caching — and a correction to the 2026-08-10 record
+
+| Prefix | Luna cached | Gemini cached |
+|-|-|-|
+| 3,155 / 3,533 tokens | **3,152 (99.9%)**, cost $0.000638 → $0.000071 | **0** on all 3 calls, both routes |
+| 20,835 / 25,129 tokens | **20,832 (99.99%)** | 20,453 (81%) |
+
+**`gpt-5.6-luna` now reports and discounts cache hits correctly on IU.** The 2026-08-10 entry
+above recorded `cached_tokens: 0` on every call and flagged it as a Microsoft-confirmed bug;
+re-probed today it reports 99.9% hits with a 9× cost drop. That open item is closed — Luna no
+longer trades proven cache economics for latency, it has both.
+
+Gemini's implicit cache is real but starts later: 0 at 3.5k tokens, 81% at 25k, matching
+Google's documented **4,096-token implicit-cache minimum** (Luna's kicks in below 3.2k). Its
+90% cached-read discount is the same percentage as Luna's, off a 3.75× higher base.
+
+### Tool calling
+
+Discipline is a wash: 4 prompts that need a tool and 4 that don't — **both models 0/4
+over-calls and 0/4 missed calls**. The scripted 3-tool scenario: Luna 3/3 tools, valid args,
+finished, 4.9–6.5s; Gemini native 3/3, valid args, finished, 7.8–11.0s.
+
+**But the `/openai` route is unusable for Gemini agent loops.** Feeding tool results back
+fails with the europe-west1 404 above — 3/3 runs, every time, mid-scenario. Anything agentic
+with `gemini-3.7-flash` on IU must use the native `/gemini` endpoint and echo `thoughtSignature`
+parts back verbatim.
+
+### Verdict
+
+**Stay on `gpt-5.6-luna`.** Tuned against tuned, Gemini 3.7 Flash is still 2× slower to first
+token on short prompts (and 2.4× worse at p90), costs 5.7–9.4× more today and ~2× that again
+from January, caches later and less, and — decisively for a brain that touches personal data —
+has **no EU route on IU at all**, only Google's global AI Studio API. Its wins are real and
+bigger than the default-config numbers suggested: with thinking turned down it *finishes* a
+3-turn conversation faster than Luna does, decodes 3× quicker, and brings a 1M context window
+and a genuinely clean native endpoint. For a Slack assistant, starting 700ms sooner beats
+finishing 2s sooner, and neither is worth a residency downgrade.
+
+Re-open if IU publishes a `gemini-3.7-flash-eu` alias on the LiteLLM GDPR gateway. At that
+point the residency objection dies and the question becomes purely cost-vs-capability — where
+Luna still leads by ~8× on measured spend.
+
+Not evaluated, deliberately: `glm-5.3` and `qwen3.8-max` both route through `Requesty-Global`,
+the same header-stripping US proxy layer that made DeepSeek's residency unverifiable; and
+`deepseek-v4-pro-0813` is a Pro-line update, and the Pro line already lost this seat twice on
+latency.
+
+**Open items.** IU's actual billed rates are still unknown (no `cost` field on any route now).
+The modelpick catalog snapshot is stale — IU lists 290 models on `/openai` and the snapshot has
+none of `gemini-3.7-flash`, `glm-5.3`, `qwen3.8-max`, so `metric_snapshot` writes for the new
+ids fail the FK and were skipped; run `/update-iu-models` against a fresh check-key export.
+No quality-index numbers (Artificial Analysis, LMArena, agentic benchmarks) were gathered for
+either model in this round — the research pass was scoped to pricing and residency.
