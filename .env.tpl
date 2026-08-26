@@ -10,6 +10,7 @@ IU_API_KEY=op://common/anthropic/API_KEY
 IU_ANTHROPIC_BASE_URL=https://unified-endpoint-main.app.iu-it.org/anthropic/v1
 IU_OPENAI_BASE_URL=https://unified-endpoint-main.app.iu-it.org/openai/v1
 IU_GEMINI_BASE_URL=https://unified-endpoint-main.app.iu-it.org/gemini/v1beta
+IU_REPLICATE_BASE_URL=https://unified-endpoint-main.app.iu-it.org/replicate/v1
 
 # --- External leaderboard APIs + admin gate ---
 OPENROUTER_API_KEY=op://vps/modelpick/OPENROUTER_API_KEY

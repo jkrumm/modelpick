@@ -3,6 +3,7 @@ import { db } from "./index.js";
 import { models, stackChoice } from "./schema.js";
 import type { StackChoiceInsert } from "./schema.js";
 import { IU_CATALOG } from "./iu-catalog.js";
+import { REPLICATE_CATALOG } from "./replicate-catalog.js";
 
 // The model catalog is the IU self-service portal export, parsed into
 // src/db/iu-catalog.ts by scripts/import-portal.ts. The live /v1/models aliases
@@ -22,6 +23,28 @@ export async function seedModels(): Promise<void> {
         display_name: sql`excluded.display_name`,
         context_window: sql`excluded.context_window`,
         iu_listed: sql`excluded.iu_listed`,
+        transport: sql`excluded.transport`,
+      },
+    });
+}
+
+// The Replicate speech-model catalog, parsed into src/db/replicate-catalog.ts
+// by scripts/import-replicate.ts. Re-run it to refresh.
+export async function seedReplicateModels(): Promise<void> {
+  if (REPLICATE_CATALOG.length === 0) return;
+  await db
+    .insert(models)
+    .values(REPLICATE_CATALOG)
+    .onConflictDoUpdate({
+      target: models.id,
+      set: {
+        provider: sql`excluded.provider`,
+        family: sql`excluded.family`,
+        modality: sql`excluded.modality`,
+        display_name: sql`excluded.display_name`,
+        context_window: sql`excluded.context_window`,
+        iu_listed: sql`excluded.iu_listed`,
+        transport: sql`excluded.transport`,
       },
     });
 }

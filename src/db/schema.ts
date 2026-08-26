@@ -6,6 +6,10 @@ import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-or
 // are exported so tests and callers can assert against them.
 export const MODALITY = ["llm", "tts", "stt", "image", "embedding"] as const;
 export const RESIDENCY = ["eu", "us", "unknown"] as const;
+// Gateway route a model is served through. 'iu' = the IU-native per-provider
+// routes (OpenAI/Anthropic/Gemini dialects, see client.ts); 'replicate' = the
+// IU gateway's Replicate proxy (see replicate.ts).
+export const TRANSPORT = ["iu", "replicate"] as const;
 // Outcome of a live access probe. `accessible` is derived from this (available|throttled).
 export const PROBE_STATUS = [
   "available", // 2xx — model responded
@@ -45,6 +49,7 @@ export const models = sqliteTable("models", {
   // true when the model is returned by the live IU /models endpoint (vs. an
   // external-only comparison entry discovered from a leaderboard collector)
   iu_listed: integer("iu_listed", { mode: "boolean" }).notNull().default(false),
+  transport: text("transport", { enum: TRANSPORT }).notNull().default("iu"),
   created_at: text("created_at").notNull().default(now),
 });
 
@@ -206,3 +211,4 @@ export type RecommendationCategory = (typeof CATEGORY)[number];
 export type StackCategory = (typeof STACK_CATEGORY)[number];
 export type Lang = (typeof LANG)[number];
 export type MetricSource = (typeof METRIC_SOURCE)[number];
+export type Transport = (typeof TRANSPORT)[number];

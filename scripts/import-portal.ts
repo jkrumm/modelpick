@@ -13,7 +13,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { parsePortalHtml } from "../src/server/iu/portal.js";
 import { db, client } from "../src/db/index.js";
 import { models } from "../src/db/schema.js";
@@ -61,11 +61,12 @@ await db
   });
 console.log(`[import-portal] upserted ${catalog.length} models into the database`);
 
-// Remove any leftover non-portal rows (e.g. the old fictional seed). Probes,
-// metrics and demos referencing them cascade-delete via FK constraints.
+// Remove any leftover non-portal rows (e.g. the old fictional seed). Scoped to
+// the IU transport so it never touches Replicate-imported rows. Probes, metrics
+// and demos referencing them cascade-delete via FK constraints.
 const removed = await db
   .delete(models)
-  .where(eq(models.iu_listed, false))
+  .where(and(eq(models.iu_listed, false), eq(models.transport, "iu")))
   .returning({ id: models.id });
 if (removed.length > 0) {
   console.log(`[import-portal] removed ${removed.length} stale non-portal models`);

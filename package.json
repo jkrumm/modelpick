@@ -15,6 +15,7 @@
     "test": "vitest run",
     "db:push": "drizzle-kit push",
     "db:seed": "bun run scripts/seed-run.ts",
+    "import:replicate": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/import-replicate.ts",
     "demos:seed": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/seed-demos.ts",
     "probe": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/probe.ts",
     "collect": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/collect.ts",

@@ -1,6 +1,7 @@
 import { dialectForProvider, gatewayChat, parseResidency, rawFetch } from "./client.js";
 import { classifyProbe, isAccessible } from "./classify.js";
-import type { Modality, ProbeStatus, Residency } from "../../db/schema.js";
+import { probeReplicate } from "./replicate.js";
+import type { Modality, ProbeStatus, Residency, Transport } from "../../db/schema.js";
 
 export interface ProbeResult {
   model_id: string;
@@ -50,11 +51,15 @@ export interface ProbeOptions {
   model_id: string;
   modality: Modality;
   provider: string;
+  // Optional so existing IU-native callers/tests are unaffected; runProbe always
+  // threads the catalog row's real transport through.
+  transport?: Transport;
   audioFixture?: Blob | null;
+  audioDataUri?: string | null;
 }
 
 export async function probeModel(opts: ProbeOptions): Promise<ProbeResult> {
-  const { model_id, modality, provider } = opts;
+  const { model_id, modality, provider, transport = "iu" } = opts;
   const start = Date.now();
   const signal = AbortSignal.timeout(PROBE_TIMEOUT_MS);
 
@@ -62,7 +67,27 @@ export async function probeModel(opts: ProbeOptions): Promise<ProbeResult> {
   let body: string;
   let headers: Headers | null;
 
-  if (modality === "llm") {
+  if (transport === "replicate") {
+    // Replicate's route only serves speech models; stt additionally needs a
+    // real audio fixture as a data URI (the gateway takes a URL, not multipart).
+    if (modality === "stt" && !opts.audioDataUri) {
+      return {
+        model_id,
+        modality,
+        accessible: false,
+        probe_status: "unknown",
+        error: "no audio fixture available for STT probe",
+        latency_ms: null,
+        residency: "unknown",
+      };
+    }
+    const r = await probeReplicate({ model_id, modality, audioDataUri: opts.audioDataUri ?? null });
+    status = r.status;
+    body = r.body;
+    // The gateway's Replicate route returns no region header — residency stays
+    // unknown, so there's no headers object to parse.
+    headers = null;
+  } else if (modality === "llm") {
     const r = await gatewayChat({ model: model_id, provider, prompt: "hi", maxTokens: 4, signal });
     ({ status, body, headers } = r);
   } else if (modality === "embedding") {
@@ -186,7 +211,12 @@ export async function runProbe(): Promise<ProbeResult[]> {
   }
 
   const catalog = await db
-    .select({ model_id: models.id, modality: models.modality, provider: models.provider })
+    .select({
+      model_id: models.id,
+      modality: models.modality,
+      provider: models.provider,
+      transport: models.transport,
+    })
     .from(models);
 
   // Image models are catalog-only and a real generation call costs money, so we
@@ -208,9 +238,19 @@ export async function runProbe(): Promise<ProbeResult[]> {
   const audioFixture = catalog.some((c) => c.modality === "stt")
     ? await generateReferenceAudio()
     : null;
+  // Replicate's route takes a URL or a data URI for audio input, not multipart —
+  // and Replicate's own hosted URLs expire within minutes, so a data URI is the
+  // only stable fixture. Converted once and reused across Replicate STT probes.
+  const audioDataUri =
+    audioFixture && catalog.some((c) => c.modality === "stt" && c.transport === "replicate")
+      ? `data:audio/mpeg;base64,${Buffer.from(await audioFixture.arrayBuffer()).toString("base64")}`
+      : null;
 
-  const probed = await mapPool(toProbe, PROBE_CONCURRENCY, ({ model_id, modality, provider }) =>
-    probeModel({ model_id, modality, provider, audioFixture }),
+  const probed = await mapPool(
+    toProbe,
+    PROBE_CONCURRENCY,
+    ({ model_id, modality, provider, transport }) =>
+      probeModel({ model_id, modality, provider, transport, audioFixture, audioDataUri }),
   );
 
   const results = [...probed, ...imageOnly];
