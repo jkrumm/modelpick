@@ -120,9 +120,9 @@ until the Replicate lane has been lived with.
 not recorded voice — the EU rule in this file is about recorded personal voice, which stays on the
 STT path as before. Accepted knowingly; Gemini (EU) remains one `model:` field away.
 
-**Voice:** ElevenLabs on Replicate exposes a fixed name list (no custom voice ids). Default `Roger`
-pending a listening pass over the seven male candidates (Roger, Drew, Paul, Bradford, James, Mark,
-Clyde) on both models — samples were generated in German with `language_code: de`.
+**Voice:** ElevenLabs on Replicate exposes a fixed name list (no custom voice ids). **`Mark`**, chosen
+by ear (2026-08-26) over Roger, Drew, Paul, Bradford, James and Clyde on both models — German samples,
+`language_code: de`. ElevenLabs bills Mark as its conversational-AI voice, which fits the chat lane.
 
 **STT stays `gpt-4o-transcribe`.** ElevenLabs Scribe v2 leads German WER (2.27 % vs Whisper large-v3
 4.26 % on the Open ASR German track; gpt-4o-transcribe is unranked there) and is on the Replicate
