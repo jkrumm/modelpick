@@ -129,6 +129,15 @@ tokens). Bake-off on the real v3 prep prompt: `gpt-5.6-luna` 6.0 s (JSON ok), `g
 `DeepSeek-V4-Flash` 23 s. Luna stays — ~1.5 s on a cron path isn't worth leaving the verified
 EU model. Prod usage since the switch: flash-v2.5 avg 1.15 s / max 1.32 s over 6 calls, 0 errors.
 
+**Language per sentence (2026-08-26, raised by Hermes itself):** the streaming client sends one
+hint-less sentence per request, and the original DE/EN heuristic sent 11 of 13 typical short
+German replies ("Klar.", "Mach ich.", "Termin eingetragen.") to ElevenLabs as `language_code=en`
+— audibly English-accented. Fixed in the gateway, not in Hermes: three-way detection (DE markers →
+de, EN markers → en, else `TTS_DEFAULT_LANGUAGE=de`), and every Replicate usage row now records the
+code sent. Audited on prod: de/de/de for the German set, en/en for "Sure thing." / "Meeting moved
+to three pm.". No Hermes patch — its sentence prefetch (3-deep) already overlaps synthesis with
+playback, which the `speak-stream` measurement above confirms.
+
 **Not reachable, and the real upgrade path:** `eleven_v3_conversational` (v3 expressiveness at
 ~280 ms model latency, WebSocket streaming, $0.05/1k chars) exists only in ElevenLabs' direct API.
 With an ElevenLabs account Hermes' native `elevenlabs` provider would stream it directly
