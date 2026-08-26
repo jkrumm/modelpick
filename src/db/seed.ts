@@ -81,10 +81,11 @@ const MY_STACK: StackChoiceInsert[] = [
   },
   {
     category: "tts",
-    model_id: "gemini-3.1-flash-tts-preview",
-    env_note: "Charon voice.",
-    rationale: "Most expressive IU TTS; native generateContent route, EU-resident.",
-    decided_at: "2026-05-25",
+    model_id: "elevenlabs/flash-v2.5",
+    env_note: "Roger voice, via the IU Replicate route. elevenlabs/v3 for briefings (prep LLM + tags).",
+    rationale:
+      "Chat path: ~1.2 s per reply vs ~10 s on Gemini 3.1 Flash TTS once the prep LLM is counted; Hermes streams sentence-by-sentence so per-request latency is what the ear hears. v3 (AA #5, tags, previous/next_text continuity) takes the long-form lane. US-routed — accepted for reply text, not for recorded voice. See docs/decisions/audio-stack.md.",
+    decided_at: "2026-08-26",
   },
   {
     category: "stt",

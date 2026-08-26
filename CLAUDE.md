@@ -51,7 +51,8 @@ actually changes. Manual categories carry no `recommendation`, so the `/stack` p
 them as "no recommendation" (gray `—`) rather than ok/drift. Current picks: fast
 `DeepSeek-V4-Flash`, coding `DeepSeek-V4-Flash` (2026-08-02, was `DeepSeek-V4-Pro` — see
 `docs/decisions/coding-model.md`; GPT-5.5 dropped as too expensive), orchestrator
-`claude-opus-4-8` (Opus 4.8 in Claude Code), tts `gemini-3.1-flash-tts-preview` (Charon),
+`claude-opus-4-8` (Opus 4.8 in Claude Code), tts `elevenlabs/flash-v2.5` (Roger, IU Replicate
+route; `elevenlabs/v3` for briefings — 2026-08-26, was Gemini 3.1 Flash TTS/Charon),
 stt `gpt-4o-transcribe`, embedding `text-embedding-3-small`, vision `gemini-3.5-flash`,
 image `gpt-image-2`.
 
