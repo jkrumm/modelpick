@@ -148,6 +148,17 @@ Luna → Flash) for finished replies over 250 chars instead of reading them out:
 became 5 s of audio, first PCM at 4.9 s; short replies are still read in full; live voice
 conversation is untouched because its text arrives incrementally.
 
+**Observability (2026-08-26):** two layers, deliberately. SQLite/Argo usage rows are the cost
+accounting and now carry a `request_id`, one `*-request` row per call (mode, lane, chunks, language,
+end-to-end latency) and the input/spoken/transcribed text (600 chars, `USAGE_KEEP_TEXT`) —
+`bun run usage:tail --prod` prints the timeline with p50/p95 rollups. ClickStack/HyperDX gets one
+trace per request (trace id = request id) with stage spans and every log line, via a dependency-free
+OTLP/HTTP JSON exporter — the repo's no-npm-deps rule held. First traces showed the Replicate lane's
+shape exactly: `predict_time` 0.3 s inside a 1.0 s chunk span — ~0.5 s is Replicate scheduling and
+~0.2 s delivery fetch, i.e. the ~1 s floor is the vendor route, not the gateway. Dashboard tiles:
+`audio-gateway/docs/hyperdx-dashboard.md`. Summary prompt tightened to ~18 words after the first
+timeline showed 181-char (9.5 s) summaries; now 77 chars / 4 s.
+
 **Not reachable, and the real upgrade path:** `eleven_v3_conversational` (v3 expressiveness at
 ~280 ms model latency, WebSocket streaming, $0.05/1k chars) exists only in ElevenLabs' direct API.
 With an ElevenLabs account Hermes' native `elevenlabs` provider would stream it directly
