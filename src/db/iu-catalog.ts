@@ -13,15 +13,6 @@ export const IU_CATALOG: ModelInsert[] = [
     "iu_listed": true
   },
   {
-    "id": "claude-opus-4-1-20250805",
-    "provider": "anthropic",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Claude Opus 4.5",
-    "context_window": 200000,
-    "iu_listed": true
-  },
-  {
     "id": "claude-opus-4-5-20251101",
     "provider": "anthropic",
     "family": null,
@@ -103,39 +94,12 @@ export const IU_CATALOG: ModelInsert[] = [
     "iu_listed": true
   },
   {
-    "id": "gemini-2.0-flash-001",
-    "provider": "google",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Google Gemini 2.0 Flash",
-    "context_window": 1000000,
-    "iu_listed": true
-  },
-  {
-    "id": "gemini-2.0-flash-lite",
-    "provider": "google",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Google Gemini 2.0 Flash",
-    "context_window": 1000000,
-    "iu_listed": true
-  },
-  {
-    "id": "gemini-2.0-flash-lite-001",
-    "provider": "google",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Gemini 2.0 Flash Lite 001",
-    "context_window": null,
-    "iu_listed": true
-  },
-  {
     "id": "gemini-2.5-computer-use-preview-10-2025",
     "provider": "google",
     "family": null,
     "modality": "llm",
-    "display_name": "Gemini 2.5 Computer Use Preview 10 2025",
-    "context_window": null,
+    "display_name": "Google Gemini 2.0 Flash",
+    "context_window": 1000000,
     "iu_listed": true
   },
   {
@@ -143,8 +107,8 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "google",
     "family": null,
     "modality": "llm",
-    "display_name": "Gemini 2.5 Flash",
-    "context_window": null,
+    "display_name": "Google Gemini 2.0 Flash",
+    "context_window": 1000000,
     "iu_listed": true
   },
   {
@@ -346,6 +310,15 @@ export const IU_CATALOG: ModelInsert[] = [
     "iu_listed": true
   },
   {
+    "id": "gemini-3.7-flash",
+    "provider": "google",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Gemini 3.7 Flash",
+    "context_window": null,
+    "iu_listed": true
+  },
+  {
     "id": "gemini-embedding-001",
     "provider": "google",
     "family": null,
@@ -405,15 +378,6 @@ export const IU_CATALOG: ModelInsert[] = [
     "family": null,
     "modality": "llm",
     "display_name": "Gemini Pro Latest",
-    "context_window": null,
-    "iu_listed": true
-  },
-  {
-    "id": "gemini-robotics-er-1.5-preview",
-    "provider": "google",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Gemini Robotics Er 1.5 Preview",
     "context_window": null,
     "iu_listed": true
   },
@@ -481,11 +445,20 @@ export const IU_CATALOG: ModelInsert[] = [
     "iu_listed": true
   },
   {
+    "id": "GLM-5.3",
+    "provider": "other",
+    "family": null,
+    "modality": "llm",
+    "display_name": "GLM 5.2 Fast",
+    "context_window": 1000000,
+    "iu_listed": true
+  },
+  {
     "id": "gpt-3.5-turbo",
     "provider": "openai",
     "family": null,
     "modality": "llm",
-    "display_name": "GLM 5.2 Fast",
+    "display_name": "GPT 3.5 Turbo",
     "context_window": 1000000,
     "iu_listed": true
   },
@@ -494,7 +467,7 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "openai",
     "family": null,
     "modality": "llm",
-    "display_name": "GLM 5.2 Fast",
+    "display_name": "GPT 3.5 Turbo 0125",
     "context_window": 1000000,
     "iu_listed": true
   },
@@ -1219,15 +1192,6 @@ export const IU_CATALOG: ModelInsert[] = [
     "iu_listed": true
   },
   {
-    "id": "gpt-realtime-mini-2025-10-06",
-    "provider": "openai",
-    "family": null,
-    "modality": "tts",
-    "display_name": "GPT Realtime Mini 2025 10 06",
-    "context_window": null,
-    "iu_listed": true
-  },
-  {
     "id": "gpt-realtime-mini-2025-12-15",
     "provider": "openai",
     "family": null,
@@ -1269,6 +1233,15 @@ export const IU_CATALOG: ModelInsert[] = [
     "family": null,
     "modality": "llm",
     "display_name": "Hermes 4 405B",
+    "context_window": 256000,
+    "iu_listed": true
+  },
+  {
+    "id": "Hy3",
+    "provider": "other",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Hy3",
     "context_window": 128000,
     "iu_listed": true
   },
@@ -1511,12 +1484,21 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "mistral",
     "family": null,
     "modality": "image",
+    "display_name": "Mistral Ocr 4",
+    "context_window": null,
+    "iu_listed": true
+  },
+  {
+    "id": "mistral-ocr-4-0",
+    "provider": "mistral",
+    "family": null,
+    "modality": "image",
     "display_name": "Mistral OCR",
     "context_window": 8000,
     "iu_listed": true
   },
   {
-    "id": "mistral-ocr-4-0",
+    "id": "mistral-ocr-4-1",
     "provider": "mistral",
     "family": null,
     "modality": "image",
@@ -1754,8 +1736,8 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "qwen",
     "family": null,
     "modality": "llm",
-    "display_name": "Sonar by Perplexity",
-    "context_window": 128000,
+    "display_name": "Qwen 3.8-Max",
+    "context_window": 1000000,
     "iu_listed": true
   },
   {
