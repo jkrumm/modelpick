@@ -110,6 +110,25 @@ request; Hermes' prefetch hides everything after the first sentence. Of AA's top
 reachable on the IU key at all (ElevenLabs v3, Gemini 3.1 Flash TTS, Inworld 1.5-max/2); Cartesia,
 Speechify, VUI, StepFun are not. MiniMax/Inworld/Grok measured 2.0–2.7 s on the same sentence.
 
+**Validated through Hermes itself (2026-08-26, `hermes serve` on the mini, session-cookie login):**
+
+| Hermes path | Endpoint / class | Result |
+|-|-|-|
+| desktop client-direct config | `GET /api/audio/voice-config` | `tts: elevenlabs/flash-v2.5 / Mark`, `stt: gpt-4o-transcribe, language: null` (auto) |
+| desktop non-streaming reply | `POST /api/audio/speak` | 1.44 s, MP3 data URL |
+| desktop streaming reply | `WS /api/audio/speak-stream` (ticket auth) | first PCM frame 1.6 s, 46 frames, 7.8 s audio in 3.9 s — sentence 2 synthesized while sentence 1 streamed |
+| voice message in | `POST /api/audio/transcribe` → gateway → `gpt-4o-transcribe` | 1.9 s, verbatim German transcript |
+| Slack whole-file reply | `tts_tool._generate_openai_tts` | Flash 0.9 s; v3 briefing returns the title via `X-Audio-Title` |
+| CLI voice mode streamer | `tts_streaming.OpenAIStreamer` (pcm) | 1.0–1.9 s per sentence, correct 24 kHz s16le byte count |
+
+**Optimized after the switch:** Replicate-lane chunks 110 → 60 words (`TTS_REPLICATE_CHUNK_*`): a
+110-word briefing synthesizes as three parallel chunks (max 4.1 s) instead of one 6.3 s chunk —
+prod end-to-end 10.9 → 9.6–10.5 s. The prep LLM is now the largest stage (~5 s for ~500 output
+tokens). Bake-off on the real v3 prep prompt: `gpt-5.6-luna` 6.0 s (JSON ok), `gemini-3.7-flash`
+4.4 s (JSON ok, US-routed), `gemini-3.5-flash-eu` 10.6 s (reasoning blew the token cap, no JSON),
+`DeepSeek-V4-Flash` 23 s. Luna stays — ~1.5 s on a cron path isn't worth leaving the verified
+EU model. Prod usage since the switch: flash-v2.5 avg 1.15 s / max 1.32 s over 6 calls, 0 errors.
+
 **Not reachable, and the real upgrade path:** `eleven_v3_conversational` (v3 expressiveness at
 ~280 ms model latency, WebSocket streaming, $0.05/1k chars) exists only in ElevenLabs' direct API.
 With an ElevenLabs account Hermes' native `elevenlabs` provider would stream it directly
