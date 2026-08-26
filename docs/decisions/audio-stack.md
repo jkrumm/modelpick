@@ -138,6 +138,16 @@ code sent. Audited on prod: de/de/de for the German set, en/en for "Sure thing."
 to three pm.". No Hermes patch — its sentence prefetch (3-deep) already overlaps synthesis with
 playback, which the `speak-stream` measurement above confirms.
 
+**Desktop read-aloud (2026-08-26):** the "one line after another" feel was the desktop's client-direct
+session — it synthesizes and plays strictly sequentially (`voice-playback.ts` pump), so every
+sentence boundary was a full gateway round trip of silence. `voice.client_direct: false` moves both
+TTS and STT to the relay path through `hermes serve`, which schedules PCM back-to-back and prefetches
+server-side. On top, a serve patch (`hermes-agent/patches/serve-speak-summary.patch`,
+`voice.speak_summary_min_chars: 250`) speaks a one-sentence gateway summary (`summarize: true`,
+Luna → Flash) for finished replies over 250 chars instead of reading them out: a 428-char reply
+became 5 s of audio, first PCM at 4.9 s; short replies are still read in full; live voice
+conversation is untouched because its text arrives incrementally.
+
 **Not reachable, and the real upgrade path:** `eleven_v3_conversational` (v3 expressiveness at
 ~280 ms model latency, WebSocket streaming, $0.05/1k chars) exists only in ElevenLabs' direct API.
 With an ElevenLabs account Hermes' native `elevenlabs` provider would stream it directly
