@@ -159,6 +159,15 @@ shape exactly: `predict_time` 0.3 s inside a 1.0 s chunk span — ~0.5 s is Repl
 `audio-gateway/docs/hyperdx-dashboard.md`. Summary prompt tightened to ~18 words after the first
 timeline showed 181-char (9.5 s) summaries; now 77 chars / 4 s.
 
+**Slack voice replies (2026-08-27):** two Hermes facts decided the shape. `voice.auto_tts` is one
+global flag shared by the desktop's read-aloud toggle and the Slack runner, and upstream's runner
+reads it as "speak every reply in chats without a `/voice` mode" — alerts and deploy markers came back
+as MP3s. Local patch: the global default answers voice input only (`/voice all` per chat keeps the old
+behaviour). Slack cannot ask for a summary, so the gateway decides it: whole-file requests ≥ 120 chars
+on a prep-off model go through the spoken-rendering LLM (`gemini-3.5-flash-lite`, ~1 s), which picks
+its own length — a confirmation is one clause, a requested weather report stays whole. The
+`X-Audio-Title` rename now also covers the runner's temp files, so the Slack bubble is titled.
+
 **Not reachable, and the real upgrade path:** `eleven_v3_conversational` (v3 expressiveness at
 ~280 ms model latency, WebSocket streaming, $0.05/1k chars) exists only in ElevenLabs' direct API.
 With an ElevenLabs account Hermes' native `elevenlabs` provider would stream it directly
