@@ -146,6 +146,41 @@ export const stackChoice = sqliteTable(
   (t) => [uniqueIndex("uq_stack_choice_category").on(t.category)],
 );
 
+// ── Pick probes (Claude Code model-pick CLI, scripts/pick.ts) ────────────────
+// One row per non-Claude model on the IU Anthropic-protocol route: derived
+// per-token pricing (solved from the gateway's Requesty `usage.cost` field),
+// prompt-caching support, whether `max_tokens` is honoured, whether the model
+// always emits `thinking` blocks, and a binary-searched real context window.
+// Cached so `bun run pick` doesn't re-probe (and re-spend) on every run.
+
+export const pickProbe = sqliteTable(
+  "pick_probe",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    // Deliberately NOT a foreign key onto `models`. `pick` surveys what the
+    // Anthropic route serves *right now*, and that list runs ahead of the
+    // committed portal snapshot — an FK here made probing a newly-served model
+    // fail with SQLITE_CONSTRAINT_FOREIGNKEY until someone re-imported the
+    // catalog, which is exactly backwards.
+    model_id: text("model_id").notNull(),
+    price_in_per_m: real("price_in_per_m"),
+    price_out_per_m: real("price_out_per_m"),
+    price_cache_read_per_m: real("price_cache_read_per_m"),
+    supports_cache_read: integer("supports_cache_read", { mode: "boolean" }),
+    honors_max_tokens: integer("honors_max_tokens", { mode: "boolean" }),
+    always_thinking: integer("always_thinking", { mode: "boolean" }),
+    context_window: integer("context_window"),
+    // false when context_window is a binary-search estimate (or a byte-cap
+    // conversion) rather than a number the gateway named exactly.
+    context_window_exact: integer("context_window_exact", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    notes: text("notes"), // pipe-joined probe caveats, for the table's verdict column
+    probed_at: text("probed_at").notNull().default(now),
+  },
+  (t) => [uniqueIndex("uq_pick_probe_model_id").on(t.model_id)],
+);
+
 // ── Audio demos (TTS/STT, curated by admin) ──────────────────────────────────
 
 export const demo = sqliteTable(
@@ -197,6 +232,8 @@ export const newsItem = sqliteTable(
 export type Model = typeof models.$inferSelect;
 export type ModelInsert = typeof models.$inferInsert;
 export type CapabilityProbe = typeof capabilityProbe.$inferSelect;
+export type PickProbe = typeof pickProbe.$inferSelect;
+export type PickProbeInsert = typeof pickProbe.$inferInsert;
 export type MetricSnapshot = typeof metricSnapshot.$inferSelect;
 export type Recommendation = typeof recommendation.$inferSelect;
 export type StackChoice = typeof stackChoice.$inferSelect;
