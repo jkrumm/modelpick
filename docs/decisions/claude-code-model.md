@@ -1,41 +1,73 @@
-# Claude Code over the IU Anthropic Route — `claude-sonnet-5` interactive, `minimax-m3` for workers
+# Claude Code over the IU Anthropic Route — `claude-sonnet-5` interactive, `glm-5.3-flash` for workers
 
-**Decision (2026-08-31):** two picks, because one number does not cover both jobs.
+**Decision (2026-08-31):** two picks, because interactive and unattended are different jobs and
+one number does not cover both.
 
-- **Interactive Claude Code** — `claude-sonnet-5`. Fastest in the field, perfect score, fewest
-  turns, near-zero tool errors. When you are sitting there watching, wall clock is the product.
-- **Background and worker sessions on non-confidential code** — `minimax-m3`. Identical
-  perfect score, 35% more wall clock, **5.8x cheaper**. The catch is not quality, it is
-  residency: it proxies through Requesty to MiniMax's own endpoint (see *The cheap tier has no
-  residency story* below), so it is for open repos and sandboxes, not IU work.
-- **When cost is the only thing that matters** — `glm-5.3-flash` at $0.035 for the whole
-  ten-task suite, 32x below `claude-sonnet-5`. Also 7.5x slower, times out on the two hardest
-  tasks, and carries the same residency caveat. A worker, not a companion.
-- **Anything confidential** — `claude-opus-5`. It is the only id in the field that is EU-pinned
-  under its bare name, and the cheap tier has no EU story at all.
+- **Interactive Claude Code** — `claude-sonnet-5`. Fastest in the field by a wide margin,
+  perfect score, fewest turns. When a human is waiting, wall clock *is* the product.
+- **Unattended workers** (sideclaw, `rd bg`, batch jobs) — `glm-5.3-flash`. Perfect score on all
+  ten tasks, **32x cheaper** than `claude-sonnet-5`, and by ArtificialAnalysis's index the
+  smarter of the two. The price is latency: 6.5x slower on ordinary work, up to 38x on heavy
+  reasoning. Nobody is watching, so that is free money.
+- **EU-pinned when you want it** — `claude-opus-5`, the only id in the field EU-resident under
+  its bare name. The cheap tier is a Requesty hop to the vendor (`glm-5.3-flash` → `zai/`);
+  since IU procured and serves those models itself, that is accepted here for work and personal
+  code alike — recorded so the trade is visible, not to fence it off.
 
-This supersedes [ca-launcher.md](./ca-launcher.md), which routed the non-Max lane through the
-local LiteLLM bridge to DeepSeek-V4-Pro. Both of that decision's premises have since expired,
-and the bridge is no longer buying anything — see *What changed since `ca`* below.
+Note the split matches the mechanism: native subagents inherit their parent session's endpoint,
+so a Max session cannot delegate to an IU model. Handing work to `glm-5.3-flash` from a Max
+orchestrator goes through sideclaw's separately-spawned workers
+(`SIDECLAW_WORKER_BACKEND` unset → IU), not through `@implementer`.
+
+This supersedes [ca-launcher.md](./ca-launcher.md), whose premises have both expired.
 
 ## The finding that decides everything else
 
-A hundred and thirty graded agent sessions, thirteen models, ten tasks. **Twelve of the
-thirteen models scored a flat 1.00 on every task they completed.**
+A hundred and thirty graded agent sessions, thirteen models, ten tasks. **Twelve of the thirteen
+scored a flat 1.00 on every task they completed.**
 
 Not "roughly comparable" — identical. `claude-haiku-4-5`, `minimax-m3`, `kimi-k2.7-code`,
-`DeepSeek-V4-Flash` and `GLM-5.1` each matched `claude-opus-5` on a recursive-descent parser
-with exact error offsets, an algorithmic complexity refactor under a timing budget, five
-independent bugs across seven files, and a five-hop import trace through a hundred-file service
-with planted decoys. The suite was rebuilt once, harder, specifically to break this. It did not
-break.
+`DeepSeek-V4-Flash` and `GLM-5.1` each matched `claude-opus-5` on a recursive-descent parser with
+exact error offsets, an algorithmic complexity refactor under a timing budget, five independent
+bugs across seven files, and a five-hop import trace through a hundred-file service with planted
+decoys. The suite was rebuilt once, harder, specifically to break this. It did not break.
 
-Two things follow, and the second one is the interesting one:
+**So the quality column measures the wrong thing, and it is important to say so.** On
+ArtificialAnalysis's intelligence index the same field spans **24.1 to 63.1** — `claude-haiku-4-5`
+at 24.1 and `claude-opus-5` at 63.1 produced identical scorecards here. This suite measures
+*can a model drive the Claude Code harness without falling over*, which is a real and separately
+useful question, but it is not a capability ranking and must not be read as one. Where the two
+disagree, the external index is the better evidence on intelligence and this suite is the better
+evidence on harness fitness.
 
-1. **Quality is table stakes**, so the choice reduces to cost, wall clock and turn count.
-2. **Claude Code does not need a Claude model.** Five non-Claude ids on this route drive the
-   agent loop as well as Opus 5 does, at a fraction of the price. The gateway's Anthropic
-   translation layer holds up completely — tool calls, parallel batches, streaming, cache.
+That leaves cost, wall clock and turn count as what actually varies — and one genuine surprise:
+**Claude Code does not need a Claude model.** Five non-Claude ids drive the agent loop as well as
+Opus 5 does. The gateway's Anthropic translation holds up completely: tool calls, parallel
+batches, streaming, cache.
+
+## External intelligence index (ArtificialAnalysis, 2026-08-31)
+
+Collected by modelpick's own collector, alongside the measured columns rather than instead of
+them.
+
+| model | AA intelligence | AA coding | ccbench quality | ccbench cost |
+|-|-|-|-|-|
+| claude-opus-5 | 63.1 | 78.0 | 1.00 | $2.544 |
+| claude-fable-5 | 62.1 | 76.5 | 1.00 | $4.460 |
+| GLM-5.3 (flash variant ~58) | 59.5 | 74.8 | 1.00 | **$0.035** |
+| claude-opus-4-8 | 57.3 | 74.3 | 1.00 | $1.733 |
+| claude-sonnet-5 | 55.3 | 71.5 | 1.00 | $1.127 |
+| DeepSeek-V4-Pro | 53.2 | 68.8 | 1.00 | $0.664 |
+| DeepSeek-V4-Flash | 51.8 | 69.1 | 1.00 | $0.666 |
+| minimax-m3 | 45.4 | 58.6 | 1.00 | $0.194 |
+| kimi-k2.7-code | 43.0 | 60.8 | 1.00 | $0.307 |
+| GLM-5.1 | 41.0 | 55.8 | 1.00 | $0.335 |
+| claude-haiku-4-5 | 24.1 | — | 1.00 | $0.606 |
+
+`glm-5.3-flash` sitting above `claude-sonnet-5` on the external index while costing 32x less is
+what settles the worker pick. `minimax-m3` was an earlier draft's answer, chosen on wall clock
+before this data was refreshed; at 45.4 it is the weakest of the cheap tier that AA rates, and
+5.5x dearer than GLM.
 
 ## Bake-off — 13 models x 10 tasks, IU Anthropic route, 2026-08-31
 
@@ -45,7 +77,7 @@ gateway's own `usage.cost` field (see *Pricing the field* below). Quality and pa
 
 | model | composite | cost | wall | mean turns | tool err | notes |
 |-|-|-|-|-|-|-|
-| glm-5.3-flash | 0.81 | **$0.035** | 38m 24s | 10.1 | **0%** | 0.97 quality — timed out on 2 hard tasks |
+| glm-5.3-flash | 0.81 | **$0.035** | 38m 24s | 10.1 | **0%** | scored 0.97 here — the 2 misses were the clock, not capability (below) |
 | **claude-sonnet-5** | 0.80 | $1.127 | **5m 03s** | 8.7 | 3% | fastest, perfect |
 | **minimax-m3** | 0.78 | $0.194 | 6m 51s | 12.6 | 3% | perfect, 5.8x cheaper than sonnet-5 |
 | kimi-k2.7-code | 0.76 | $0.307 | 6m 51s | 12.1 | 6% | perfect |
@@ -81,6 +113,34 @@ Opus, and in an agent loop that compounds over every cached turn.
 **`MiMo-V2.5-Pro` passed screening and then collapsed at full scale.** Two easy tasks looked
 fine; across ten it died seven times on timeouts and API errors. Screening on small tasks is
 not evidence a model survives real ones.
+
+### The timeouts were a stopwatch, not a verdict
+
+`glm-5.3-flash` hit the task timeout on `parser-spec` and `perf-refactor` and lost 0.03 of
+quality for it. That was the harness's fault, not the model's — `parser-spec` had **already
+scored 1.00 while timing out**, meaning it finished the work and was killed on the clock.
+
+Re-run at a 4x budget, twice each:
+
+| task | claude-sonnet-5 | glm-5.3-flash (retest) | score | ratio |
+|-|-|-|-|-|
+| parser-spec | 70s | 797s / 627s | 1.00, 1.00 | ~10x |
+| perf-refactor | 63s | 2379s / 2278s | 1.00, 1.00 | ~38x |
+
+Four runs, four perfect scores, no failures, **$0.085 total**. `glm-5.3-flash` solved the
+O(n²)→O(n) refactor under its own timing budget correctly, twice, taking forty minutes each time.
+
+So its real profile is: perfect quality, near-free, and very slow — and the slowdown is
+task-shaped, worst on heavy reasoning. On the eight tasks both models completed inside the
+normal budget the honest ratio is **1104s against 170s, 6.5x**. That is the number to plan
+around, not the 38x worst case and not the timeout-inflated 38m24s total.
+
+This is the single biggest design defect the suite shares with every published benchmark. A
+task timeout folds model latency, tool execution and verification into one budget, so a
+slow-but-correct model reads as a failure. Terminal-Bench and SWE-bench Pro do not separate
+these clocks either, and CodeCrafters' own benchmark reports Gemini 3 Pro Preview exceeding
+their 20-minute timeout on ~25% of tasks. `--timeout-scale` is the stopgap; separating the
+agent, model-generation, tool and verifier clocks is the fix.
 
 ### Screened out before the main run
 
@@ -189,13 +249,20 @@ first-party vendor endpoint, most of them Chinese (Z.ai, Moonshot, MiniMax, Deep
 Tencent), the rest US inference brokers. "Global" is the gateway's own word for it, and the
 route exposes nothing finer.
 
-That does not disqualify them, but it does scope them. **`minimax-m3` and `glm-5.3-flash` are
-worker models for code that is not confidential** — open-source repos, throwaway sandboxes,
-personal projects. Anything carrying IU work, personal data, or anything under an NDA belongs
-on `claude-opus-5` (EU-pinned) or `claude-sonnet-4-6-eu`, and pays the Claude price for it.
+**This is recorded as a fact, not a restriction.** IU procured these models and serves them on
+its own corporate gateway — the company has already made the processor decision, and code sent
+to `glm-5.3-flash` reaches Z.ai through a route IU chose to offer. Owner call (2026-08-31): that
+is accepted for work code as well as personal.
 
-That is the real shape of the decision: the 5.8x saving is not free, it is priced in data
-residency rather than dollars.
+Where it still bites is the *personal* stack, and for a different reason: Hermes handles
+calendar, health and email, and [hermes-brain.md](./hermes-brain.md) picked `gpt-5.6-luna` on
+verified Azure Sweden Central residency precisely because the Requesty layer strips the headers
+that check relies on. That reasoning is unchanged — this decision is about a coding agent
+working on repositories, not about an agent holding personal data.
+
+Two operational notes that outlive the residency question: the Requesty hop is also why these
+ids report `unknown` to `capability_probe`'s residency check, and why `pick_probe` can derive
+their real rates at all (only Requesty-proxied responses carry `usage.cost`).
 
 ### Two `-eu` aliases cannot run Claude Code at all
 

@@ -3,6 +3,7 @@
  *
  *   bun run scripts/bench.ts [--models a,b] [--tasks t1,t2] [--repeats 1]
  *                            [--suite <id>] [--concurrency 2] [--json]
+ *                            [--timeout-scale 1]
  *                            [--keep] [--dry-run] [--yes|-y]
  *                            [--include-incompatible]
  *   bun run scripts/bench.ts --reprice [--suite <id>]   # free, no model calls
@@ -102,6 +103,13 @@ const assumeYes = args.includes("--yes") || args.includes("-y");
 const includeIncompatible = args.includes("--include-incompatible");
 const repeats = Math.max(1, Number(flagValue("repeats") ?? 1));
 const concurrency = Math.max(1, Number(flagValue("concurrency") ?? DEFAULT_CONCURRENCY));
+/**
+ * Multiplies every task's `timeoutMs`. A task timeout is a latency budget, not a
+ * capability judgement — a model can do the work correctly and still be killed
+ * for being slow, which is exactly what `glm-5.3-flash` did on the hard tier.
+ * Scaling it up is how you tell "cannot" apart from "not within ten minutes".
+ */
+const timeoutScale = Math.max(1, Number(flagValue("timeout-scale") ?? 1));
 const modelFilter = listValue("models");
 const taskFilter = listValue("tasks");
 
@@ -314,7 +322,7 @@ async function executeRun(
       modelId: run.modelId,
       prompt: run.task.prompt,
       maxTurns: run.task.maxTurns,
-      timeoutMs: run.task.timeoutMs,
+      timeoutMs: run.task.timeoutMs * timeoutScale,
       cwd: sandboxDir,
       configDir,
       transcriptPath,
