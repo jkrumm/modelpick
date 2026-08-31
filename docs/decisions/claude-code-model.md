@@ -142,6 +142,48 @@ these clocks either, and CodeCrafters' own benchmark reports Gemini 3 Pro Previe
 their 20-minute timeout on ~25% of tasks. `--timeout-scale` is the stopgap; separating the
 agent, model-generation, tool and verifier clocks is the fix.
 
+### Why `glm-5.3-flash` is slow, and what does not fix it
+
+The first version of this doc reported "6.5x slower" from one sample per task. That number was
+not safe to quote: re-running `parser-spec` three times gave **280s, 600s and 737s** for
+identical, correct work. The spread was larger than the effect being claimed.
+
+Chasing it produced a better answer. Measured in isolation, `glm-5.3-flash` generates at
+**~42 tok/s** — consistent with Z.ai's published ~49, and roughly half the field's faster
+models. But its *effective* rate inside the agent loop is far lower:
+
+| model | output tokens | wall | effective tok/s |
+|-|-|-|-|
+| DeepSeek-V4-Flash | 76,713 | 664s | 115.6 |
+| minimax-m3 | 42,857 | 411s | 104.2 |
+| claude-sonnet-5 | 25,400 | 303s | 83.8 |
+| kimi-k2.7-code | 16,285 | 411s | 39.6 |
+| **glm-5.3-flash** | 30,708 | 2304s | **13.3** |
+
+42 raw against 13.3 effective means roughly two-thirds of its wall clock is not generation — it
+is per-turn round-trip overhead, and that multiplies by turn count rather than by task size.
+Which is exactly why a single benchmark task looked tolerable and a long implementation brief
+did not: a real four-item brief in another repo ran 90 minutes and produced nine tool calls and
+zero lines of code before it was stopped.
+
+**The effort dial does not exist on this route.** Community guidance for GLM-5.3-Flash on Z.ai's
+direct endpoint reports a large lever — the same ten tasks taking 29 minutes at `max` effort
+against 98 seconds at `low`, since the model always reasons and `reasoning_effort` defaults to
+`max`. That lever is inert here. Probed against IU at five effort levels, output tokens came
+back **low 7878, medium 2049, high 8313, max 6364** — no ordering — at a flat 36.8–45.7 tok/s.
+`output_config.effort` does not survive the Requesty hop.
+
+What *did* transfer from that guidance is the compaction window: compacting early rewrites
+history and busts the prefix cache, re-paying full fresh-input price. That is the dominant cost
+term in an agent loop, and the measured cache-hit spread across this field is wide — 89% for
+`minimax-m3`, `kimi-k2.7-code` and `claude-sonnet-5`, against **16% for `DeepSeek-V4-Flash`**,
+whose run cost 3.4x the MiniMax one despite a cheaper rate card. `ca`'s gateway tier now sets
+`CLAUDE_CODE_AUTO_COMPACT_WINDOW` to each model's real window.
+
+The practical shape: GLM's latency is a **stable property, not noise, and it scales with turns**.
+It is the right default where nobody is watching and wrong wherever turn count is high or a
+human is waiting.
+
 ### Screened out before the main run
 
 Twelve non-Claude ids were screened on two cheap tasks first. Five did not earn a full run:
