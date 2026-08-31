@@ -114,6 +114,16 @@ Things that bite:
 - `bun run route-map` surveys where each id physically lands, from the gateway's
   `x-middleware-forwarded-*` headers — the only place residency is visible.
 
+`bun run cap` and the **`/bench`** route are the two readers of that data, and they share
+one derivation (`src/server/bench/summary.ts`) so they cannot disagree: newest suite with a
+real field → AA index → rate card → three picks (interactive / unattended worker / EU-pinned).
+Neither spends anything — `cap` reads only the local SQLite file, so it needs no key, no
+network and **no `op run` wrapper**. `cap` prints everything human-facing to **stderr** and
+the chosen model id alone to **stdout**, which is the contract the shell alias reads;
+`--json`, `--all` and `--suite <id>` are the flags. Residency and the Claude context windows
+are committed snapshots in `models.ts` (`ROUTE_RESIDENCY`, `CLAUDE_CONTEXT_WINDOW`) because
+`route-map` persists nothing — re-run it and update them when the route moves.
+
 ## Project skills
 
 Two skills live in `.claude/skills/` and load only inside this repo. **Proactively suggest

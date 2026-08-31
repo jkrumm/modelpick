@@ -30,7 +30,7 @@ export { LineSparkline, BarSparkline } from "./sparklines";
 // declared in one place.
 export { Group } from "@visx/group";
 export { GridRows, GridColumns } from "@visx/grid";
-export { scaleLinear, scaleBand, scalePoint, scaleTime } from "@visx/scale";
+export { scaleLinear, scaleLog, scaleBand, scalePoint, scaleTime } from "@visx/scale";
 export { LinePath, Bar, AreaClosed, BarStack, BarGroup, Line } from "@visx/shape";
 export { Threshold } from "@visx/threshold";
 export {

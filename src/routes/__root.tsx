@@ -40,6 +40,7 @@ const NAV_ITEMS: Array<{ to: string; label: string; exact?: boolean }> = [
   { to: "/", label: "Decider", exact: true },
   { to: "/stack", label: "Stack" },
   { to: "/catalog", label: "Catalog" },
+  { to: "/bench", label: "Bench" },
   { to: "/tts", label: "TTS" },
   { to: "/stt", label: "STT" },
   { to: "/news", label: "News" },

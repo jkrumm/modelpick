@@ -14,6 +14,7 @@ import { Route as SttRouteImport } from './routes/stt'
 import { Route as StackRouteImport } from './routes/stack'
 import { Route as NewsRouteImport } from './routes/news'
 import { Route as CatalogRouteImport } from './routes/catalog'
+import { Route as BenchRouteImport } from './routes/bench'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -42,6 +43,11 @@ const CatalogRoute = CatalogRouteImport.update({
   path: '/catalog',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BenchRoute = BenchRouteImport.update({
+  id: '/bench',
+  path: '/bench',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -56,6 +62,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/bench': typeof BenchRoute
   '/catalog': typeof CatalogRoute
   '/news': typeof NewsRoute
   '/stack': typeof StackRoute
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/bench': typeof BenchRoute
   '/catalog': typeof CatalogRoute
   '/news': typeof NewsRoute
   '/stack': typeof StackRoute
@@ -75,6 +83,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/bench': typeof BenchRoute
   '/catalog': typeof CatalogRoute
   '/news': typeof NewsRoute
   '/stack': typeof StackRoute
@@ -83,13 +92,30 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/catalog' | '/news' | '/stack' | '/stt' | '/tts'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/bench'
+    | '/catalog'
+    | '/news'
+    | '/stack'
+    | '/stt'
+    | '/tts'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/catalog' | '/news' | '/stack' | '/stt' | '/tts'
+  to:
+    | '/'
+    | '/admin'
+    | '/bench'
+    | '/catalog'
+    | '/news'
+    | '/stack'
+    | '/stt'
+    | '/tts'
   id:
     | '__root__'
     | '/'
     | '/admin'
+    | '/bench'
     | '/catalog'
     | '/news'
     | '/stack'
@@ -100,6 +126,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  BenchRoute: typeof BenchRoute
   CatalogRoute: typeof CatalogRoute
   NewsRoute: typeof NewsRoute
   StackRoute: typeof StackRoute
@@ -144,6 +171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CatalogRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/bench': {
+      id: '/bench'
+      path: '/bench'
+      fullPath: '/bench'
+      preLoaderRoute: typeof BenchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -164,6 +198,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  BenchRoute: BenchRoute,
   CatalogRoute: CatalogRoute,
   NewsRoute: NewsRoute,
   StackRoute: StackRoute,

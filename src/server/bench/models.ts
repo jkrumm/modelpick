@@ -6,6 +6,8 @@
  * 2026-08-31 against `.../anthropic`. It is a reachability check, not a
  * benchmark result — the real numbers come from `bun run bench`.
  */
+import { isClaudeModel } from "../pick/anthropic.js";
+import type { RouteResidency } from "./route.js";
 
 /** The default field. Six ids, all verified 200 on the Anthropic route. */
 export const CCBENCH_MODELS: readonly string[] = [
@@ -81,3 +83,57 @@ export const DEAD_IDS: readonly string[] = [
 export function isDeadModel(modelId: string): boolean {
   return DEAD_IDS.includes(modelId);
 }
+
+/**
+ * Where each id physically lands, surveyed by `bun run route-map` on
+ * 2026-08-31 (five samples per id — the backend is stable, not round-robined).
+ *
+ * Committed rather than queried because nothing persists it: residency is only
+ * visible in the `x-middleware-forwarded-*` headers of a live `/messages` call,
+ * and `GET /models`, `capability_probe` and `pick_probe` all fail to expose it.
+ * Bedrock encodes the routing scope in the inference-profile prefix, so
+ * `global.` is its own answer and must never be read as `eu` — that distinction
+ * is the whole reason the `-eu` ids exist. Re-run `route-map` and update this
+ * table when the route moves.
+ */
+export const ROUTE_RESIDENCY: Record<string, RouteResidency> = {
+  "claude-opus-5": "eu", // eu.anthropic.claude-opus-5 — EU-pinned under its bare name
+  "claude-fable-5": "eu", // Azure Global Sink Sweden
+  "claude-opus-4-8-eu": "eu",
+  "claude-haiku-4-5-eu": "eu",
+  "claude-sonnet-4-6-eu": "eu",
+  "claude-sonnet-5": "global",
+  "claude-opus-4-8": "global",
+  "claude-haiku-4-5": "global",
+  "claude-sonnet-4-6": "us", // Vertex IU Group useast-5, not Bedrock eu-west-1
+};
+
+/**
+ * Residency for one id. Anything the survey does not name falls back to what
+ * the route structurally implies: every non-Claude id is a Requesty hop to the
+ * original vendor, reports the same `Requesty Global Anthropic API` backend and
+ * exposes nothing finer than `global`. An unsurveyed Claude id is honestly
+ * `unknown` — guessing from the family name is how `claude-sonnet-4-6` gets
+ * mistaken for an EU route.
+ */
+export function routeResidencyOf(modelId: string): RouteResidency {
+  const surveyed = ROUTE_RESIDENCY[modelId];
+  if (surveyed) return surveyed;
+  return isClaudeModel(modelId) ? "unknown" : "global";
+}
+
+/**
+ * Published context windows for the Claude candidates. The gateway reports a
+ * flat 200K for every id it serves, so the CLI runs a 1M model as a 200K one
+ * unless `CLAUDE_CODE_MAX_CONTEXT_TOKENS` says otherwise — these are the real
+ * windows, not what the route advertises. Non-Claude ids get theirs from
+ * `pick_probe`'s binary search instead.
+ */
+export const CLAUDE_CONTEXT_WINDOW: Record<string, number> = {
+  "claude-haiku-4-5": 200_000,
+  "claude-sonnet-5": 1_000_000,
+  "claude-sonnet-4-6": 1_000_000,
+  "claude-opus-4-8": 1_000_000,
+  "claude-opus-5": 1_000_000,
+  "claude-fable-5": 1_000_000,
+};
