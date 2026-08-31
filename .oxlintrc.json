@@ -26,7 +26,7 @@
     "import/no-duplicates": "error",
     "import/no-unassigned-import": "off"
   },
-  "ignorePatterns": ["src/routeTree.gen.ts"],
+  "ignorePatterns": ["src/routeTree.gen.ts", "fixtures/**"],
   "overrides": [
     {
       "files": ["src/charts/**"],

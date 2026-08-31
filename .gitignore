@@ -32,3 +32,10 @@ public/demos/*.wav
 .DS_Store
 .idea/
 .vscode/
+
+# ccbench raw stream-json transcripts — megabytes per suite, and reproducible.
+# The graded summary each run writes is tracked; the transcripts are not.
+docs/experiments/ccbench/**/*.jsonl
+
+# ccbench isolated Claude config (recreated by scripts/bench.ts on every run)
+.ccbench-config/

@@ -1,6 +1,6 @@
 {
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", ".output", "dist"],
+  "exclude": ["node_modules", ".output", "dist", "fixtures"],
   "compilerOptions": {
     "strict": true,
     "noUncheckedIndexedAccess": true,

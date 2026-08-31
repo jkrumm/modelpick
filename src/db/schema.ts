@@ -28,6 +28,21 @@ export const CATEGORY = ["fast", "coding", "orchestrator", "tts", "stt"] as cons
 // rationale via /research + /investigate-models when revisiting the pick.
 export const MANUAL_CATEGORY = ["embedding", "vision", "image"] as const;
 export const STACK_CATEGORY = [...CATEGORY, ...MANUAL_CATEGORY] as const;
+// Why a ccbench run produced no usable grade. Mirrors BENCH_FAILURE in
+// src/server/bench/types.ts — the tuple lives here because the column needs it.
+export const BENCH_FAILURE = [
+  "none",
+  "timeout",
+  "max_turns",
+  "api_error",
+  "incompatible",
+  "harness_error",
+] as const;
+// How a ccbench run's cost_usd was arrived at. 'measured' = computed from the
+// per-token rates pick_probe solved from the gateway's own billing; 'list' =
+// Anthropic list pricing (the CLI's own number, or the committed Claude rate
+// card); 'unpriced' = no rate card resolved, so cost_usd is null.
+export const COST_BASIS = ["measured", "list", "unpriced"] as const;
 export const LANG = ["de", "en"] as const;
 // 'live' = measured directly against the IU endpoint (scripts/benchmark-throughput.ts),
 // as opposed to the external leaderboard collectors.
@@ -181,6 +196,62 @@ export const pickProbe = sqliteTable(
   (t) => [uniqueIndex("uq_pick_probe_model_id").on(t.model_id)],
 );
 
+// ── Claude Code agentic benchmark (ccbench) ─────────────────────────────────
+// One row per (suite, model, task, attempt) — a real `claude -p` run against a
+// sandbox checkout over the IU Anthropic route, graded mechanically. This is
+// the only table in the schema whose numbers come from driving an agent loop
+// rather than from a leaderboard or a single-shot probe.
+
+export const benchRun = sqliteTable(
+  "bench_run",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    // Groups every run of one `bun run bench` invocation, so a later re-run
+    // never silently averages against a different fixture generation.
+    suite_id: text("suite_id").notNull(),
+    // Not a foreign key onto `models`, for the same reason pick_probe isn't:
+    // the route serves ids ahead of the committed portal snapshot, and the
+    // whole point is benchmarking what the route serves right now.
+    model_id: text("model_id").notNull(),
+    task_id: text("task_id").notNull(),
+    attempt: integer("attempt").notNull().default(1),
+    ok: integer("ok", { mode: "boolean" }).notNull(),
+    failure: text("failure", { enum: BENCH_FAILURE }).notNull().default("none"),
+    score: real("score").notNull(),
+    passed: integer("passed", { mode: "boolean" }).notNull(),
+    duration_ms: integer("duration_ms").notNull(),
+    api_duration_ms: integer("api_duration_ms"),
+    ttft_ms: integer("ttft_ms"),
+    num_turns: integer("num_turns").notNull(),
+    input_tokens: integer("input_tokens").notNull().default(0),
+    output_tokens: integer("output_tokens").notNull().default(0),
+    cache_read_tokens: integer("cache_read_tokens").notNull().default(0),
+    cache_creation_tokens: integer("cache_creation_tokens").notNull().default(0),
+    thinking_tokens: integer("thinking_tokens").notNull().default(0),
+    cost_usd: real("cost_usd"),
+    // Additive with a default so an existing suite keeps meaning what it meant:
+    // every row persisted before repricing came from the CLI's list figure.
+    cost_basis: text("cost_basis", { enum: COST_BASIS }).notNull().default("list"),
+    tool_calls: integer("tool_calls").notNull().default(0),
+    tool_errors: integer("tool_errors").notNull().default(0),
+    parallel_batches: integer("parallel_batches").notNull().default(0),
+    max_parallel_width: integer("max_parallel_width").notNull().default(0),
+    api_errors: integer("api_errors").notNull().default(0),
+    terminal_reason: text("terminal_reason"),
+    // JSON array of BenchCheck — kept whole so the report can explain *which*
+    // part of a task a model dropped without re-running it.
+    checks_json: text("checks_json").notNull(),
+    notes: text("notes"),
+    transcript_path: text("transcript_path"),
+    created_at: text("created_at").notNull().default(now),
+  },
+  (t) => [
+    uniqueIndex("uq_bench_run").on(t.suite_id, t.model_id, t.task_id, t.attempt),
+    index("idx_bench_run_model").on(t.model_id),
+    index("idx_bench_run_task").on(t.task_id),
+  ],
+);
+
 // ── Audio demos (TTS/STT, curated by admin) ──────────────────────────────────
 
 export const demo = sqliteTable(
@@ -240,6 +311,8 @@ export type StackChoice = typeof stackChoice.$inferSelect;
 export type StackChoiceInsert = typeof stackChoice.$inferInsert;
 export type Demo = typeof demo.$inferSelect;
 export type NewsItem = typeof newsItem.$inferSelect;
+export type BenchRun = typeof benchRun.$inferSelect;
+export type BenchRunInsert = typeof benchRun.$inferInsert;
 
 export type Modality = (typeof MODALITY)[number];
 export type Residency = (typeof RESIDENCY)[number];
@@ -249,3 +322,5 @@ export type StackCategory = (typeof STACK_CATEGORY)[number];
 export type Lang = (typeof LANG)[number];
 export type MetricSource = (typeof METRIC_SOURCE)[number];
 export type Transport = (typeof TRANSPORT)[number];
+export type BenchFailureReason = (typeof BENCH_FAILURE)[number];
+export type CostBasis = (typeof COST_BASIS)[number];

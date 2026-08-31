@@ -25,7 +25,9 @@
     "benchmark": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/benchmark-throughput.ts",
     "benchmark:tools": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/benchmark-tool-calling.ts",
     "benchmark:bakeoff": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/benchmark-bakeoff.ts",
-    "pick": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/pick.ts"
+    "pick": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/pick.ts",
+    "route-map": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/route-map.ts",
+    "bench": "op run --account tkrumm --env-file=.env.tpl -- bun run scripts/bench.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
