@@ -73,4 +73,15 @@ Two cross-cutting principles:
 - [ca-launcher.md](./ca-launcher.md) — why the `ca` non-Max launcher routes through the
   LiteLLM bridge to DeepSeek-V4-Pro, the abandoned direct-IU-Anthropic iteration and the
   usage-tracker billing-misclassification bug it caused, and the deliberate no-model-switching
-  scope.
+  scope. **Superseded by [claude-code-model.md](./claude-code-model.md)** — both its premises
+  expired.
+- [claude-code-model.md](./claude-code-model.md) — which model to run Claude Code against on
+  the IU Anthropic route, from a 130-session graded bake-off across 13 models (ccbench):
+  `claude-sonnet-5` interactive, `minimax-m3` for non-confidential worker sessions at 5.8x less,
+  `claude-opus-5` for anything confidential. Twelve of thirteen models scored a flat 1.00 on
+  every task — including five non-Claude ids — so the pick is decided on cost, wall clock and
+  residency, not capability. Also: the CLI's cost figure is fiction for non-Claude ids (over by
+  up to 77x) and how ccbench prices them instead; the backend map read out of the gateway's
+  forwarding headers (`claude-sonnet-4-6` is a US route, `claude-opus-5` is EU-pinned, the whole
+  cheap tier is a Requesty hop to the vendor); and the two `-eu` aliases that probe 200 but
+  cannot run a Claude Code session at all.

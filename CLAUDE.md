@@ -85,6 +85,35 @@ metrics (OpenRouter, ArtificialAnalysis) → recommend (re-score + persist picks
 → news. Steps are independent; one failure doesn't abort the rest. Green tests ≠ working
 pipeline — confirm against live data after changes.
 
+## ccbench — the agentic benchmark
+
+`bun run bench` (`scripts/bench.ts`, `src/server/bench/`) is the only measurement here that
+drives a real agent loop rather than a single call. Each run copies a committed fixture into a
+throwaway sandbox, spawns `claude -p` against the IU **Anthropic** route with the model pinned
+on all four `ANTHROPIC_DEFAULT_*` tiers, parses the stream-json transcript into metrics, and
+grades the resulting files mechanically. Rows land in `bench_run`; the verdict lives in
+`docs/decisions/claude-code-model.md`.
+
+Things that bite:
+
+- **It spends real money.** `--yes` is required non-interactively, mirroring `pick`. `--dry-run`
+  exercises the whole pipeline against a synthetic transcript and costs nothing.
+- **Never remove the isolated `CLAUDE_CONFIG_DIR`.** Without it the global CLAUDE.md, MCP
+  servers, extra tools and hooks load into every sandbox (71 tools / 35k cache-creation tokens
+  vs 27 / 20.5k) and the run measures dotfiles instead of the model.
+- **Parallel tool use is detected by grouping assistant events on `message.id`** — the CLI emits
+  one content block per event, so counting per event always yields 1. The `usage` object repeats
+  identically across those events; totals must come from the `result` event or they multiply.
+- **The CLI's cost figure is only valid for Claude ids.** For everything else it applies a
+  Claude-tier default (over by up to 77x). `src/server/bench/cost.ts` re-prices from token counts
+  against `pick_probe` rates; `--reprice` backfills stored rows. A zero-token run is `unpriced`,
+  never free.
+- **Graders are guarded by golden-solution tests.** Every file-based task asserts 1.00 against a
+  committed reference under `fixtures/bench/<task>/.solution/`, plus a negative control. A
+  silently-broken grader and a genuinely perfect field produce the same table without them.
+- `bun run route-map` surveys where each id physically lands, from the gateway's
+  `x-middleware-forwarded-*` headers — the only place residency is visible.
+
 ## Project skills
 
 Two skills live in `.claude/skills/` and load only inside this repo. **Proactively suggest
