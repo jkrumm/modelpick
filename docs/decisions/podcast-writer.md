@@ -1,46 +1,58 @@
-# Podcast writer — Opus 5 writes, Fable 5.1 reviews
+# Podcast writer — Opus 4.6 writes and reviews
 
-**Decision (2026-09-02):** audio-gateway's podcast pipeline (`POST /v1/podcasts`, the
-"writers' room" in `src/podcast-script.ts`) writes with **`claude-opus-5`** and reviews with
-**`claude-fable-5-1`**, both on the IU endpoint. `claude-sonnet-5`, the first default, is out.
-No `reasoning_effort` cap on any stage.
+**Decision (2026-09-02, revised the same day):** audio-gateway's podcast pipeline
+(`POST /v1/podcasts`, the "writers' room" in `src/podcast-script.ts`) writes **and** reviews with
+**`claude-opus-4-6`** on the IU endpoint (`claude-opus-4-6-eu` exists if residency matters).
+No `reasoning_effort` cap on any stage. Superseded within hours: `claude-sonnet-5` (first
+default), then `claude-opus-5` + `claude-fable-5-1` (leaderboard pick, see below).
 
-## Why
+## Why not the leaderboard winner
 
-The episode is not latency-bound — a 22-minute show takes 10–25 minutes to produce either way
-— and the script *is* the product. Speed and cost were the wrong axes for the first pick.
+The episode is not latency-bound and the script *is* the product, so the first re-pick went to
+the top of the creative-writing boards (research-gateway, 2026-09-02):
 
-Evidence, verified 2026-09-02 (research-gateway run over eqbench.com, arena.ai, vendor pricing):
-
-| Model | EQ-Bench Creative Writing v3 (Elo, snapshot 2026-09-01) | LMArena creative writing (Sep 2, 2026) | Output $/M |
+| Model | EQ-Bench Creative Writing v3 (Elo, snapshot 2026-09-01) | LMArena creative (Sep 2, 2026) | Output $/M |
 |-|-|-|-|
-| claude-opus-5 | **#1, 2116** | #10 as `claude-opus-5-high` (1474±8) | 25 |
-| kimi-k3 | #2, 2071 | #24 as `kimi-k3-max` | — |
-| GLM-5.3 | #3, 2062 | #15 as `glm-5.3-max` | — |
-| gpt-5.6-sol | #4, 1964 | #9 as `gpt-5.6-sol-xhigh` (1477±10) | — |
-| claude-fable-5 | #6, 1933 | **#1** (1505±9) | 50 (as Fable 5.1) |
-| claude-sonnet-5 | not in top 10 | #50 as `claude-sonnet-5-high` | 10 |
+| claude-opus-5 | #1, 2116 | #10 as `-high` | 25 |
+| kimi-k3 · GLM-5.3 · gpt-5.6-sol | #2 · #3 · #4 | #24 · #15 · #9 (all as `-max`/`-xhigh`) | 15 · 4.4 · — |
+| claude-fable-5 | #6 | **#1** | 50 (as 5.1) |
+| claude-sonnet-5 | outside top 10 | #50 | 10 |
 
-The two boards disagree on the winner but agree that Sonnet is not it. Opus 5 writes (story
-pass, segments, revisions — the bulk of the tokens); Fable 5.1 sits on the three reviewer seats
-(dramaturge, conversation coach, fact & speech editor), where output is small (notes) and
-judgement is what the price buys.
+The owner pushed back ("people hate on Opus 5's prose"), and a second, practitioner-weighted
+research pass (Reddit, HN, writer blogs/YouTube, Anthropic's own docs) agreed:
 
-## What it costs and what to watch
+- **Opus 5 is longer and more ornate by default** — dense sentences, metaphor, coined jargon,
+  explained emotion, "expert revealing an insight" structure; Anthropic's prompting guide for
+  Opus 5 states outputs run longer than prior Opus and that lowering effort does not reliably
+  shorten them. Complaints are widespread (HN threads, novelcrafter, dev.to), with dissenters.
+- **Opus 4.6 is the version writers name** for organic, human-sounding voice and dramatic
+  dialogue (direct comparisons vs GPT-5.4 and Gemini 3.1 Pro; a fiction practitioner switched
+  back from 5 to 4.6). One judged benchmark (novelmint) disagrees and scores Opus 5 highest on
+  dialogue — treat the preference as a strong tendency, not a law.
+- **Kimi K3 / GLM-5.3** have no prose evidence at all in the wild — intelligence/cost
+  comparisons only; GLM is described as verbose. Not worth a seat without a listening test.
+- **No German dialogue evidence** exists for any current model. The only German-language
+  review found is old (GPT-4o / Claude 3.5 era). So this remains a listening-test question;
+  Fassung 1–5 of the Spain episode in Audiobookshelf are that test.
+- **Reviewer seat:** the practitioner pattern is "Gemini for architecture, Claude for
+  line-level"; the reviewers here output notes, not prose, so the same Opus 4.6 does the job.
+  Fable 5.1 at $50/M output with hidden reasoning (~$2–3 per episode) was dropped.
 
-- ~$4 writer + ~$1 reviewer tokens per 22-minute episode, on top of ~$2 ElevenLabs v3 characters.
-- Both Claude models reason invisibly on the heavy prompts (source + outline + draft ≈ 10–25k
-  input tokens); the reasoning is counted against `max_completion_tokens`. Budgets in
-  `writerBudget()` carry 16k headroom and double on the parse-failure retry. `llm.finish_reason`
-  is on every writer span — `length` means the budget, not the model, is the problem.
-- Re-pick triggers: an EU-residency requirement for the notes (Opus 5 has no `-eu` variant on
-  IU; `claude-opus-4-8-eu` would be the fallback), or Kimi K3 / GLM-5.3 overtaking on the
-  Longform board, which measures exactly this task shape (multi-turn, ~1k words per turn).
+## Cost and what to watch
+
+- ~$3–4 writer + reviewer tokens per 22-minute episode on top of ~$2 ElevenLabs v3 characters.
+- Claude reasons invisibly on the heavy prompts (source + outline + draft ≈ 10–25k input
+  tokens); it counts against `max_completion_tokens`. `writerBudget()` carries 16k headroom and
+  doubles on the parse-failure retry; `llm.finish_reason=length` on a writer span means the
+  budget, not the model, is the problem.
+- Re-pick triggers: a German dialogue eval appearing anywhere; EQ-Bench Longform (the closest
+  task shape) moving; Opus 4.6 being retired on the IU endpoint.
 
 ## Rejected
 
-- **`reasoning_effort: low` on writing stages.** Measured on a revision prompt: 8.7k → 4.8k
-  completion tokens for the same text, i.e. real. Rejected on the owner's call: no time
-  pressure, and the deliberation is what we pay for.
-- **gpt-5.6-luna** (the Hermes brain): fast and EU-resident, but the creative boards don't
-  list the Luna variant near the top and the prep-LLM role it plays in TTS is a different job.
+- **`reasoning_effort: low` on writing stages** — measured 8.7k → 4.8k completion tokens for the
+  same text, so it works, but the owner's call is no time pressure and deliberation is what we
+  pay for.
+- **Opus 5 / Fable 5.1** — see above; Opus 5 remains a knob (`PODCAST_SCRIPT_MODEL`) and Fassung 4
+  of the Spain episode was produced with it for comparison.
+- **gpt-5.6-luna** (the Hermes brain) — fast and EU-resident, but not a writing pick anywhere.
