@@ -54,8 +54,9 @@ your own criteria → a clear recommendation per category, with charts and an au
 - No HTML scraping of leaderboard sites in v1 (APIs + curated seed only; revisit later).
 - No real auth / user accounts — admin gate is a lightweight client-side key (localStorage/cookie),
   not a security boundary. Nothing on the public path spends IU tokens, so abuse surface is minimal.
-- No tool-aware coding recommendations in v1 (Claude Code→Anthropic / Codex→OpenAI / Antigravity→Google
-  / OpenCode→best). Generic fast/coding/orchestrator categories only; tool-aware view is a later add.
+- No tool-aware coding recommendations in v1 (Claude Code→Anthropic / Codex→OpenAI /
+  Antigravity→Google). Generic fast/coding/orchestrator categories only; tool-aware view is a
+  later add.
 - Not a production-critical service — best-effort uptime, simple ops.
 
 ## Technical Approach (WHAT, not prescriptive HOW)

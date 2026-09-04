@@ -43,8 +43,6 @@ Two cross-cutting principles:
   (`gpt-4o-transcribe`, EU `whisper` fallback) on the IU endpoint via audio-gateway (VPS
   container; audio-proxy retired 2026-06-17); why the local Fish/Parakeet stack was retired; the
   chunking / long-generation-drift carryover.
-- [kimi-bridge.md](./kimi-bridge.md) — why Kimi-K2.6 is the EU/GDPR worker model, the
-  non-obvious LiteLLM bridge fixes as lessons learned, fallback to `claude-sonnet-4-6-eu`.
 - [vision-and-image.md](./vision-and-image.md) — `gemini-3-pro-preview` for dense diagrams
   (bake-off result), `gpt-image-2` for generation, the EU/US residency table, the
   "stateless HTTP call vs multi-step agent loop" placement insight.
@@ -72,16 +70,11 @@ Two cross-cutting principles:
 - [coding-model.md](./coding-model.md) — why the coding pick moved from `DeepSeek-V4-Pro` to
   `DeepSeek-V4-Flash` on 2026-08-02: the AA coding index flipped 69.1 vs 59.4 while Pro sat
   unchanged since April, the agentic-coding sweep (Terminal-Bench, DeepSWE, NL2Repo) that
-  matters for `ca`/`claude_bridge`/opencode, and what Pro keeps (long-context retrieval, the
+  matters for sideclaw's `iu` worker backend, and what Pro keeps (long-context retrieval, the
   only SWE-bench Verified score).
 - [execution-modes.md](./execution-modes.md) — the orchestrator execution-mode framework
-  (inline / subprocess / MCP / fork), model tiers, and "never switch the orchestrator model
-  mid-session."
-- [ca-launcher.md](./ca-launcher.md) — why the `ca` non-Max launcher routes through the
-  LiteLLM bridge to DeepSeek-V4-Pro, the abandoned direct-IU-Anthropic iteration and the
-  usage-tracker billing-misclassification bug it caused, and the deliberate no-model-switching
-  scope. **Superseded by [claude-code-model.md](./claude-code-model.md)** — both its premises
-  expired.
+  (inline / native `Agent` subagent / MCP (sideclaw) / `agent-dispatch` subprocess /
+  research-gateway), model tiers, and "never switch the orchestrator model mid-session."
 - [claude-code-model.md](./claude-code-model.md) — which model to run Claude Code against on
   the IU Anthropic route, from a 130-session graded bake-off across 13 models (ccbench):
   `claude-sonnet-5` interactive, `minimax-m3` for non-confidential worker sessions at 5.8x less,

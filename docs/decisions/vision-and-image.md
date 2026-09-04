@@ -92,6 +92,6 @@ is really *one* vision/audio call. Diagram/image reading is a stateless call —
 direct fetch, never a spawned worker session. Conversely, browser driving genuinely needs the
 agent loop. The right move for a mixed skill is to **split it**: the stateless vision/audio
 call becomes a cheap direct fetch (stronger model, off Max), and only the genuine
-orchestration keeps an agent loop. The worker model for text tasks (Kimi-K2.6, see
-[kimi-bridge.md](./kimi-bridge.md)) is irrelevant to these — they are direct fetches that
-spawn no session at all.
+orchestration keeps an agent loop. The worker model for text tasks (sideclaw's `claude-sonnet-5`
+/ `claude-haiku-4-5`, see [claude-code-model.md](./claude-code-model.md)) is irrelevant to
+these — they are direct fetches that spawn no session at all.

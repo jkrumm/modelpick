@@ -65,7 +65,7 @@ const MY_STACK: StackChoiceInsert[] = [
     category: "coding",
     model_id: "DeepSeek-V4-Flash",
     env_note:
-      "Drives the ca launcher / claude_bridge / opencode — agentic harnesses, which is the axis this pick is made on. IU serves the alias only (no -0731 id in the catalog), so which weights back it is unverified. Residency unverified (probe: unknown).",
+      "Drives the ca launcher and sideclaw's iu backend — agentic harnesses, which is the axis this pick is made on. IU serves the alias only (no -0731 id in the catalog), so which weights back it is unverified. Residency unverified (probe: unknown).",
     rationale:
       "Flash-0731 overtook Pro on coding while Pro sat unchanged since April: AA coding index 69.1 vs 59.4, Terminal-Bench 2.1 82.7 vs 72.1, DeepSWE 54.4 vs 12.8, at 3x cheaper output and 2.6x faster TTFT on IU. Pro keeps long-context retrieval (MRCR 83.5 vs 78.7) and the only SWE-bench Verified score.",
     decided_at: "2026-08-02",

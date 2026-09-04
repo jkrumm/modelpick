@@ -5,9 +5,10 @@
 ([hermes-brain.md](./hermes-brain.md)) also flipped the coding case, and by a wider margin
 than the general intelligence index did.
 
-This is the pick behind the `ca` launcher ([ca-launcher.md](./ca-launcher.md)),
-`claude_bridge` (the `/analyze` subprocess), and opencode's default model — all **agentic
-coding harnesses**, which is what the decision turns on.
+This is the pick behind `ca` (IU unified endpoint, native Anthropic route — see
+[claude-code-model.md](./claude-code-model.md) for the interactive default that superseded the
+retired local LiteLLM bridge) and sideclaw's `iu` worker backend — both **agentic coding
+harnesses**, which is what the decision turns on.
 
 ## The asymmetry that decides it
 
@@ -63,8 +64,7 @@ in/out against Pro's $0.435 / $0.87. Both carry 1M context, 384K max output.
   among them. That's a gap in the evidence rather than a measured loss, and it's the single
   weakest point in this decision.
 - **Long-context retrieval: MRCR 1M 83.5 vs 78.7, CorpusQA 62.0 vs 60.5.** Real, modest, and
-  the most relevant of Pro's remaining edges given that Claude Code and opencode both lean on
-  long context.
+  the most relevant of Pro's remaining edges given that Claude Code leans on long context.
 
 Pro's 5-point MRCR edge doesn't offset a 10-point Terminal-Bench and 40-point DeepSWE deficit
 at 3× the price and 2.6× the latency. LiveCodeBench measures isolated competitive-style

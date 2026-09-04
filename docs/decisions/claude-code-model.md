@@ -19,7 +19,8 @@ so a Max session cannot delegate to an IU model. Handing work to `glm-5.3-flash`
 orchestrator goes through sideclaw's separately-spawned workers
 (`SIDECLAW_WORKER_BACKEND` unset → IU), not through `@implementer`.
 
-This supersedes [ca-launcher.md](./ca-launcher.md), whose premises have both expired.
+This supersedes the earlier LiteLLM-bridge lane (retired 2026-09-04), whose premises have both
+expired.
 
 ## The finding that decides everything else
 
@@ -373,7 +374,8 @@ is the strongest reason to leave the whole 4.6 line behind.
 
 ## What changed since `ca`
 
-[ca-launcher.md](./ca-launcher.md) rejected real Claude over IU on two grounds. Both are gone.
+The earlier LiteLLM-bridge lane (retired 2026-09-04) rejected real Claude over IU on two
+grounds. Both are gone.
 
 1. *"Defeats the cost-saving purpose."* It was arguing against Opus, and it was right to. But
    the field is not Opus-or-bridge: `minimax-m3` scores a perfect 10 for $0.194 and
