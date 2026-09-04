@@ -58,6 +58,13 @@ Two cross-cutting principles:
   Central residency; and the 2026-08-20 `gemini-3.7-flash` bake-off — why IU's `/gemini` native
   route has no EU path for it (the `iu-ai-6123` / `europe-west1` 404 that proves it), why 4.7×
   slower TTFT beats 4× faster decode for a Slack agent, and the 8–10× cost gap.
+- [gemini-tool-calling-shapes.md](./gemini-tool-calling-shapes.md) — why the Gemini 3.8 verdict
+  in `hermes-brain.md` does not transfer to every service: the ordering inverts between a
+  multi-round agent loop (Luna 2–4× faster, 4–16× cheaper) and a single-shot forced
+  `tool_choice` call (Gemini ~2× faster). Also the two `benchmark-bakeoff.ts` bugs that
+  produced the wrong first answer — `maxOutputTokens: 500` truncating Gemini's thinking into a
+  fake "dropped a tool", and a stripped `extra_content.google.thought_signature` whose Vertex
+  404 reads like a missing EU deployment.
 - [fast-model.md](./fast-model.md) — why `DeepSeek-V4-Flash` holds the fast pick against a
   GLM-5.2 recommendation: AA overstated GLM's throughput by 3.8× (37.7 tok/s measured live),
   GLM reports no TTFT at all, and it costs 3.75–15× more. Also records the scoring defect this

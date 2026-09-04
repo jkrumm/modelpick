@@ -70,21 +70,21 @@ const CANDIDATES: Candidate[] = [
     extra: { reasoning_effort: "none" },
   },
   {
-    id: "gemini-3.7-flash",
-    label: "Gemini 3.7 native, default thinking",
+    id: "gemini-3.8-flash",
+    label: "Gemini 3.8 native, default thinking",
     transport: "gemini",
     rate: GEMINI_RATE,
   },
   {
-    id: "gemini-3.7-flash",
-    label: "Gemini 3.7 native, thinkingLevel=low",
+    id: "gemini-3.8-flash",
+    label: "Gemini 3.8 native, thinkingLevel=low",
     transport: "gemini",
     rate: GEMINI_RATE,
     extra: { thinkingConfig: { thinkingLevel: "low" } },
   },
   {
-    id: "gemini-3.7-flash",
-    label: "Gemini 3.7 openai, reasoning_effort=none",
+    id: "gemini-3.8-flash",
+    label: "Gemini 3.8 openai, reasoning_effort=none",
     transport: "openai",
     rate: GEMINI_RATE,
     extra: { reasoning_effort: "none" },
@@ -506,6 +506,12 @@ const FAKE_TOOL_RESULTS: Record<string, Record<string, unknown>> = {
 
 const MAX_ROUNDS = 6;
 
+// Gemini 3 bills thinking against maxOutputTokens (same trap as MAX_TOKENS above).
+// At 500 a thinking-heavy round burns the whole budget on thoughts and returns an
+// empty candidate — which this harness scores as "dropped a tool / did not finish",
+// i.e. a truncation artifact indistinguishable from a real capability failure.
+const TOOL_MAX_TOKENS = 4000;
+
 interface ToolRunResult {
   rounds: number;
   called: string[];
@@ -542,7 +548,7 @@ async function toolRunOpenAi(candidate: Candidate): Promise<ToolRunResult> {
         messages,
         tools: TOOL_SCHEMAS.map((fn) => ({ type: "function", function: fn })),
         tool_choice: "auto",
-        max_completion_tokens: 500,
+        max_completion_tokens: TOOL_MAX_TOKENS,
         ...candidate.extra,
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -563,7 +569,12 @@ async function toolRunOpenAi(candidate: Candidate): Promise<ToolRunResult> {
       choices?: Array<{
         message?: {
           content?: string | null;
-          tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }>;
+          tool_calls?: Array<{
+            id: string;
+            function: { name: string; arguments: string };
+            /** Gemini-on-OpenAI-compat thought signature; must survive the round-trip. */
+            extra_content?: unknown;
+          }>;
         };
       }>;
       usage?: {
@@ -600,15 +611,13 @@ async function toolRunOpenAi(candidate: Candidate): Promise<ToolRunResult> {
         error: null,
       };
     }
-    messages.push({
-      role: "assistant",
-      content: message?.content ?? null,
-      tool_calls: toolCalls.map((tc) => ({
-        id: tc.id,
-        type: "function",
-        function: { name: tc.function.name, arguments: tc.function.arguments },
-      })),
-    });
+    // Echo the assistant turn back VERBATIM, same reason as the native path: on the
+    // OpenAI-compat route Gemini smuggles its thought signature through
+    // `tool_calls[].extra_content.google.thought_signature`. Rebuilding the message
+    // from id/name/arguments drops it, and the next request 503s out of the LiteLLM
+    // GDPR/Vertex gateway with an upstream 404 — which reads like "no EU deployment"
+    // rather than the harness bug it is.
+    messages.push({ ...message, role: "assistant", content: message?.content ?? null });
     for (const tc of toolCalls) {
       argsTotal++;
       try {
@@ -666,7 +675,7 @@ async function toolRunGeminiNative(candidate: Candidate): Promise<ToolRunResult>
         contents,
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
         tools: [{ functionDeclarations: TOOL_SCHEMAS }],
-        generationConfig: { maxOutputTokens: 500, ...candidate.extra },
+        generationConfig: { maxOutputTokens: TOOL_MAX_TOKENS, ...candidate.extra },
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });

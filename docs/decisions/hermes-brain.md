@@ -1,5 +1,8 @@
 # Hermes Brain — Sonnet → Kimi-K2.6 → DeepSeek-V4-Pro → DeepSeek-V4-Flash → gpt-5.6-luna
 
+**2026-09-02 update:** re-run against `gemini-3.8-flash` (IU's newest Gemini release,
+superseding 3.7). Luna still wins — see the dated section near the end for the live numbers.
+
 **Current:** `gpt-5.6-luna` since 2026-08-10, with fallback `claude-sonnet-4-6-eu` unchanged.
 Luna won on latency (3–8× faster to first token than DeepSeek-V4-Flash, and stable across
 repeated runs) and on the only live-verifiable residency signal on IU (`x-ms-region: Sweden
@@ -491,3 +494,109 @@ none of `gemini-3.7-flash`, `glm-5.3`, `qwen3.8-max`, so `metric_snapshot` write
 ids fail the FK and were skipped; run `/update-iu-models` against a fresh check-key export.
 No quality-index numbers (Artificial Analysis, LMArena, agentic benchmarks) were gathered for
 either model in this round — the research pass was scoped to pricing and residency.
+
+## 2026-09-02: `gemini-3.8-flash` bake-off — Luna still holds, but the gap is narrowing
+
+IU shipped `gemini-3.8-flash` on both `/gemini` and `/openai` (superseding 3.7, still no
+`-eu` alias — only `gemini-3.5-flash-eu` and `gemini-2.5-pro-eu` exist). Re-ran
+`scripts/benchmark-bakeoff.ts` live (`bun run benchmark:bakeoff all`, one pass through all
+four suites, `gemini-3.7-flash` swapped for `gemini-3.8-flash` in `CANDIDATES`) rather than
+trust vendor release notes.
+
+**Residency: unchanged.** `gemini-3.8-flash` still carries no `x-ms-region` / Sweden Central
+header on either transport (`Gemini API` / `Gemini API OpenAI direct` backend) — same global
+AI Studio path as 3.7, no EU deployment. `gpt-5.6-luna` still verifies `Sweden Central` on
+every call. This alone keeps Luna ahead for a brain touching calendar/health/email, same as
+every prior round.
+
+**Pricing confirmed live (OpenRouter, 2026-09-02):** `gemini-3.8-flash` $0.75 / $0.075 cached
+/ $3.75 per 1M — identical to 3.7's intro rate, not yet the announced 2027-01-01 doubling.
+Luna unchanged at $0.20 / $0.02 cached / $1.20.
+
+**Throughput, 3-turn conversation, best-config vs best-config** (Luna `reasoning_effort=none`
+vs Gemini `thinkingLevel=low` — the tuned settings the 2026-08-20 round established):
+
+| Measure | `gpt-5.6-luna` | `gemini-3.8-flash` |
+|-|-|-|
+| TTFT avg | **654ms** | 1228ms (1.9×) |
+| Decode throughput | 106.6 tok/s | **451.8 tok/s** (4.2×) — a real jump from 3.7's 253–452 range, now consistently at the top of it |
+| Total conversation wall | 11.3s | **6.5s** — 3.8 finishes the whole exchange faster than Luna, wasn't true for 3.7 (was a wash at best) |
+| Cost | **$0.00132** | $0.00448 (3.4×) |
+
+3.8 Flash's decode speed and total wall-clock are a genuine generational improvement over 3.7
+— it now *wins* on finishing time, not just ties. TTFT and cost still favor Luna by roughly
+the same margin as before.
+
+**Default-thinking config (untuned) is markedly worse and shouldn't be shipped as-is:**
+TTFT 4935ms, cost $0.01450 for the same 3 turns, think/visible ratio 2.78. The
+`thinkingLevel: "low"` lever from the 3.7 round still matters exactly as much on 3.8.
+
+**Tool-calling: slower and dearer, but not broken — the first-pass numbers were two harness
+bugs.** The one-pass run on 2026-09-02 reported Gemini dropping tools, a 34.9s outlier, and an
+unusable `/openai` transport. A 2026-09-04 re-check at 3 passes per config found both failures
+were in `benchmark-bakeoff.ts`, not in the model:
+
+- **`maxOutputTokens: 500` in the tool suite.** Gemini 3 bills thinking against that cap (the
+  throughput suite already carries the comment; the tool suite had not been updated). A
+  thinking-heavy round spent the whole budget on thoughts and returned an empty candidate,
+  which the harness scored as "dropped `create_task`, did not finish". Raised to 4000 → 3/3
+  tools, finished, on every subsequent run.
+- **The `/openai` loop dropped Gemini's thought signature.** On the OpenAI-compat route Gemini
+  smuggles it through `tool_calls[].extra_content.google.thought_signature`; the harness rebuilt
+  the assistant message from `id`/`name`/`arguments` and lost it. The next request then 503s out
+  of the LiteLLM GDPR gateway wrapping an upstream Vertex **404** — which reads like "no EU
+  deployment for this model" and is why the 3.7 round drew the same wrong conclusion. Echo the
+  assistant message back verbatim and the round-trip returns 200.
+
+Corrected numbers, 3 passes each, same scripted 3-tool scenario:
+
+| Config | Total (3 passes) | Tools | Cost |
+|-|-|-|-|
+| Luna, `reasoning_effort=none` | **3.0 / 3.2 / 3.6s** | 3/3 | $0.0004 |
+| Luna, default | 4.4 / 4.9 / 5.1s | 3/3 | $0.0006 |
+| Gemini 3.8 `/openai`, `reasoning_effort=none` | 5.8 / 5.9 / 11.9s | 3/3 | $0.0015–0.0063 |
+| Gemini 3.8 native, `thinkingLevel=low` | 9.8 / 12.0 / 15.0s | 3/3 | $0.0077–0.0119 |
+| Gemini 3.8 native, default thinking | 15.4 / 21.2 / 35.5s | 3/3 | $0.0132–0.0201 |
+
+So: **no capability failure and no config-specific regression** — 34.9s was the tail of a wide
+distribution (worst re-run: 35.5s at default thinking), not a `thinkingLevel=low` cliff. What
+survives is that Gemini 3.8 is 2–4× slower and 4–16× more expensive than Luna in a multi-round
+loop, with far worse variance. `reasoning_effort=none` on `/openai` is the only Gemini config
+that actually suppresses thinking to zero on some rounds; native `thinkingLevel=low` never went
+below ~1400 thinking tokens.
+
+**`/openai` is usable for Gemini agent loops on IU after all** — provided every assistant turn
+is echoed back with `extra_content` intact. That matters beyond this benchmark: it means the
+OpenAI-compat path already carries thought signatures, so a Gemini integration does *not*
+require Google's SDK or a raw `/gemini/v1beta` client.
+
+**Caching:** all three 3.8 configs read `cached_tokens: 0` on every one of 3 identical-prefix
+calls (3,533 tokens) — consistent with the documented 4,096-token implicit-cache floor, same
+result as the identical-size prefix test against 3.7, not a regression. Luna hit 99.9% cache
+on the same test, as it has every round since 2026-08-20.
+
+### Verdict
+
+**Stay on `gpt-5.6-luna`.** Nothing here overturns the 2026-08-20 decision, and the reason is
+**residency, not the benchmark** — Gemini 3.8 has no EU route on either transport, and this
+brain touches calendar, health and email. That alone decides it; the speed and cost columns are
+tiebreakers that happen to point the same way (no EU route, 1.9× slower to first token, 3–16×
+more expensive, and 2–4× slower with much wider variance in a multi-round tool loop).
+
+3.8 Flash's real win is decode speed and total-conversation wall-clock, both up sharply from
+3.7 — worth tracking, since if that trend continues while residency stays unresolved it
+becomes a "fast but unusable for this brain" model rather than a genuine contender. Re-open
+only if IU ships a `gemini-*-eu` alias for the 3.8 line.
+
+**Do not transplant this verdict to a service that isn't Hermes.** It is scoped to a personal
+brain over personal data. A workload with no residency constraint, or one whose lead model only
+does single-shot forced-`tool_choice` structured output rather than a multi-round loop, gets a
+different answer — the multi-round penalty above simply does not apply to a call that never
+sends a tool result back. See `docs/decisions/gemini-tool-calling-shapes.md`.
+
+**Open items, same shape as before:** `gemini-3.8-flash` is not yet in the modelpick catalog
+snapshot (`metric_snapshot` writes failed the FK, same as every new IU release) — run
+`/update-iu-models`. IU still returns no `cost` field on any route, so all pricing above is
+vendor list price via OpenRouter, not IU's confirmed billed rate. The `thinkingLevel=low`
+slowdown is **closed** — re-checked at 3 passes on 2026-09-04, it was a `maxOutputTokens: 500`
+truncation artifact plus distribution tail, not a regression.
