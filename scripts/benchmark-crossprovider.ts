@@ -333,9 +333,15 @@ interface Aggregate {
 async function main(): Promise<void> {
   const passes = Number(process.argv[2] ?? 3);
   const filter = process.argv[3];
-  const targets = filter
-    ? TARGETS.filter((t) => t.id.includes(filter) || t.label.toLowerCase().includes(filter.toLowerCase()))
-    : TARGETS;
+  // `family:open-weight` narrows to a whole group; anything else is a substring
+  // match on id or label, which is what you want when chasing one model.
+  const targets = !filter
+    ? TARGETS
+    : filter.startsWith("family:")
+      ? TARGETS.filter((t) => t.family === filter.slice("family:".length))
+      : TARGETS.filter(
+          (t) => t.id.includes(filter) || t.label.toLowerCase().includes(filter.toLowerCase()),
+        );
   const rates = await loadRates();
   const results: Aggregate[] = [];
 
@@ -363,7 +369,10 @@ async function main(): Promise<void> {
       target: t,
       ttft: median(samples.map((s) => s.ttftMs ?? NaN)),
       wall: median(samples.map((s) => s.wallMs)),
-      tps: median(samples.map((s) => s.tokensPerSec ?? NaN)),
+      // Derived from the aggregated numbers, not a median of per-pass ratios: one
+      // pass whose first visible token lands near the end produces a near-zero
+      // decode window and a nonsense rate that a median over ratios can promote.
+      tps: null,
       promptTokens: Math.round(median(samples.map((s) => s.promptTokens)) ?? 0),
       visibleTokens: Math.round(median(samples.map((s) => s.visibleTokens)) ?? 0),
       reasoningTokens: Math.round(median(samples.map((s) => s.reasoningTokens)) ?? 0),
@@ -371,6 +380,9 @@ async function main(): Promise<void> {
       backend: samples[0]!.backend,
       error,
     };
+    if (agg.wall !== null && agg.ttft !== null && agg.wall > agg.ttft) {
+      agg.tps = (agg.visibleTokens / (agg.wall - agg.ttft)) * 1000;
+    }
     results.push(agg);
     console.log(
       `${t.label.padEnd(32)} ttft ${agg.ttft === null ? "  n/a" : `${Math.round(agg.ttft)}ms`.padStart(7)}` +

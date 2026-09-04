@@ -56,6 +56,13 @@ Two cross-cutting principles:
   Central residency; and the 2026-08-20 `gemini-3.7-flash` bake-off — why IU's `/gemini` native
   route has no EU path for it (the `iu-ai-6123` / `europe-west1` 404 that proves it), why 4.7×
   slower TTFT beats 4× faster decode for a Slack agent, and the 8–10× cost gap.
+- [iu-vs-ai-studio.md](./iu-vs-ai-studio.md) — the IU gateway vs a personal Google AI Studio key
+  (free tier: Pro hard-blocked at `limit: 0`, Flash 503s under load, up to 35x run-to-run spread
+  where it answers at all — IU matched or beat it everywhere and never refused), plus the
+  measured 2026-09-04 landscape: Gemini Pro/Flash/Flash-Lite against the GPT-5.x line and the
+  open-weight models on live TTFT, decode rate and billed tokens joined to AA's intelligence
+  index. Flash-Lite spends zero thinking tokens; the strong open-weight models need 63-72s to a
+  first visible token.
 - [gemini-tool-calling-shapes.md](./gemini-tool-calling-shapes.md) — why the Gemini 3.8 verdict
   in `hermes-brain.md` does not transfer to every service: the ordering inverts between a
   multi-round agent loop (Luna 2–4× faster, 4–16× cheaper) and a single-shot forced
