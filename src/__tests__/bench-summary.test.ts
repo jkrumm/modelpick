@@ -337,6 +337,7 @@ describe("derivePicks — EU residency", () => {
         costBasis: "list",
         totalDurationMs: 100,
         meanTurns: 5,
+        meanTtftMs: 100,
         toolErrorRate: 0,
         runCount: 1,
         taskCount: 1,

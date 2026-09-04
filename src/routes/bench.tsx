@@ -183,6 +183,7 @@ function LeaderboardTable({
             <Table.Th ta="right">Cost</Table.Th>
             {mixedBasis && <Table.Th>Basis</Table.Th>}
             <Table.Th ta="right">Wall</Table.Th>
+            <Table.Th ta="right">TTFT</Table.Th>
             <Table.Th ta="right">Turns</Table.Th>
             <Table.Th ta="right">Tool err</Table.Th>
             <Table.Th ta="right">$/MTok in</Table.Th>
@@ -262,6 +263,9 @@ function LeaderboardTable({
                 <Text size="sm">
                   {row.measured ? formatDuration(row.totalDurationMs) : MISSING}
                 </Text>
+              </Table.Td>
+              <Table.Td ta="right">
+                <Text size="sm">{formatDuration(row.meanTtftMs)}</Text>
               </Table.Td>
               <Table.Td ta="right">
                 <Text size="sm">{row.meanTurns === null ? MISSING : row.meanTurns.toFixed(1)}</Text>

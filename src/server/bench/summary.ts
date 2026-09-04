@@ -232,6 +232,9 @@ export interface BenchModelRow {
   costBasis: BasisLabel;
   totalDurationMs: number;
   meanTurns: number | null;
+  /** Mean time-to-first-token across this model's runs, ms. Null when no run
+   *  reported one — never rendered as zero or as fast. */
+  meanTtftMs: number | null;
   toolErrorRate: number;
   runCount: number;
   taskCount: number;
@@ -386,6 +389,7 @@ function screenedOutRows(
     costBasis: "unpriced" as const,
     totalDurationMs: 0,
     meanTurns: null,
+    meanTtftMs: null,
     toolErrorRate: 0,
     runCount: 0,
     taskCount: 0,
@@ -444,6 +448,7 @@ export function buildBenchSummary(input: SummaryInput): BenchSummary {
       costBasis: bases.get(entry.modelId) ?? "unpriced",
       totalDurationMs: summary?.totalDurationMs ?? 0,
       meanTurns: summary && summary.runCount > 0 ? summary.totalTurns / summary.runCount : null,
+      meanTtftMs: summary?.meanTtftMs ?? null,
       toolErrorRate: summary?.toolErrorRate ?? 0,
       runCount: summary?.runCount ?? 0,
       taskCount,

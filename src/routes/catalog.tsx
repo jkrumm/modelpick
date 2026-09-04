@@ -3,6 +3,8 @@ import { useMemo, useState } from "react";
 import {
   Badge,
   Box,
+  Button,
+  Checkbox,
   Group,
   Paper,
   ScrollArea,
@@ -105,6 +107,29 @@ function pct(v: number | null | undefined): string {
 function price(v: number | null | undefined): string {
   if (v === null || v === undefined) return "—";
   return v >= 1 ? `$${v.toFixed(2)}` : `$${v.toFixed(3)}`;
+}
+
+function ms(v: number | null | undefined): string {
+  if (v === null || v === undefined) return "—";
+  return `${Math.round(v)}ms`;
+}
+
+function tokPerSec(v: number | null | undefined): string {
+  if (v === null || v === undefined) return "—";
+  return `${Math.round(v)} tok/s`;
+}
+
+function trimDecimal(n: number): string {
+  return Number.isInteger(n) ? `${n}` : n.toFixed(1);
+}
+
+// Compact context-window label (1000000 → "1M", 200000 → "200k"). Values under
+// 1000 are rare data glitches — show them raw rather than a misleading "0k".
+function contextWindow(v: number | null | undefined): string {
+  if (v === null || v === undefined) return "—";
+  if (v >= 1_000_000) return `${trimDecimal(Math.round((v / 1_000_000) * 10) / 10)}M`;
+  if (v >= 1_000) return `${trimDecimal(Math.round((v / 1_000) * 10) / 10)}k`;
+  return `${v}`;
 }
 
 function ResidencyBadge({ residency }: { residency: "eu" | "us" | "unknown" }) {
@@ -335,10 +360,14 @@ type SortField =
   | "display_name"
   | "provider"
   | "quality"
+  | "context_window"
   | "price_in"
   | "price_out"
+  | "ttft_ms"
+  | "throughput"
   | "speed"
-  | "score";
+  | "score"
+  | "tool_call_coverage";
 type SortDir = "asc" | "desc";
 
 interface TableRow {
@@ -347,17 +376,24 @@ interface TableRow {
   provider: string;
   modality: Modality;
   quality: number | null;
+  coding: number | null;
   cost: number | null;
+  context_window: number | null;
   price_in: number | null;
   price_out: number | null;
+  ttft_ms: number | null;
+  throughput: number | null;
   speed: number | null;
   score: number;
+  tool_call_coverage: number | null;
   accessible: boolean;
   probe_status: ProbeStatus;
   probe_error: string | null;
   residency: "eu" | "us" | "unknown";
   latency_ms: number | null;
 }
+
+const MAX_PINNED = 6;
 
 function SortTh({
   field,
@@ -395,17 +431,22 @@ function ModelTable({
   sortField,
   sortDir,
   onSort,
+  pinnedIds,
+  onTogglePin,
 }: {
   rows: TableRow[];
   sortField: SortField;
   sortDir: SortDir;
   onSort: (f: SortField) => void;
+  pinnedIds: Set<string>;
+  onTogglePin: (modelId: string) => void;
 }) {
   return (
     <ScrollArea>
       <Table striped highlightOnHover withTableBorder withColumnBorders style={{ minWidth: 700 }}>
         <Table.Thead>
           <Table.Tr>
+            <Table.Th>Pin</Table.Th>
             <SortTh field="display_name" sortField={sortField} sortDir={sortDir} onSort={onSort}>
               Model
             </SortTh>
@@ -415,6 +456,9 @@ function ModelTable({
             <Table.Th>Type</Table.Th>
             <SortTh field="quality" sortField={sortField} sortDir={sortDir} onSort={onSort}>
               Quality
+            </SortTh>
+            <SortTh field="context_window" sortField={sortField} sortDir={sortDir} onSort={onSort}>
+              Context
             </SortTh>
             <SortTh field="price_in" sortField={sortField} sortDir={sortDir} onSort={onSort}>
               <Tooltip label="Input price per 1M tokens" withArrow>
@@ -426,11 +470,31 @@ function ModelTable({
                 <span>$/1M out</span>
               </Tooltip>
             </SortTh>
+            <SortTh field="ttft_ms" sortField={sortField} sortDir={sortDir} onSort={onSort}>
+              <Tooltip label="Raw time-to-first-token, live-measured" withArrow>
+                <span>TTFT</span>
+              </Tooltip>
+            </SortTh>
+            <SortTh field="throughput" sortField={sortField} sortDir={sortDir} onSort={onSort}>
+              <Tooltip label="Raw output throughput, tokens/sec" withArrow>
+                <span>Tok/s</span>
+              </Tooltip>
+            </SortTh>
             <SortTh field="speed" sortField={sortField} sortDir={sortDir} onSort={onSort}>
               Speed
             </SortTh>
             <SortTh field="score" sortField={sortField} sortDir={sortDir} onSort={onSort}>
               Score
+            </SortTh>
+            <SortTh
+              field="tool_call_coverage"
+              sortField={sortField}
+              sortDir={sortDir}
+              onSort={onSort}
+            >
+              <Tooltip label="Share of tools correctly called in a live 3-tool probe" withArrow>
+                <span>Tool calling</span>
+              </Tooltip>
             </SortTh>
             <Table.Th>IU</Table.Th>
             <Table.Th>Residency</Table.Th>
@@ -438,56 +502,168 @@ function ModelTable({
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {rows.map((row) => (
-            <Table.Tr key={row.model_id}>
-              <Table.Td>
-                <Text size="sm" fw={500}>
-                  {row.display_name}
-                </Text>
-                <Text size="xs" c="dimmed" ff="monospace">
-                  {row.model_id}
-                </Text>
-              </Table.Td>
-              <Table.Td>
-                <Badge
-                  color="gray"
-                  variant="light"
-                  size="sm"
-                  style={{ backgroundColor: providerColor(row.provider) + "22" }}
-                >
-                  {row.provider}
-                </Badge>
-              </Table.Td>
-              <Table.Td>
-                <Badge color={MODALITY_COLORS[row.modality] ?? "gray"} variant="light" size="xs">
-                  {row.modality.toUpperCase()}
-                </Badge>
-              </Table.Td>
-              <Table.Td ta="right">{pct(row.quality)}</Table.Td>
-              <Table.Td ta="right">{price(row.price_in)}</Table.Td>
-              <Table.Td ta="right">{price(row.price_out)}</Table.Td>
-              <Table.Td ta="right">{pct(row.speed)}</Table.Td>
-              <Table.Td ta="right">
-                <Text size="sm" fw={500}>
-                  {pct(row.score)}
-                </Text>
-              </Table.Td>
-              <Table.Td>
-                <ProbeStatusBadge status={row.probe_status} error={row.probe_error} />
-              </Table.Td>
-              <Table.Td>
-                <ResidencyBadge residency={row.residency} />
-              </Table.Td>
-              <Table.Td ta="right">
-                <Text size="xs" c="dimmed">
-                  {row.latency_ms !== null ? `${Math.round(row.latency_ms)}ms` : "—"}
-                </Text>
-              </Table.Td>
-            </Table.Tr>
-          ))}
+          {rows.map((row) => {
+            const pinned = pinnedIds.has(row.model_id);
+            const pinDisabled = !pinned && pinnedIds.size >= MAX_PINNED;
+            return (
+              <Table.Tr key={row.model_id}>
+                <Table.Td>
+                  <Tooltip
+                    label={pinDisabled ? `Up to ${MAX_PINNED} pinned models` : "Pin to compare"}
+                    withArrow
+                    disabled={!pinDisabled}
+                  >
+                    <Checkbox
+                      size="xs"
+                      checked={pinned}
+                      disabled={pinDisabled}
+                      onChange={() => onTogglePin(row.model_id)}
+                      aria-label={`Pin ${row.display_name} to compare`}
+                    />
+                  </Tooltip>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm" fw={500}>
+                    {row.display_name}
+                  </Text>
+                  <Text size="xs" c="dimmed" ff="monospace">
+                    {row.model_id}
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  <Badge
+                    color="gray"
+                    variant="light"
+                    size="sm"
+                    style={{ backgroundColor: providerColor(row.provider) + "22" }}
+                  >
+                    {row.provider}
+                  </Badge>
+                </Table.Td>
+                <Table.Td>
+                  <Badge color={MODALITY_COLORS[row.modality] ?? "gray"} variant="light" size="xs">
+                    {row.modality.toUpperCase()}
+                  </Badge>
+                </Table.Td>
+                <Table.Td ta="right">{pct(row.quality)}</Table.Td>
+                <Table.Td ta="right">{contextWindow(row.context_window)}</Table.Td>
+                <Table.Td ta="right">{price(row.price_in)}</Table.Td>
+                <Table.Td ta="right">{price(row.price_out)}</Table.Td>
+                <Table.Td ta="right">{ms(row.ttft_ms)}</Table.Td>
+                <Table.Td ta="right">{tokPerSec(row.throughput)}</Table.Td>
+                <Table.Td ta="right">{pct(row.speed)}</Table.Td>
+                <Table.Td ta="right">
+                  <Text size="sm" fw={500}>
+                    {pct(row.score)}
+                  </Text>
+                </Table.Td>
+                <Table.Td ta="right">{pct(row.tool_call_coverage)}</Table.Td>
+                <Table.Td>
+                  <ProbeStatusBadge status={row.probe_status} error={row.probe_error} />
+                </Table.Td>
+                <Table.Td>
+                  <ResidencyBadge residency={row.residency} />
+                </Table.Td>
+                <Table.Td ta="right">
+                  <Text size="xs" c="dimmed">
+                    {row.latency_ms !== null ? `${Math.round(row.latency_ms)}ms` : "—"}
+                  </Text>
+                </Table.Td>
+              </Table.Tr>
+            );
+          })}
         </Table.Tbody>
       </Table>
     </ScrollArea>
+  );
+}
+
+// ── Comparison panel ────────────────────────────────────────────────────────
+
+interface ComparisonMetricRow {
+  label: string;
+  render: (row: TableRow) => React.ReactNode;
+}
+
+const COMPARISON_METRICS: ComparisonMetricRow[] = [
+  { label: "Quality", render: (r) => pct(r.quality) },
+  { label: "Coding index", render: (r) => pct(r.coding) },
+  { label: "TTFT", render: (r) => ms(r.ttft_ms) },
+  { label: "Throughput", render: (r) => tokPerSec(r.throughput) },
+  { label: "$/1M in", render: (r) => price(r.price_in) },
+  { label: "$/1M out", render: (r) => price(r.price_out) },
+  { label: "Context", render: (r) => contextWindow(r.context_window) },
+  { label: "Residency", render: (r) => <ResidencyBadge residency={r.residency} /> },
+  {
+    label: "IU access",
+    render: (r) => <ProbeStatusBadge status={r.probe_status} error={r.probe_error} />,
+  },
+  { label: "Tool calling", render: (r) => pct(r.tool_call_coverage) },
+];
+
+function ComparisonPanel({
+  rows,
+  onUnpin,
+  onClear,
+}: {
+  rows: TableRow[];
+  onUnpin: (modelId: string) => void;
+  onClear: () => void;
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <Paper p="md" withBorder>
+      <Group justify="space-between" mb="sm">
+        <Text size="sm" fw={500}>
+          Comparing {rows.length} model{rows.length !== 1 ? "s" : ""} (up to {MAX_PINNED})
+        </Text>
+        <Button variant="subtle" size="xs" onClick={onClear}>
+          Clear all
+        </Button>
+      </Group>
+      <ScrollArea>
+        <Table withTableBorder withColumnBorders style={{ minWidth: 500 }}>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Metric</Table.Th>
+              {rows.map((row) => (
+                <Table.Th key={row.model_id}>
+                  <Group gap={4} wrap="nowrap" justify="space-between">
+                    <Text size="xs" fw={500}>
+                      {row.display_name}
+                    </Text>
+                    <Button
+                      variant="subtle"
+                      color="gray"
+                      size="compact-xs"
+                      onClick={() => onUnpin(row.model_id)}
+                    >
+                      ✕
+                    </Button>
+                  </Group>
+                </Table.Th>
+              ))}
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {COMPARISON_METRICS.map((metric) => (
+              <Table.Tr key={metric.label}>
+                <Table.Td>
+                  <Text size="xs" c="dimmed">
+                    {metric.label}
+                  </Text>
+                </Table.Td>
+                {rows.map((row) => (
+                  <Table.Td key={row.model_id} ta="right">
+                    {metric.render(row)}
+                  </Table.Td>
+                ))}
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </ScrollArea>
+    </Paper>
   );
 }
 
@@ -533,11 +709,16 @@ function buildTableRows(
         provider: m.provider,
         modality: m.modality,
         quality,
+        coding: mm?.coding ?? null,
         cost,
+        context_window: m.context_window,
         price_in: raw?.["price_in"] ?? null,
         price_out: raw?.["price_out"] ?? null,
+        ttft_ms: raw?.["ttft_ms"] ?? null,
+        throughput: raw?.["throughput"] ?? null,
         speed,
         score,
+        tool_call_coverage: raw?.["tool_call_coverage"] ?? null,
         accessible: probe?.accessible ?? false,
         probe_status: probe?.probe_status ?? "unknown",
         probe_error: probe?.error ?? null,
@@ -568,6 +749,7 @@ function CatalogPage() {
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>("score");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
 
   const [scatterRef, scatterEntry] = useResizeObserver<HTMLDivElement>();
   const [barRef, barEntry] = useResizeObserver<HTMLDivElement>();
@@ -581,6 +763,27 @@ function CatalogPage() {
     () => sortRows(filteredRows, sortField, sortDir),
     [filteredRows, sortField, sortDir],
   );
+
+  // Unfiltered lookup so a pin survives the row leaving the current filter/search view.
+  const allRowsById = useMemo(() => {
+    const all = buildTableRows(data, false, false, "all", "");
+    return new Map(all.map((r) => [r.model_id, r]));
+  }, [data]);
+
+  const pinnedIdSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
+
+  const pinnedRows = useMemo(
+    () => pinnedIds.map((id) => allRowsById.get(id)).filter((r): r is TableRow => r !== undefined),
+    [pinnedIds, allRowsById],
+  );
+
+  function togglePin(modelId: string) {
+    setPinnedIds((prev) => {
+      if (prev.includes(modelId)) return prev.filter((id) => id !== modelId);
+      if (prev.length >= MAX_PINNED) return prev;
+      return [...prev, modelId];
+    });
+  }
 
   function handleSort(field: SortField) {
     if (sortField === field) {
@@ -685,11 +888,24 @@ function CatalogPage() {
         </Group>
       </Paper>
 
+      <ComparisonPanel
+        rows={pinnedRows}
+        onUnpin={togglePin}
+        onClear={() => setPinnedIds([])}
+      />
+
       <Text size="sm" c="dimmed">
         {sortedRows.length} model{sortedRows.length !== 1 ? "s" : ""}
       </Text>
 
-      <ModelTable rows={sortedRows} sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+      <ModelTable
+        rows={sortedRows}
+        sortField={sortField}
+        sortDir={sortDir}
+        onSort={handleSort}
+        pinnedIds={pinnedIdSet}
+        onTogglePin={togglePin}
+      />
 
       {scatterPoints.length > 0 || barData.length > 0 ? (
         <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
