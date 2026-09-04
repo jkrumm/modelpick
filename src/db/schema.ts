@@ -46,7 +46,7 @@ export const COST_BASIS = ["measured", "list", "unpriced"] as const;
 export const LANG = ["de", "en"] as const;
 // 'live' = measured directly against the IU endpoint (scripts/benchmark-throughput.ts),
 // as opposed to the external leaderboard collectors.
-export const METRIC_SOURCE = ["iu", "openrouter", "artificialanalysis", "live"] as const;
+export const METRIC_SOURCE = ["iu", "openrouter", "artificialanalysis", "live", "epoch"] as const;
 
 // Text timestamp default — SQLite stores ISO-ish strings that sort lexically.
 const now = sql`(CURRENT_TIMESTAMP)`;

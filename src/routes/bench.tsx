@@ -48,11 +48,8 @@ import {
   formatScore,
   formatUsd,
   MISSING,
-  type BenchModelRow,
-  type BenchPick,
-  type BenchSummary,
-  type PickRole,
-} from "~/server/bench/summary";
+} from "~/server/bench/format";
+import type { BenchModelRow, BenchPick, BenchSummary, PickRole } from "~/server/bench/summary";
 import type { RouteResidency } from "~/server/bench/route";
 import { getBenchSummary } from "./-bench-server-fns";
 

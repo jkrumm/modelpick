@@ -13,6 +13,7 @@ import { Route as TtsRouteImport } from './routes/tts'
 import { Route as SttRouteImport } from './routes/stt'
 import { Route as StackRouteImport } from './routes/stack'
 import { Route as CatalogRouteImport } from './routes/catalog'
+import { Route as BenchmarksRouteImport } from './routes/benchmarks'
 import { Route as BenchRouteImport } from './routes/bench'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -36,6 +37,11 @@ const CatalogRoute = CatalogRouteImport.update({
   path: '/catalog',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BenchmarksRoute = BenchmarksRouteImport.update({
+  id: '/benchmarks',
+  path: '/benchmarks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BenchRoute = BenchRouteImport.update({
   id: '/bench',
   path: '/bench',
@@ -50,6 +56,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/bench': typeof BenchRoute
+  '/benchmarks': typeof BenchmarksRoute
   '/catalog': typeof CatalogRoute
   '/stack': typeof StackRoute
   '/stt': typeof SttRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/bench': typeof BenchRoute
+  '/benchmarks': typeof BenchmarksRoute
   '/catalog': typeof CatalogRoute
   '/stack': typeof StackRoute
   '/stt': typeof SttRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/bench': typeof BenchRoute
+  '/benchmarks': typeof BenchmarksRoute
   '/catalog': typeof CatalogRoute
   '/stack': typeof StackRoute
   '/stt': typeof SttRoute
@@ -74,15 +83,31 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/bench' | '/catalog' | '/stack' | '/stt' | '/tts'
+  fullPaths:
+    | '/'
+    | '/bench'
+    | '/benchmarks'
+    | '/catalog'
+    | '/stack'
+    | '/stt'
+    | '/tts'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/bench' | '/catalog' | '/stack' | '/stt' | '/tts'
-  id: '__root__' | '/' | '/bench' | '/catalog' | '/stack' | '/stt' | '/tts'
+  to: '/' | '/bench' | '/benchmarks' | '/catalog' | '/stack' | '/stt' | '/tts'
+  id:
+    | '__root__'
+    | '/'
+    | '/bench'
+    | '/benchmarks'
+    | '/catalog'
+    | '/stack'
+    | '/stt'
+    | '/tts'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BenchRoute: typeof BenchRoute
+  BenchmarksRoute: typeof BenchmarksRoute
   CatalogRoute: typeof CatalogRoute
   StackRoute: typeof StackRoute
   SttRoute: typeof SttRoute
@@ -119,6 +144,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CatalogRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/benchmarks': {
+      id: '/benchmarks'
+      path: '/benchmarks'
+      fullPath: '/benchmarks'
+      preLoaderRoute: typeof BenchmarksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/bench': {
       id: '/bench'
       path: '/bench'
@@ -139,6 +171,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BenchRoute: BenchRoute,
+  BenchmarksRoute: BenchmarksRoute,
   CatalogRoute: CatalogRoute,
   StackRoute: StackRoute,
   SttRoute: SttRoute,

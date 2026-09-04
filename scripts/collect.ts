@@ -1,5 +1,6 @@
 import { collectOpenRouter } from "../src/server/collectors/openrouter.js";
 import { collectArtificialAnalysis } from "../src/server/collectors/artificialanalysis.js";
+import { collectEpoch } from "../src/server/collectors/epoch.js";
 import { createIdResolver } from "../src/server/collectors/normalize.js";
 import { db, client } from "../src/db/index.js";
 import { metricSnapshot, models } from "../src/db/schema.js";
@@ -7,13 +8,14 @@ import { metricSnapshot, models } from "../src/db/schema.js";
 const catalog = await db.select({ id: models.id }).from(models);
 const resolve = createIdResolver(catalog.map((m) => m.id));
 
-const [orResult, aaResult] = await Promise.all([
+const [orResult, aaResult, epochResult] = await Promise.all([
   collectOpenRouter(resolve),
   collectArtificialAnalysis(resolve),
+  collectEpoch(resolve),
 ]);
 
-const allMetrics = [...orResult.metrics, ...aaResult.metrics];
-const allUnmatched = [...orResult.unmatched, ...aaResult.unmatched];
+const allMetrics = [...orResult.metrics, ...aaResult.metrics, ...epochResult.metrics];
+const allUnmatched = [...orResult.unmatched, ...aaResult.unmatched, ...epochResult.unmatched];
 
 if (allMetrics.length > 0) {
   await db.insert(metricSnapshot).values(
@@ -38,6 +40,7 @@ if (allUnmatched.length > 0) {
 
 const orStats = `openrouter: ${orResult.metrics.length} metrics, ${orResult.unmatched.length} unmatched`;
 const aaStats = `artificialanalysis: ${aaResult.metrics.length} metrics, ${aaResult.unmatched.length} unmatched`;
-console.log(`[collect] ${orStats} | ${aaStats}`);
+const epochStats = `epoch: ${epochResult.metrics.length} metrics, ${epochResult.unmatched.length} unmatched`;
+console.log(`[collect] ${orStats} | ${aaStats} | ${epochStats}`);
 
 await client.end();

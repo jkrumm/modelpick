@@ -199,6 +199,40 @@ export interface CaseDuplicatePair {
  *  actually returned. A group where neither or multiple variants are live is
  *  left untouched — guessing which one is real is exactly the mistake this
  *  is fixing. */
+/**
+ * The part of an id that identifies the route, lowercased with any `vendor/`
+ * prefix removed. `MiniMaxAI/MiniMax-M3` and `minimax-m3` are the same model
+ * reached two ways — the portal export writes the HuggingFace-style path, the
+ * live endpoint serves the bare id — and leaving both meant collectors split
+ * their metrics across two rows: Epoch landed 24 values on the prefixed id and
+ * zero on the one we actually call.
+ *
+ * Deliberately narrow. It strips the prefix and casing and NOTHING else, so a
+ * genuinely different serving tier keeps its own row: `MiniMax-M2.5-fast` does
+ * not collapse into `MiniMax-M2.5`, nor `Qwen3-32B-fast` into `Qwen3-32B`.
+ * `canon()` would flatten those too — it treats `fast` as noise, which is right
+ * for matching a leaderboard name and wrong for deciding a route exists.
+ */
+function routeKey(id: string): string {
+  const bare = id.includes("/") ? (id.split("/").pop() ?? id) : id;
+  return bare.toLowerCase();
+}
+
+/**
+ * Ordering for "which live id do we keep". Bare beats vendor-prefixed, lowercase
+ * beats mixed case, then lexicographic. Every step is a total order, so the
+ * survivor never depends on the row order the catalog happened to return —
+ * a fold that picks a different winner on a re-run would shuffle metrics
+ * between two ids forever.
+ */
+function preferBareLowercase(a: string, b: string): number {
+  const bare = Number(a.includes("/")) - Number(b.includes("/"));
+  if (bare !== 0) return bare;
+  const lower = Number(a !== a.toLowerCase()) - Number(b !== b.toLowerCase());
+  if (lower !== 0) return lower;
+  return a.localeCompare(b);
+}
+
 export function findCaseDuplicatePairs({
   modelIds,
   liveIds,
@@ -208,7 +242,7 @@ export function findCaseDuplicatePairs({
 }): CaseDuplicatePair[] {
   const byLower = new Map<string, string[]>();
   for (const id of modelIds) {
-    const key = id.toLowerCase();
+    const key = routeKey(id);
     const group = byLower.get(key);
     if (group) {
       group.push(id);
@@ -221,8 +255,14 @@ export function findCaseDuplicatePairs({
   for (const variants of byLower.values()) {
     if (variants.length < 2) continue;
     const liveVariants = variants.filter((id) => liveIds.has(id));
-    if (liveVariants.length !== 1) continue; // neither or both live — don't guess
-    const survivorId = liveVariants[0] as string;
+    if (liveVariants.length === 0) continue; // nothing live — nothing to prefer, don't guess
+    // IU really does serve both forms of some ids (`minimax-m3` AND
+    // `MiniMaxAI/MiniMax-M3`, `Qwen3.5-397B-A17B` AND `Qwen/Qwen3.5-397B-A17B`),
+    // so "exactly one is live" is not a usable rule on its own. When several are,
+    // keep the bare form: it is the short id every script, probe and rate card
+    // already writes under, so folding toward it moves the fewest rows and leaves
+    // the catalog agreeing with what we actually call.
+    const survivorId = [...liveVariants].sort(preferBareLowercase)[0] as string;
     for (const loserId of variants) {
       if (loserId !== survivorId) pairs.push({ loserId, survivorId });
     }

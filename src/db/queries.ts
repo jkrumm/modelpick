@@ -15,6 +15,7 @@ import type {
   Model,
   CapabilityProbe,
   MetricSnapshot,
+  MetricSource,
   Recommendation,
   StackChoice,
   Demo,
@@ -76,6 +77,43 @@ export async function getLatestMetrics(snapshotDate?: string): Promise<MetricSna
   if (snapshotDate === undefined) return rows;
 
   return rows.filter((r) => r.captured_at.startsWith(snapshotDate));
+}
+
+/** One (model_id, source, metric) triple at its most recent capture — the
+ *  cross-benchmark matrix on /benchmarks reads every metric this way, with no
+ *  hardcoded subset, so a newly-collected source shows up without a code change. */
+export interface LatestMetric {
+  model_id: string;
+  source: MetricSource;
+  metric: string;
+  value: number;
+  confidence: number | null;
+  captured_at: string;
+}
+
+export async function getLatestMetricsBySourceMetric(): Promise<LatestMetric[]> {
+  const rows = await db
+    .select({
+      model_id: metricSnapshot.model_id,
+      source: metricSnapshot.source,
+      metric: metricSnapshot.metric,
+      value: metricSnapshot.value,
+      confidence: metricSnapshot.confidence,
+      captured_at: metricSnapshot.captured_at,
+    })
+    .from(metricSnapshot)
+    .orderBy(desc(metricSnapshot.captured_at));
+
+  // Rows are already newest-first, so the first hit per composite key is the latest.
+  const seen = new Set<string>();
+  const result: LatestMetric[] = [];
+  for (const row of rows) {
+    const key = `${row.model_id}|${row.source}|${row.metric}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(row);
+  }
+  return result;
 }
 
 // ── Recommendations ───────────────────────────────────────────────────────────

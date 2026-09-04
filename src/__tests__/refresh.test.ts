@@ -14,6 +14,7 @@ const makeDeps = (overrides: Partial<RefreshDeps> = {}): RefreshDeps => ({
   probe: vi.fn().mockResolvedValue([{ accessible: true }, { accessible: false }]),
   collectOpenRouter: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
   collectArtificialAnalysis: vi.fn().mockResolvedValue({ metrics: [], unmatched: [] }),
+  collectEpoch: vi.fn().mockResolvedValue({ metrics: [], unmatched: [] }),
   insertMetrics: vi.fn().mockResolvedValue(undefined),
   runRecommender: vi.fn().mockResolvedValue(undefined),
   ...overrides,

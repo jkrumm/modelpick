@@ -2,6 +2,7 @@ import { runRefresh } from "../src/server/refresh.js";
 import { runProbe } from "../src/server/iu/probe.js";
 import { collectOpenRouter } from "../src/server/collectors/openrouter.js";
 import { collectArtificialAnalysis } from "../src/server/collectors/artificialanalysis.js";
+import { collectEpoch } from "../src/server/collectors/epoch.js";
 import { runRecommender } from "../src/server/scoring/recommend.js";
 import { createIdResolver } from "../src/server/collectors/normalize.js";
 import { db, client } from "../src/db/index.js";
@@ -18,6 +19,7 @@ const result = await runRefresh({
   probe: runProbe,
   collectOpenRouter: async () => collectOpenRouter(await buildResolver()),
   collectArtificialAnalysis: async () => collectArtificialAnalysis(await buildResolver()),
+  collectEpoch: async () => collectEpoch(await buildResolver()),
   insertMetrics: async (metrics) => {
     if (metrics.length === 0) return;
     await db.insert(metricSnapshot).values(

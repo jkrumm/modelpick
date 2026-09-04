@@ -455,10 +455,35 @@ describe("findCaseDuplicatePairs", () => {
     expect(pairs).toEqual([]);
   });
 
-  it("leaves both variants untouched when both are somehow live", () => {
+  // IU genuinely serves several ids under two names at once — `minimax-m3` AND
+  // `MiniMaxAI/MiniMax-M3` are both in /v1/models today — so "both live" is a
+  // real, common state, not an anomaly to refuse. Leaving them split cost us 24
+  // Epoch benchmark scores landing on the id nothing else writes to.
+  it("folds toward the bare id when several variants are live", () => {
     const pairs = findCaseDuplicatePairs({
-      modelIds: ["GPT-5.5", "gpt-5.5"],
-      liveIds: new Set(["GPT-5.5", "gpt-5.5"]),
+      modelIds: ["MiniMaxAI/MiniMax-M3", "minimax-m3"],
+      liveIds: new Set(["MiniMaxAI/MiniMax-M3", "minimax-m3"]),
+    });
+
+    expect(pairs).toEqual([{ loserId: "MiniMaxAI/MiniMax-M3", survivorId: "minimax-m3" }]);
+  });
+
+  it("picks the same survivor regardless of input order", () => {
+    const ids = ["GPT-5.5", "gpt-5.5"];
+    const live = new Set(ids);
+    const forward = findCaseDuplicatePairs({ modelIds: ids, liveIds: live });
+    const reversed = findCaseDuplicatePairs({ modelIds: [...ids].reverse(), liveIds: live });
+
+    expect(forward).toEqual(reversed);
+    expect(forward[0]?.survivorId).toBe("gpt-5.5");
+  });
+
+  // A serving-tier suffix is not a duplicate: `-fast` is a different route with
+  // different latency, and folding it away would erase a real choice.
+  it("never folds a distinct serving tier into its base id", () => {
+    const pairs = findCaseDuplicatePairs({
+      modelIds: ["MiniMaxAI/MiniMax-M2.5-fast", "MiniMax-M2.5"],
+      liveIds: new Set(["MiniMaxAI/MiniMax-M2.5-fast", "MiniMax-M2.5"]),
     });
 
     expect(pairs).toEqual([]);

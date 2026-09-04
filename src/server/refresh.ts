@@ -16,6 +16,7 @@ export interface RefreshDeps {
   probe: () => Promise<Array<{ accessible: boolean }>>;
   collectOpenRouter: () => Promise<CollectorResult>;
   collectArtificialAnalysis: () => Promise<CollectorResult>;
+  collectEpoch: () => Promise<CollectorResult>;
   /** Persists the merged metrics list to the DB. Called only when metrics.length > 0. */
   insertMetrics: (metrics: NormalizedMetric[]) => Promise<void>;
   runRecommender: () => Promise<void>;
@@ -46,9 +47,10 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
   });
 
   const collect = await runStep("collect", async () => {
-    const [orSettled, aaSettled] = await Promise.allSettled([
+    const [orSettled, aaSettled, epochSettled] = await Promise.allSettled([
       deps.collectOpenRouter(),
       deps.collectArtificialAnalysis(),
+      deps.collectEpoch(),
     ]);
 
     const metrics: NormalizedMetric[] = [];
@@ -57,6 +59,9 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
     }
     if (aaSettled.status === "fulfilled") {
       for (const m of aaSettled.value.metrics) metrics.push(m);
+    }
+    if (epochSettled.status === "fulfilled") {
+      for (const m of epochSettled.value.metrics) metrics.push(m);
     }
 
     if (metrics.length > 0) {
@@ -67,7 +72,11 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
       orSettled.status === "fulfilled" ? `${orSettled.value.metrics.length} OR` : "OR failed";
     const aaStatus =
       aaSettled.status === "fulfilled" ? `${aaSettled.value.metrics.length} AA` : "AA failed";
-    return `${metrics.length} metrics (${orStatus}, ${aaStatus})`;
+    const epochStatus =
+      epochSettled.status === "fulfilled"
+        ? `${epochSettled.value.metrics.length} Epoch`
+        : "Epoch failed";
+    return `${metrics.length} metrics (${orStatus}, ${aaStatus}, ${epochStatus})`;
   });
 
   const recommend = await runStep("recommend", async () => {

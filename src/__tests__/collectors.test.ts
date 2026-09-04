@@ -2,6 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { compareVersions, createIdResolver, versionOf } from "../server/collectors/normalize.js";
 import { collectOpenRouter } from "../server/collectors/openrouter.js";
 import { collectArtificialAnalysis } from "../server/collectors/artificialanalysis.js";
+import {
+  parseCsv,
+  parseCsvRecords,
+  parseBenchmarkIndex,
+  stripEffortSuffix,
+  extractScores,
+} from "../server/collectors/epoch.js";
+import { benchmarkSaturation } from "../server/collectors/epoch-benchmarks.js";
 
 const resolve = createIdResolver(["claude-sonnet-4-6", "gpt-5.5", "tts-hd", "whisper"]);
 
@@ -431,5 +439,199 @@ describe("collectArtificialAnalysis — error handling", () => {
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const headers = new Headers(init.headers as HeadersInit);
     expect(headers.get("x-api-key")).toBe("test-aa-key");
+  });
+});
+
+// ── epoch: parseCsv / parseCsvRecords ───────────────────────────────────────
+
+describe("parseCsv", () => {
+  it("splits a simple unquoted row", () => {
+    expect(parseCsv("a,b,c\n1,2,3\n")).toEqual([
+      ["a", "b", "c"],
+      ["1", "2", "3"],
+    ]);
+  });
+
+  it("keeps a comma inside a quoted field", () => {
+    expect(parseCsv('a,b\n"1, 2",3\n')).toEqual([
+      ["a", "b"],
+      ["1, 2", "3"],
+    ]);
+  });
+
+  it("unescapes a doubled quote inside a quoted field", () => {
+    expect(parseCsv('a\n"He said ""hi"""\n')).toEqual([["a"], ['He said "hi"']]);
+  });
+
+  it("keeps a literal newline embedded inside a quoted field", () => {
+    const csv = 'a,b\n"line one\nline two",3\n';
+    expect(parseCsv(csv)).toEqual([
+      ["a", "b"],
+      ["line one\nline two", "3"],
+    ]);
+  });
+
+  it("normalizes CRLF line endings", () => {
+    expect(parseCsv("a,b\r\n1,2\r\n")).toEqual([
+      ["a", "b"],
+      ["1", "2"],
+    ]);
+  });
+
+  it("handles a final row with no trailing newline", () => {
+    expect(parseCsv("a,b\n1,2")).toEqual([
+      ["a", "b"],
+      ["1", "2"],
+    ]);
+  });
+
+  it("a naive split(',') would corrupt this row — parseCsv must not", () => {
+    const csv = 'id,notes\n1,"comma, inside quotes"\n';
+    const naive = csv.split("\n")[1]?.split(",");
+    expect(naive?.length).toBe(3); // proof the naive approach breaks
+    expect(parseCsv(csv)[1]).toEqual(["1", "comma, inside quotes"]);
+  });
+});
+
+describe("parseCsvRecords", () => {
+  it("maps rows to header-keyed records", () => {
+    const records = parseCsvRecords("Model version,mean_score\nglm-5.2_max,0.787\n");
+    expect(records).toEqual([{ "Model version": "glm-5.2_max", mean_score: "0.787" }]);
+  });
+
+  it("returns an empty array for empty input", () => {
+    expect(parseCsvRecords("")).toEqual([]);
+  });
+});
+
+// ── epoch: reasoning-effort suffix ──────────────────────────────────────────
+
+describe("stripEffortSuffix", () => {
+  it("strips a known effort suffix and ranks max highest", () => {
+    expect(stripEffortSuffix("claude-fable-5-1_max").baseId).toBe("claude-fable-5-1");
+    const max = stripEffortSuffix("claude-fable-5-1_max").rank;
+    const xhigh = stripEffortSuffix("claude-fable-5-1_xhigh").rank;
+    const high = stripEffortSuffix("claude-fable-5-1_high").rank;
+    const medium = stripEffortSuffix("claude-fable-5-1_medium").rank;
+    const low = stripEffortSuffix("claude-fable-5-1_low").rank;
+    expect(max).toBeGreaterThan(xhigh);
+    expect(xhigh).toBeGreaterThan(high);
+    expect(high).toBeGreaterThan(medium);
+    expect(medium).toBeGreaterThan(low);
+  });
+
+  it("ranks none and unknown at the same, lowest level", () => {
+    const none = stripEffortSuffix("gpt-5.6-luna_none").rank;
+    const unknown = stripEffortSuffix("gpt-5.6-luna_unknown").rank;
+    const low = stripEffortSuffix("gpt-5.6-luna_low").rank;
+    expect(none).toBe(unknown);
+    expect(low).toBeGreaterThan(none);
+  });
+
+  it("does not strip a hyphenated 'max' that's part of the model name", () => {
+    // real Epoch data: "qwen3.7-max" is a model name, not an effort tier —
+    // only an underscore-prefixed suffix is a reasoning-effort marker
+    expect(stripEffortSuffix("qwen3.7-max").baseId).toBe("qwen3.7-max");
+  });
+
+  it("treats a bare id with no suffix the same as 'unknown'", () => {
+    const bare = stripEffortSuffix("claude-opus-5").rank;
+    const unknown = stripEffortSuffix("claude-opus-5_unknown").rank;
+    expect(bare).toBe(unknown);
+  });
+
+  it("is case-insensitive on the suffix", () => {
+    expect(stripEffortSuffix("Model_HIGH").baseId).toBe("Model");
+  });
+});
+
+// ── epoch: benchmark_metadata.csv parsing ───────────────────────────────────
+
+describe("parseBenchmarkIndex", () => {
+  const header =
+    "benchmark,in_eci,source_file,score_column,scale,random_baseline,score_ceiling,release_date,superseded_by\n";
+
+  it("parses a fully populated row", () => {
+    const csv = `${header}GPQA diamond,True,gpqa_diamond.csv,Best score (across scorers),1.0,0.25,1.0,2023-11-20,\n`;
+    expect(parseBenchmarkIndex(csv)).toEqual([
+      {
+        benchmark: "GPQA diamond",
+        in_eci: true,
+        source_file: "gpqa_diamond.csv",
+        score_column: "Best score (across scorers)",
+        scale: 1,
+        random_baseline: 0.25,
+        score_ceiling: 1.0,
+        release_date: "2023-11-20",
+        superseded_by: null,
+      },
+    ]);
+  });
+
+  it("treats a blank source_file/score_column as null, not empty string", () => {
+    const csv = `${header}CursorBench,False,,,1.0,0.0,1.0,,\n`;
+    const row = parseBenchmarkIndex(csv)[0];
+    expect(row?.source_file).toBeNull();
+    expect(row?.score_column).toBeNull();
+    expect(row?.in_eci).toBe(false);
+  });
+
+  it("defaults scale to 1 when blank", () => {
+    const csv = `${header}Foo,True,foo.csv,Score,,0.0,1.0,,\n`;
+    expect(parseBenchmarkIndex(csv)[0]?.scale).toBe(1);
+  });
+});
+
+// ── epoch: extractScores ─────────────────────────────────────────────────────
+
+describe("extractScores", () => {
+  const header = "Model version,mean_score,Best score (across scorers)\n";
+
+  it("keeps a single row for a model with no effort suffix", () => {
+    const csv = `${header}claude-opus-5,0.8,0.8\n`;
+    const scores = extractScores(csv, "Best score (across scorers)", 1);
+    expect(scores.get("claude-opus-5")?.value).toBe(0.8);
+  });
+
+  it("keeps only the highest-effort-tier row for a model with several tiers", () => {
+    const csv = `${header}claude-fable-5-1_low,0.2,0.2\nclaude-fable-5-1_max,0.9,0.9\nclaude-fable-5-1_medium,0.5,0.5\n`;
+    const scores = extractScores(csv, "Best score (across scorers)", 1);
+    expect(scores.size).toBe(1);
+    expect(scores.get("claude-fable-5-1")?.value).toBe(0.9);
+  });
+
+  it("never emits a row for a blank score", () => {
+    const csv = `${header}some-model,,\n`;
+    const scores = extractScores(csv, "Best score (across scorers)", 1);
+    expect(scores.has("some-model")).toBe(false);
+  });
+
+  it("multiplies the raw value by scale to normalize onto the 0-1 range", () => {
+    const csv = `${header}some-model,70.2,70.2\n`;
+    const scores = extractScores(csv, "Best score (across scorers)", 0.01);
+    expect(scores.get("some-model")?.value).toBeCloseTo(0.702);
+  });
+});
+
+// ── epoch: benchmarkSaturation ───────────────────────────────────────────────
+
+describe("benchmarkSaturation", () => {
+  it("returns null when the benchmark has no ceiling", () => {
+    expect(benchmarkSaturation({ score_ceiling: null }, [0.9, 0.95])).toBeNull();
+  });
+
+  it("returns null when there are no scores", () => {
+    expect(benchmarkSaturation({ score_ceiling: 1.0 }, [])).toBeNull();
+  });
+
+  it("flags a field bunched near the ceiling as saturated", () => {
+    const result = benchmarkSaturation({ score_ceiling: 1.0 }, [0.97, 0.98, 0.99, 0.5]);
+    expect(result?.saturated).toBe(true);
+    expect(result?.nearCeilingShare).toBeCloseTo(0.75);
+  });
+
+  it("does not flag a spread-out field as saturated", () => {
+    const result = benchmarkSaturation({ score_ceiling: 1.0 }, [0.3, 0.5, 0.6, 0.2]);
+    expect(result?.saturated).toBe(false);
   });
 });
