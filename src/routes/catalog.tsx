@@ -23,6 +23,7 @@ import { IconSearch } from "@tabler/icons-react";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import {
   ChartCard,
+  ClientOnly,
   Group as VxGroup,
   GridColumns,
   GridRows,
@@ -164,12 +165,14 @@ interface ScatterPoint {
 }
 
 const SCATTER_MARGIN = { top: 16, right: 24, bottom: 40, left: 50 };
+const SCATTER_INNER_H = 220;
+const SCATTER_HEIGHT = SCATTER_INNER_H + SCATTER_MARGIN.top + SCATTER_MARGIN.bottom;
 
 function QualityPriceScatter({ points, width }: { points: ScatterPoint[]; width: number }) {
   const [hovered, setHovered] = useState<string | null>(null);
   const theme = useVxTheme();
   const innerW = Math.max(width - SCATTER_MARGIN.left - SCATTER_MARGIN.right, 10);
-  const innerH = 220;
+  const innerH = SCATTER_INNER_H;
 
   const xScale = useMemo(
     () => scaleLinear<number>({ domain: [0, 1], range: [0, innerW] }),
@@ -180,7 +183,7 @@ function QualityPriceScatter({ points, width }: { points: ScatterPoint[]; width:
     [innerH],
   );
 
-  const height = innerH + SCATTER_MARGIN.top + SCATTER_MARGIN.bottom;
+  const height = SCATTER_HEIGHT;
 
   return (
     <ChartCard
@@ -367,7 +370,11 @@ type SortField =
   | "throughput"
   | "speed"
   | "score"
-  | "tool_call_coverage";
+  | "tool_call_coverage"
+  | "terminalbench_hard"
+  | "terminalbench_v2_1"
+  | "tau2"
+  | "lcr";
 type SortDir = "asc" | "desc";
 
 interface TableRow {
@@ -386,6 +393,12 @@ interface TableRow {
   speed: number | null;
   score: number;
   tool_call_coverage: number | null;
+  // Agentic AA evals — the ones that discriminate for an orchestrator/agent pick
+  // where a single blended "quality" index does not.
+  terminalbench_hard: number | null;
+  terminalbench_v2_1: number | null;
+  tau2: number | null;
+  lcr: number | null;
   accessible: boolean;
   probe_status: ProbeStatus;
   probe_error: string | null;
@@ -435,6 +448,7 @@ function ModelTable({
   onSort,
   pinnedIds,
   onTogglePin,
+  showAgentic,
 }: {
   rows: TableRow[];
   sortField: SortField;
@@ -442,6 +456,7 @@ function ModelTable({
   onSort: (f: SortField) => void;
   pinnedIds: Set<string>;
   onTogglePin: (modelId: string) => void;
+  showAgentic: boolean;
 }) {
   return (
     <ScrollArea>
@@ -498,6 +513,40 @@ function ModelTable({
                 <span>Tool calling</span>
               </Tooltip>
             </SortTh>
+            {showAgentic && (
+              <>
+                <SortTh
+                  field="terminalbench_hard"
+                  sortField={sortField}
+                  sortDir={sortDir}
+                  onSort={onSort}
+                >
+                  <Tooltip label="Terminal-Bench Hard — AA agentic coding benchmark" withArrow>
+                    <span>TB Hard</span>
+                  </Tooltip>
+                </SortTh>
+                <SortTh
+                  field="terminalbench_v2_1"
+                  sortField={sortField}
+                  sortDir={sortDir}
+                  onSort={onSort}
+                >
+                  <Tooltip label="Terminal-Bench 2.1 — AA agentic coding benchmark" withArrow>
+                    <span>TB 2.1</span>
+                  </Tooltip>
+                </SortTh>
+                <SortTh field="tau2" sortField={sortField} sortDir={sortDir} onSort={onSort}>
+                  <Tooltip label="τ²-bench — AA agentic tool-use benchmark" withArrow>
+                    <span>Tau2</span>
+                  </Tooltip>
+                </SortTh>
+                <SortTh field="lcr" sortField={sortField} sortDir={sortDir} onSort={onSort}>
+                  <Tooltip label="LCR — AA long-context reasoning benchmark" withArrow>
+                    <span>LCR</span>
+                  </Tooltip>
+                </SortTh>
+              </>
+            )}
             <Table.Th>IU</Table.Th>
             <Table.Th>Residency</Table.Th>
             <Table.Th>Latency</Table.Th>
@@ -569,6 +618,14 @@ function ModelTable({
                   </Text>
                 </Table.Td>
                 <Table.Td ta="right">{pct(row.tool_call_coverage)}</Table.Td>
+                {showAgentic && (
+                  <>
+                    <Table.Td ta="right">{pct(row.terminalbench_hard)}</Table.Td>
+                    <Table.Td ta="right">{pct(row.terminalbench_v2_1)}</Table.Td>
+                    <Table.Td ta="right">{pct(row.tau2)}</Table.Td>
+                    <Table.Td ta="right">{pct(row.lcr)}</Table.Td>
+                  </>
+                )}
                 <Table.Td>
                   <ProbeStatusBadge status={row.probe_status} error={row.probe_error} />
                 </Table.Td>
@@ -610,6 +667,10 @@ const COMPARISON_METRICS: ComparisonMetricRow[] = [
     render: (r) => <ProbeStatusBadge status={r.probe_status} error={r.probe_error} />,
   },
   { label: "Tool calling", render: (r) => pct(r.tool_call_coverage) },
+  { label: "Terminal-Bench Hard", render: (r) => pct(r.terminalbench_hard) },
+  { label: "Terminal-Bench 2.1", render: (r) => pct(r.terminalbench_v2_1) },
+  { label: "Tau2", render: (r) => pct(r.tau2) },
+  { label: "LCR", render: (r) => pct(r.lcr) },
 ];
 
 function ComparisonPanel({
@@ -734,6 +795,10 @@ function buildTableRows(
         speed,
         score,
         tool_call_coverage: raw?.["tool_call_coverage"] ?? null,
+        terminalbench_hard: raw?.["terminalbench_hard"] ?? null,
+        terminalbench_v2_1: raw?.["terminalbench_v2_1"] ?? null,
+        tau2: raw?.["tau2"] ?? null,
+        lcr: raw?.["lcr"] ?? null,
         accessible: probe?.accessible ?? false,
         probe_status: probe?.probe_status ?? "unknown",
         probe_error: probe?.error ?? null,
@@ -766,6 +831,9 @@ function CatalogPage() {
   const [sortField, setSortField] = useState<SortField>("score");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+  // Agentic benchmark columns are opt-in — the table is already wide, and these
+  // four only discriminate for an orchestrator/agent pick, not general use.
+  const [showAgentic, setShowAgentic] = useState(false);
 
   const [scatterRef, scatterEntry] = useResizeObserver<HTMLDivElement>();
   const [barRef, barEntry] = useResizeObserver<HTMLDivElement>();
@@ -849,6 +917,7 @@ function CatalogPage() {
 
   const scatterWidth = scatterEntry?.width ?? 600;
   const barWidth = barEntry?.width ?? 600;
+  const barHeight = barData.length * (BAR_HEIGHT + BAR_GAP) + BAR_MARGIN.top + BAR_MARGIN.bottom;
 
   return (
     <Stack gap="xl" pt="md">
@@ -901,6 +970,19 @@ function CatalogPage() {
             onChange={(e) => setIuOnly(e.currentTarget.checked)}
             size="sm"
           />
+          <Tooltip
+            label="Terminal-Bench Hard/2.1, τ²-bench, LCR — agentic benchmarks that discriminate for an orchestrator/agent pick"
+            withArrow
+            multiline
+            maw={280}
+          >
+            <Switch
+              label="Agentic benchmarks"
+              checked={showAgentic}
+              onChange={(e) => setShowAgentic(e.currentTarget.checked)}
+              size="sm"
+            />
+          </Tooltip>
         </Group>
       </Paper>
 
@@ -921,16 +1003,21 @@ function CatalogPage() {
         onSort={handleSort}
         pinnedIds={pinnedIdSet}
         onTogglePin={togglePin}
+        showAgentic={showAgentic}
       />
 
       {scatterPoints.length > 0 || barData.length > 0 ? (
         <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
           <Box ref={scatterRef}>
-            <QualityPriceScatter points={scatterPoints} width={scatterWidth} />
+            <ClientOnly fallbackHeight={SCATTER_HEIGHT}>
+              <QualityPriceScatter points={scatterPoints} width={scatterWidth} />
+            </ClientOnly>
           </Box>
           <Box ref={barRef}>
             {barData.length > 0 ? (
-              <ThroughputBars data={barData} width={barWidth} />
+              <ClientOnly fallbackHeight={barHeight}>
+                <ThroughputBars data={barData} width={barWidth} />
+              </ClientOnly>
             ) : (
               <ChartCard
                 title="Speed Scores"

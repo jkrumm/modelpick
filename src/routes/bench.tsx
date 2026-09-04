@@ -24,6 +24,7 @@ import {
   ChartCard,
   ChartLegend,
   ChartTooltip,
+  ClientOnly,
   Group as VxGroup,
   GridColumns,
   GridRows,
@@ -387,6 +388,7 @@ function TaskMatrix({ summary, rows }: { summary: BenchSummary; rows: BenchModel
 
 const PARETO_MARGIN = { top: 16, right: 24, bottom: 44, left: 52 };
 const PARETO_HEIGHT = 260;
+const PARETO_TOTAL_HEIGHT = PARETO_HEIGHT + PARETO_MARGIN.top + PARETO_MARGIN.bottom;
 
 interface ParetoPoint {
   modelId: string;
@@ -655,7 +657,9 @@ function BenchPage() {
 
       <Box ref={chartRef}>
         {paretoPoints.length > 0 ? (
-          <ParetoChart points={paretoPoints} width={chartEntry?.width ?? 600} />
+          <ClientOnly fallbackHeight={PARETO_TOTAL_HEIGHT}>
+            <ParetoChart points={paretoPoints} width={chartEntry?.width ?? 600} />
+          </ClientOnly>
         ) : (
           <ChartCard
             title="Cost vs external intelligence"

@@ -4,7 +4,10 @@ import { capabilityProbe, metricSnapshot, models, recommendation } from "../../d
 import type { MetricSnapshot, Modality, RecommendationCategory } from "../../db/schema.js";
 import { gatewayChat } from "../iu/client.js";
 import { curate, isDatedPin } from "../curate.js";
+import { loadBenchSummary } from "../bench/summary.js";
+import type { BenchModelRow, SuiteInfo } from "../bench/summary.js";
 import { normalizeMetrics } from "./normalize.js";
+import type { ModelMetrics } from "./normalize.js";
 import { CATEGORY_MIN_QUALITY, CATEGORY_WEIGHTS, scoreModels } from "./score.js";
 
 const CATEGORY_MODALITY: Record<RecommendationCategory, Modality> = {
@@ -55,6 +58,102 @@ async function generateRationale(
   } catch {
     return null;
   }
+}
+
+// ── orchestrator: bench overrides the leaderboard ───────────────────────────
+//
+// Two oracles disagree about "orchestrator" and nothing reconciled them: the
+// leaderboard (ArtificialAnalysis intelligence, weighted 0.88 here) picked
+// claude-fable-5-1 on an index score alone, while a 130-session ccbench run —
+// this repo's own agentic harness — found the field saturated at 1.00 quality
+// and claude-fable-5 the most expensive way to buy that identical score. Where
+// a model was actually run through the harness, that measurement replaces the
+// leaderboard's quality/cost/speed inputs for this category; CATEGORY_WEIGHTS
+// itself is untouched, so the 0.88/0.04/0.08 split still decides how much each
+// dimension matters — only the numbers plugged into it change.
+
+
+
+
+/**
+ * Turns measured ccbench rows into the same `ModelMetrics` shape the
+ * leaderboard path produces, scoped to exactly the rows passed in.
+ *
+ * Quality is `qualityExcludingTimeouts` used as-is, not min-max normalized:
+ * it is already an absolute 0-1 pass rate, and the field is genuinely
+ * saturated near 1.0 — collapsing that into a fresh [0,1] spread would invent
+ * a quality difference the harness never measured (exactly the failure mode
+ * this change exists to fix). Cost and speed do get normalized, because they
+ * are real, differentiated measurements (dollars, milliseconds) that need a
+ * common scale to combine with the weights.
+ */
+/**
+ * Score at or above which ccbench counts as a pass.
+ *
+ * ccbench does not rank — 11 of the 13 models in the `final` suite scored
+ * exactly 1.000 on all 10 tasks. It is a floor test: it identifies models that
+ * cannot hold an agent loop (`MiMo-V2.5-Pro` at 0.637 with a 0.0 floor) and says
+ * nothing about which of the survivors is better. Treating its saturated output
+ * as a ranking handed the pick to the 0.04 cost weight and returned
+ * `minimax-m3`, which sits 7 AA-quality points BELOW the incumbent.
+ */
+export const BENCH_PASS_THRESHOLD = 0.9;
+
+export interface OrchestratorBenchGate {
+  /** Leaderboard metrics with harness-failing candidates removed. */
+  metrics: ModelMetrics[];
+  /** Rows the harness failed, in score order — used to build the rationale. */
+  excluded: BenchModelRow[];
+}
+
+/**
+ * Applies ccbench as a GATE over the leaderboard ranking, not as a ranking.
+ *
+ * Only a candidate the harness measured AND failed is removed. A candidate the
+ * harness never ran is left in and ranked normally — the bench can only convict
+ * on evidence it has, and treating "unmeasured" as "bad" is the same null-becomes-
+ * zero mistake this repo has already been bitten by. Cost deliberately plays no
+ * part here: the orchestrator runs in Claude Code on the Max plan, where Claude
+ * ids bill nothing at the margin, so a bench's list-price cost column is measuring
+ * a resource this category does not pay for.
+ */
+export function deriveOrchestratorGate(
+  eligible: readonly ModelMetrics[],
+  benchRows: readonly BenchModelRow[],
+): OrchestratorBenchGate | null {
+  const failing = benchRows.filter(
+    (r) => r.measured && r.eligible && r.qualityExcludingTimeouts < BENCH_PASS_THRESHOLD,
+  );
+  if (failing.length === 0) return null;
+  const failingIds = new Set(failing.map((r) => r.modelId));
+  const metrics = eligible.filter((m) => !failingIds.has(m.model_id));
+  if (metrics.length === 0) return null;
+  return {
+    metrics,
+    excluded: [...failing].sort(
+      (a, b) => a.qualityExcludingTimeouts - b.qualityExcludingTimeouts,
+    ),
+  };
+}
+
+/** Names what the harness excluded and what ranked the rest — the sentence this
+ *  category can point to instead of re-litigating the two-oracle question. */
+export function orchestratorGateRationale(
+  suiteId: string,
+  taskCount: number,
+  excluded: readonly BenchModelRow[],
+  leaderboardRationale: string,
+): string {
+  const names = excluded
+    .map((r) => `${r.modelId} (${(r.qualityExcludingTimeouts * 100).toFixed(0)}%)`)
+    .join(", ");
+  return (
+    `${leaderboardRationale} ccbench (suite "${suiteId}", ${taskCount} tasks) is applied as a gate, ` +
+    `not a ranking — it saturates, so it can only rule a model out: ${names} fell below ` +
+    `${(BENCH_PASS_THRESHOLD * 100).toFixed(0)}% and ${excluded.length === 1 ? "was" : "were"} excluded. ` +
+    `Cost is deliberately not a factor here: this category runs in Claude Code on the Max plan, ` +
+    `where Claude ids cost nothing at the margin.`
+  );
 }
 
 export async function runRecommender(snapshotDate?: string): Promise<void> {
@@ -164,15 +263,30 @@ export async function runRecommender(snapshotDate?: string): Promise<void> {
       continue;
     }
 
+    // Orchestrator: ccbench gates the field, the leaderboard ranks what survives.
+    // See `deriveOrchestratorGate` — the harness saturates, so it can convict but
+    // not rank. Every other category is untouched.
+    let metricsToScore = eligibleMetrics;
+    let benchGate: OrchestratorBenchGate | null = null;
+    let benchSuite: SuiteInfo | undefined;
+    if (category === "orchestrator") {
+      const benchSummary = await loadBenchSummary();
+      benchSuite = benchSummary.suites.find((s) => s.suiteId === benchSummary.suiteId);
+      benchGate = deriveOrchestratorGate(eligibleMetrics, benchSummary.models);
+      if (benchGate) {
+        metricsToScore = benchGate.metrics;
+      }
+    }
+
     const scored = scoreModels(
-      eligibleMetrics,
+      metricsToScore,
       weights,
       category === "coding" ? "coding" : "quality",
     );
     const top = scored[0];
     if (!top) continue;
 
-    const rationale = await generateRationale(
+    let rationale: string | null = await generateRationale(
       category,
       top.model_id,
       top.score,
@@ -180,9 +294,19 @@ export async function runRecommender(snapshotDate?: string): Promise<void> {
       top.cost,
       top.speed,
     );
+    if (benchGate && rationale) {
+      rationale = orchestratorGateRationale(
+        benchSuite?.suiteId ?? "",
+        benchSuite?.taskCount ?? benchGate.excluded[0]?.taskCount ?? 0,
+        benchGate.excluded,
+        rationale,
+      );
+    }
 
     await persist(category, top.model_id, top.score, rationale);
-    console.log(`[recommend] ${category}: ${top.model_id} (score: ${top.score.toFixed(3)})`);
+    console.log(
+      `[recommend] ${category}: ${top.model_id} (score: ${top.score.toFixed(3)}${benchGate ? `, bench-gated (-${benchGate.excluded.length})` : ""})`,
+    );
   }
 
   console.log(`[recommend] done for ${date}`);

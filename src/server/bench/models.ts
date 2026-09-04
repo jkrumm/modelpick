@@ -9,7 +9,54 @@
 import { isClaudeModel } from "../pick/anthropic.js";
 import type { RouteResidency } from "./route.js";
 
-/** The default field. Six ids, all verified 200 on the Anthropic route. */
+/**
+ * What a full suite of this model has actually cost, measured — `sum(cost_usd)`
+ * over the `final` suite (10 tasks, 2026-08-31). Not a rate card: it folds in how
+ * verbose the model is in an agent loop, which is the thing that actually bills.
+ */
+export const MEASURED_SUITE_COST_USD: Record<string, number> = {
+  "claude-fable-5": 4.46,
+  "claude-opus-5": 2.544,
+  "claude-opus-4-8": 1.733,
+  "claude-sonnet-4-6": 1.256,
+  "claude-sonnet-5": 1.127,
+  "DeepSeek-V4-Flash": 0.666,
+  "DeepSeek-V4-Pro": 0.664,
+  "claude-haiku-4-5": 0.606,
+  "MiMo-V2.5-Pro": 0.541,
+  "GLM-5.1": 0.335,
+  "kimi-k2.7-code": 0.307,
+  "minimax-m3": 0.194,
+  "glm-5.3-flash": 0.035,
+};
+
+/**
+ * Per-model spend ceiling for a default run, in USD.
+ *
+ * The `final` suite cost $14.47, and $8.74 of that — 60% — went to the three
+ * priciest ids, every one of which scored exactly 1.000. Eleven of thirteen
+ * models did. The suite is a floor test: it tells you which models *fail* an
+ * agent loop, and nothing about which is best. Paying $4.46 for a model to tie
+ * with one that cost $0.035 buys zero bits.
+ *
+ * So the expensive tier is opt-in now (`--include-expensive`), not default. This
+ * is a cost guard, not a claim that those models are worse — and it is explicitly
+ * NOT how to pick an orchestrator, since the orchestrator runs on the Max plan
+ * where Claude ids bill nothing at all. See docs/decisions/claude-code-model.md.
+ */
+export const BENCH_COST_CEILING_USD = 1.5;
+
+/** True when a full suite of this id has measured above the ceiling. Unknown ids
+ *  are allowed through — a model nobody has priced yet is exactly what a bench
+ *  run is for. */
+export function isExpensiveToBench(modelId: string): boolean {
+  const cost = MEASURED_SUITE_COST_USD[modelId];
+  return cost !== undefined && cost > BENCH_COST_CEILING_USD;
+}
+
+/** The default field. Six ids, all verified 200 on the Anthropic route. The two
+ *  above the cost ceiling stay listed — they are still valid candidates, they
+ *  just need `--include-expensive` to actually run. */
 export const CCBENCH_MODELS: readonly string[] = [
   "claude-fable-5",
   "claude-haiku-4-5",

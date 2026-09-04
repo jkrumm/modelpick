@@ -5,7 +5,7 @@
  *                            [--suite <id>] [--concurrency 2] [--json]
  *                            [--timeout-scale 1]
  *                            [--keep] [--dry-run] [--yes|-y]
- *                            [--include-incompatible]
+ *                            [--include-incompatible] [--include-expensive]
  *   bun run scripts/bench.ts --reprice [--suite <id>]   # free, no model calls
  *
  * modelpick's other probes ask what the IU endpoint *serves*. This one asks the
@@ -37,7 +37,10 @@ import { eq } from "drizzle-orm";
 import { client, db } from "../src/db/index.js";
 import { benchRun, pickProbe } from "../src/db/schema.js";
 import {
+  BENCH_COST_CEILING_USD,
   CCBENCH_MODELS,
+  MEASURED_SUITE_COST_USD,
+  isExpensiveToBench,
   isClaudeCodeIncompatible,
   isDeadModel,
 } from "../src/server/bench/models.js";
@@ -101,6 +104,7 @@ const assumeYes = args.includes("--yes") || args.includes("-y");
 /** Re-test the ids that 503 on every Claude Code request - the only reason to
  *  ask for them is to check whether the gateway has since been fixed. */
 const includeIncompatible = args.includes("--include-incompatible");
+const includeExpensive = args.includes("--include-expensive");
 const repeats = Math.max(1, Number(flagValue("repeats") ?? 1));
 const concurrency = Math.max(1, Number(flagValue("concurrency") ?? DEFAULT_CONCURRENCY));
 /**
@@ -408,7 +412,22 @@ async function main(): Promise<void> {
       `Skipping Claude Code-incompatible ids (503 on every CLI request, ~190s of retries each): ${incompatible.join(", ")} - re-run with --include-incompatible to re-test them.`,
     );
   }
-  const liveModels = models.filter((id) => !isDeadModel(id) && !incompatible.includes(id));
+  // Cost guard, not a quality judgement: the priciest ids all tie at 1.000 with
+  // far cheaper ones, so a default run should not spend 60% of its budget on
+  // them. Explicit --models still wins — asking for one by name is consent.
+  const expensive =
+    includeExpensive || modelFilter.length > 0 ? [] : models.filter(isExpensiveToBench);
+  if (expensive.length > 0) {
+    const shown = expensive
+      .map((id) => `${id} ($${(MEASURED_SUITE_COST_USD[id] ?? 0).toFixed(2)}/suite)`)
+      .join(", ");
+    console.log(
+      `Skipping ids over the $${BENCH_COST_CEILING_USD.toFixed(2)}/suite cost ceiling: ${shown} - re-run with --include-expensive to bench them anyway.`,
+    );
+  }
+  const liveModels = models.filter(
+    (id) => !isDeadModel(id) && !incompatible.includes(id) && !expensive.includes(id),
+  );
   if (liveModels.length === 0) {
     console.error(
       "Nothing to run: every requested model is known-dead or Claude Code-incompatible.",

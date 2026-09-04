@@ -2,6 +2,12 @@ import { describe, it, expect } from "vitest";
 import { normalizeMetrics } from "../server/scoring/normalize.js";
 import { CATEGORY_WEIGHTS, scoreModels } from "../server/scoring/score.js";
 import type { ModelMetrics } from "../server/scoring/normalize.js";
+import {
+  BENCH_PASS_THRESHOLD,
+  deriveOrchestratorGate,
+  orchestratorGateRationale,
+} from "../server/scoring/recommend.js";
+import type { BenchModelRow } from "../server/bench/summary.js";
 
 // ── normalizeMetrics ──────────────────────────────────────────────────────────
 
@@ -273,5 +279,125 @@ describe("normalize → score pipeline", () => {
     const normalized = normalizeMetrics(inputs);
     const scored = scoreModels(normalized, CATEGORY_WEIGHTS["fast"]);
     expect(scored[0]?.model_id).toBe("model-y");
+  });
+});
+
+// ── deriveOrchestratorOverride / orchestratorBenchRationale ───────────────────
+
+function mkBenchRow(overrides: Partial<BenchModelRow> & { modelId: string }): BenchModelRow {
+  return {
+    composite: 0.8,
+    quality: 1.0,
+    passRate: 1.0,
+    totalCostUsd: 1,
+    costBasis: "measured",
+    totalDurationMs: 1000,
+    meanTurns: 10,
+    meanTtftMs: 500,
+    toolErrorRate: 0,
+    runCount: 10,
+    taskCount: 10,
+    timeoutRuns: 0,
+    qualityExcludingTimeouts: 1.0,
+    aa: null,
+    rate: {
+      inPerM: null,
+      outPerM: null,
+      contextWindow: null,
+      contextWindowExact: false,
+      notes: [],
+      basis: null,
+    },
+    residency: "unknown",
+    dead: false,
+    incompatible: false,
+    measured: true,
+    eligible: true,
+    ...overrides,
+  };
+}
+
+describe("deriveOrchestratorGate", () => {
+  const eligible: ModelMetrics[] = [
+    { model_id: "model-strong", quality: 0.9, coding: 0.9, cost: 0.1, speed: 0.5 },
+    { model_id: "model-weak", quality: 0.2, coding: 0.2, cost: 0.9, speed: 0.9 },
+    { model_id: "model-unbenched", quality: 0.95, coding: 0.95, cost: 0.2, speed: 0.4 },
+  ];
+
+  it("returns null when the harness failed nobody, leaving the leaderboard untouched", () => {
+    const rows = [
+      mkBenchRow({ modelId: "model-strong", qualityExcludingTimeouts: 1 }),
+      mkBenchRow({ modelId: "model-weak", qualityExcludingTimeouts: 1 }),
+    ];
+    expect(deriveOrchestratorGate(eligible, rows)).toBeNull();
+  });
+
+  it("returns null when there is no bench data at all", () => {
+    expect(deriveOrchestratorGate(eligible, [])).toBeNull();
+  });
+
+  it("removes only a candidate the harness measured AND failed", () => {
+    const rows = [
+      mkBenchRow({ modelId: "model-strong", qualityExcludingTimeouts: 1 }),
+      mkBenchRow({ modelId: "model-weak", qualityExcludingTimeouts: 0.4 }),
+    ];
+    const gate = deriveOrchestratorGate(eligible, rows);
+    expect(gate?.metrics.map((m) => m.model_id)).toEqual(["model-strong", "model-unbenched"]);
+    expect(gate?.excluded.map((r) => r.modelId)).toEqual(["model-weak"]);
+  });
+
+  // The bench can convict on evidence it has and nothing else. Dropping a model
+  // for never having been benched is the same null-becomes-zero mistake that made
+  // the harness's saturated scores look like a ranking in the first place.
+  it("never excludes a candidate the harness simply never ran", () => {
+    const rows = [mkBenchRow({ modelId: "model-weak", qualityExcludingTimeouts: 0.4 })];
+    const gate = deriveOrchestratorGate(eligible, rows);
+    expect(gate?.metrics.some((m) => m.model_id === "model-unbenched")).toBe(true);
+  });
+
+  it("ignores bench rows that are dead, incompatible or ungraded", () => {
+    const rows = [
+      mkBenchRow({ modelId: "model-weak", qualityExcludingTimeouts: 0.4, eligible: false }),
+      mkBenchRow({ modelId: "model-strong", qualityExcludingTimeouts: 0.1, measured: false }),
+    ];
+    expect(deriveOrchestratorGate(eligible, rows)).toBeNull();
+  });
+
+  it("keeps a candidate sitting exactly on the pass threshold", () => {
+    const rows = [
+      mkBenchRow({ modelId: "model-weak", qualityExcludingTimeouts: BENCH_PASS_THRESHOLD }),
+    ];
+    expect(deriveOrchestratorGate(eligible, rows)).toBeNull();
+  });
+
+  it("does not let the gate itself reorder the survivors", () => {
+    const rows = [mkBenchRow({ modelId: "model-weak", qualityExcludingTimeouts: 0.4 })];
+    const gate = deriveOrchestratorGate(eligible, rows);
+    const gated = scoreModels(gate?.metrics ?? [], CATEGORY_WEIGHTS["orchestrator"])[0]?.model_id;
+    const ungated = scoreModels(
+      eligible.filter((m) => m.model_id !== "model-weak"),
+      CATEGORY_WEIGHTS["orchestrator"],
+    )[0]?.model_id;
+    expect(gated).toBe(ungated);
+  });
+});
+
+describe("orchestratorGateRationale", () => {
+  it("names what was excluded, the threshold, and why cost is not a factor", () => {
+    const excluded = [mkBenchRow({ modelId: "model-weak", qualityExcludingTimeouts: 0.637 })];
+    const rationale = orchestratorGateRationale("final", 10, excluded, "Leaderboard says X.");
+    expect(rationale).toContain("Leaderboard says X.");
+    expect(rationale).toContain("gate");
+    expect(rationale).toContain("model-weak (64%)");
+    expect(rationale).toContain("90%");
+    expect(rationale).toContain("Max plan");
+  });
+
+  it("pluralises correctly for multiple exclusions", () => {
+    const excluded = [
+      mkBenchRow({ modelId: "a", qualityExcludingTimeouts: 0.5 }),
+      mkBenchRow({ modelId: "b", qualityExcludingTimeouts: 0.6 }),
+    ];
+    expect(orchestratorGateRationale("final", 10, excluded, "L.")).toContain("were excluded");
   });
 });

@@ -4,6 +4,7 @@ export { VxBridge } from "./bridge";
 export { HoverContext, DEFAULT_NO_OP_SET_HOVER, type HoverCtx } from "./hover-context";
 
 export { ChartCard } from "./primitives/ChartCard";
+export { ClientOnly } from "./primitives/ClientOnly";
 export { ChartLegend, type LegendEntry } from "./primitives/ChartLegend";
 export {
   ChartTooltip,

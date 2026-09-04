@@ -227,6 +227,21 @@ const AA_FIXTURE_ARRAY: unknown[] = [
     evaluations: {
       artificial_analysis_intelligence_index: 78.5,
       artificial_analysis_coding_index: 82.0,
+      artificial_analysis_math_index: 70.1,
+      mmlu_pro: 0.88,
+      gpqa: 0.7,
+      hle: null,
+      livecodebench: 0.65,
+      scicode: null,
+      math_500: 0.95,
+      aime: null,
+      aime_25: 0.5,
+      ifbench: 0.6,
+      lcr: 0.72,
+      terminalbench_hard: 0.3,
+      terminalbench_v2_1: 0.81,
+      tau2: 0.55,
+      tau_banking: 0.4,
     },
     pricing: {
       price_1m_input_tokens: 3.0,
@@ -265,9 +280,12 @@ describe("collectArtificialAnalysis — direct array response", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(AA_FIXTURE_ARRAY));
     const result = await collectArtificialAnalysis(resolve);
 
-    // claude-sonnet-4-6: quality + coding_index + throughput + latency_p50 + price_in + price_out = 6
+    // claude-sonnet-4-6: quality + coding_index + throughput + latency_p50 + price_in + price_out (6)
+    // + 12 non-null extra evals (math_index, mmlu_pro, gpqa, livecodebench, math_500, aime_25,
+    // ifbench, lcr, terminalbench_hard, terminalbench_v2_1, tau2, tau_banking) = 18
+    // (hle, scicode, aime are null in the fixture and must not appear)
     // gpt-5.5: quality + latency_p50 = 2
-    expect(result.metrics.length).toBe(8);
+    expect(result.metrics.length).toBe(20);
   });
 
   it("maps quality metric from intelligence_index", async () => {
@@ -327,6 +345,42 @@ describe("collectArtificialAnalysis — direct array response", () => {
     expect(metricNames).not.toContain("price_in");
     expect(metricNames).not.toContain("price_out");
     expect(metricNames).not.toContain("throughput");
+  });
+
+  it("maps the extended eval set, including the agentic benchmarks", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(AA_FIXTURE_ARRAY));
+    const result = await collectArtificialAnalysis(resolve);
+
+    const byMetric = new Map(
+      result.metrics
+        .filter((m) => m.model_id === "claude-sonnet-4-6")
+        .map((m) => [m.metric, m.value]),
+    );
+    expect(byMetric.get("math_index")).toBeCloseTo(70.1);
+    expect(byMetric.get("mmlu_pro")).toBeCloseTo(0.88);
+    expect(byMetric.get("gpqa")).toBeCloseTo(0.7);
+    expect(byMetric.get("livecodebench")).toBeCloseTo(0.65);
+    expect(byMetric.get("math_500")).toBeCloseTo(0.95);
+    expect(byMetric.get("aime_25")).toBeCloseTo(0.5);
+    expect(byMetric.get("ifbench")).toBeCloseTo(0.6);
+    expect(byMetric.get("lcr")).toBeCloseTo(0.72);
+    expect(byMetric.get("terminalbench_hard")).toBeCloseTo(0.3);
+    expect(byMetric.get("terminalbench_v2_1")).toBeCloseTo(0.81);
+    expect(byMetric.get("tau2")).toBeCloseTo(0.55);
+    expect(byMetric.get("tau_banking")).toBeCloseTo(0.4);
+  });
+
+  it("never emits a row for a null eval — missing must not become zero", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(AA_FIXTURE_ARRAY));
+    const result = await collectArtificialAnalysis(resolve);
+
+    const metricNames = result.metrics
+      .filter((m) => m.model_id === "claude-sonnet-4-6")
+      .map((m) => m.metric);
+    // hle, scicode, aime are explicitly null in the fixture
+    expect(metricNames).not.toContain("hle");
+    expect(metricNames).not.toContain("scicode");
+    expect(metricNames).not.toContain("aime");
   });
 
   it("records unmatched external model IDs", async () => {
