@@ -27,18 +27,41 @@ export function classifyModality(id: string): Modality {
 export function deriveProvider(id: string): string {
   const s = id.toLowerCase();
   if (/^claude|anthropic/.test(s)) return "anthropic";
-  if (/^(gpt|o1|o3|o4|chatgpt|dall-e|text-embedding|tts|whisper)/.test(s)) {
+  if (
+    /^(gpt|o1|o3|o4|chatgpt|dall-e|text-embedding|tts|whisper|omni-moderation)/.test(s)
+  ) {
     return "openai";
   }
   if (/^gemini|google/.test(s)) return "google";
+  // nano-banana is Google's internal codename for its image model line.
+  if (s.startsWith("nano-banana")) return "google";
   if (/^llama|meta/.test(s)) return "meta";
   if (/^qwen|qwq/.test(s)) return "qwen";
   if (/deepseek/.test(s)) return "deepseek";
   if (s.startsWith("phi")) return "microsoft";
   if (/^cohere|command-r/.test(s)) return "cohere";
   if (s.startsWith("jamba")) return "ai21";
-  if (/^mistral|mixtral|dolphin/.test(s)) return "mistral";
+  if (
+    /^mistral|mixtral|dolphin|^codestral|^devstral|^ministral|^magistral|^pixtral|^voxtral/.test(
+      s,
+    )
+  ) {
+    return "mistral";
+  }
   if (s.startsWith("iu-")) return "iu";
+  if (s.startsWith("glm")) return "zhipu";
+  if (s.startsWith("kimi")) return "moonshot";
+  // Also catches HF-style "MiniMaxAI/..." ids, which would otherwise split into "minimaxai".
+  if (s.startsWith("minimax")) return "minimax";
+  if (s.startsWith("mimo")) return "xiaomi";
+  if (/^nvidia|nemotron/.test(s)) return "nvidia";
+  if (s.startsWith("hermes-4")) return "nousresearch";
+  // Hy3 is Tencent's Hunyuan model line.
+  if (s.startsWith("hy3")) return "tencent";
+  if (s.startsWith("sonar")) return "perplexity";
+  // Not a guess: `premium-4.1` answers with `x-middleware-forwarded-model: gpt-4.1`
+  // off the West Europe OAI server. It is IU's own alias, not a third-party model.
+  if (s === "premium-4.1") return "openai";
   const seg = id.includes("/") ? id.split("/")[0] : "";
   return seg ? seg.toLowerCase() : "other";
 }

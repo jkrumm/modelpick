@@ -12,6 +12,11 @@ IU_OPENAI_BASE_URL=https://unified-endpoint-main.app.iu-it.org/openai/v1
 IU_GEMINI_BASE_URL=https://unified-endpoint-main.app.iu-it.org/gemini/v1beta
 IU_REPLICATE_BASE_URL=https://unified-endpoint-main.app.iu-it.org/replicate/v1
 
+# --- Google AI Studio (control door for the cross-provider benchmark) ---
+# Personal free-tier key: it is the only way to tell "the model is slow" apart from
+# "IU is slow". Free tier refuses Gemini Pro outright — see docs/decisions/iu-vs-ai-studio.md.
+GOOGLE_AI_STUDIO_KEY=op://hermes/google-ai-studio/api-key
+
 # --- External leaderboard APIs + admin gate ---
 OPENROUTER_API_KEY=op://vps/modelpick/OPENROUTER_API_KEY
 ARTIFICIALANALYSIS_API_KEY=op://vps/modelpick/ARTIFICIALANALYSIS_API_KEY

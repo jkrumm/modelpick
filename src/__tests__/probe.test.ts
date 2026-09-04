@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { parseResidency, IuFetchError, iuFetch, gatewayChat } from "../server/iu/client.js";
 import { classifyProbe, isAccessible } from "../server/iu/classify.js";
-import { probeModel } from "../server/iu/probe.js";
+import {
+  probeModel,
+  findCaseDuplicatePairs,
+  planTableReconciliation,
+} from "../server/iu/probe.js";
 
 // Replace global fetch with a Vitest mock
 const fetchMock = vi.fn<typeof fetch>();
@@ -427,5 +431,113 @@ describe("probeModel — STT", () => {
     expect(result.probe_status).toBe("unknown");
     expect(result.error).toContain("audio fixture");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+// ── findCaseDuplicatePairs ───────────────────────────────────────────────────
+
+describe("findCaseDuplicatePairs", () => {
+  it("folds the lowercase id into the survivor when the live endpoint returns it", () => {
+    const pairs = findCaseDuplicatePairs({
+      modelIds: ["GPT-5.5", "gpt-5.5", "claude-sonnet-4-5"],
+      liveIds: new Set(["gpt-5.5"]),
+    });
+
+    expect(pairs).toEqual([{ loserId: "GPT-5.5", survivorId: "gpt-5.5" }]);
+  });
+
+  it("leaves both variants untouched when neither is live", () => {
+    const pairs = findCaseDuplicatePairs({
+      modelIds: ["GPT-5.5", "gpt-5.5"],
+      liveIds: new Set(["claude-sonnet-4-5"]),
+    });
+
+    expect(pairs).toEqual([]);
+  });
+
+  it("leaves both variants untouched when both are somehow live", () => {
+    const pairs = findCaseDuplicatePairs({
+      modelIds: ["GPT-5.5", "gpt-5.5"],
+      liveIds: new Set(["GPT-5.5", "gpt-5.5"]),
+    });
+
+    expect(pairs).toEqual([]);
+  });
+
+  it("does not hardcode lowercase-wins — the capitalised id survives if it's the live one", () => {
+    const pairs = findCaseDuplicatePairs({
+      modelIds: ["GPT-5.5", "gpt-5.5"],
+      liveIds: new Set(["GPT-5.5"]),
+    });
+
+    expect(pairs).toEqual([{ loserId: "gpt-5.5", survivorId: "GPT-5.5" }]);
+  });
+
+  it("is a no-op when there are no case-duplicates", () => {
+    const pairs = findCaseDuplicatePairs({
+      modelIds: ["gpt-5.5", "claude-sonnet-4-5", "gemini-3.5-flash"],
+      liveIds: new Set(["gpt-5.5"]),
+    });
+
+    expect(pairs).toEqual([]);
+  });
+});
+
+// ── planTableReconciliation ──────────────────────────────────────────────────
+
+interface FakeRow {
+  id: number;
+  model_id: string;
+  metric: string;
+}
+
+describe("planTableReconciliation", () => {
+  it("repoints every loser row that doesn't collide with a survivor row", () => {
+    const rows: FakeRow[] = [
+      { id: 1, model_id: "GPT-5.5", metric: "quality" },
+      { id: 2, model_id: "GPT-5.5", metric: "price_in" },
+      { id: 3, model_id: "claude-sonnet-4-5", metric: "quality" },
+    ];
+
+    const plan = planTableReconciliation({
+      loserId: "GPT-5.5",
+      survivorId: "gpt-5.5",
+      rows,
+      uniqueKey: (r) => r.metric,
+    });
+
+    expect(plan.repoint.toSorted()).toEqual([1, 2]);
+    expect(plan.dropAsCollision).toEqual([]);
+  });
+
+  it("drops a loser row as a collision instead of repointing it onto an existing survivor row", () => {
+    const rows: FakeRow[] = [
+      { id: 1, model_id: "GPT-5.5", metric: "quality" },
+      { id: 2, model_id: "gpt-5.5", metric: "quality" },
+    ];
+
+    const plan = planTableReconciliation({
+      loserId: "GPT-5.5",
+      survivorId: "gpt-5.5",
+      rows,
+      uniqueKey: (r) => r.metric,
+    });
+
+    expect(plan.repoint).toEqual([]);
+    expect(plan.dropAsCollision).toEqual([1]);
+  });
+
+  it("is a no-op when the loser has no rows in this table", () => {
+    const rows: FakeRow[] = [{ id: 1, model_id: "claude-sonnet-4-5", metric: "quality" }];
+
+    const plan = planTableReconciliation({
+      loserId: "GPT-5.5",
+      survivorId: "gpt-5.5",
+      rows,
+      uniqueKey: (r) => r.metric,
+    });
+
+    expect(plan.repoint).toEqual([]);
+    expect(plan.dropAsCollision).toEqual([]);
   });
 });

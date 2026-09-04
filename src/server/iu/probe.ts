@@ -1,7 +1,25 @@
+import { eq, inArray } from "drizzle-orm";
 import { dialectForProvider, gatewayChat, parseResidency, rawFetch } from "./client.js";
 import { classifyProbe, isAccessible } from "./classify.js";
 import { probeReplicate } from "./replicate.js";
-import type { Modality, ProbeStatus, Residency, Transport } from "../../db/schema.js";
+import type {
+  Modality,
+  ModelInsert,
+  ProbeStatus,
+  Residency,
+  Transport,
+  models as ModelsTable,
+  capabilityProbe as CapabilityProbeTable,
+  metricSnapshot as MetricSnapshotTable,
+  recommendation as RecommendationTable,
+  stackChoice as StackChoiceTable,
+  demo as DemoTable,
+  newsItem as NewsItemTable,
+} from "../../db/schema.js";
+// Type-only — mirrors the lazy value import of `db` inside runProbe() below, so
+// importing this type never opens a live DB connection at module load.
+import type { db as DbHandle } from "../../db/index.js";
+type DbClient = typeof DbHandle;
 
 export interface ProbeResult {
   model_id: string;
@@ -164,6 +182,274 @@ export async function probeModel(opts: ProbeOptions): Promise<ProbeResult> {
   };
 }
 
+// ── Case-duplicate reconciliation ──────────────────────────────────────────
+// The portal export and the live /models endpoint disagree on casing for the
+// same route (`GPT-5.5` vs `gpt-5.5`) — the live id is the only one that's
+// actually callable, and metric/recommendation writes split across the two
+// rows depending on whether they came from a live probe or a leaderboard
+// collector's id resolver. Fold the loser into the survivor before anything
+// else reads the catalog.
+
+export interface CaseDuplicatePair {
+  loserId: string;
+  survivorId: string;
+}
+
+/** Groups model ids by lowercase form and, for each group with more than one
+ *  case variant, resolves the survivor as the id the live /v1/models response
+ *  actually returned. A group where neither or multiple variants are live is
+ *  left untouched — guessing which one is real is exactly the mistake this
+ *  is fixing. */
+export function findCaseDuplicatePairs({
+  modelIds,
+  liveIds,
+}: {
+  modelIds: string[];
+  liveIds: Set<string>;
+}): CaseDuplicatePair[] {
+  const byLower = new Map<string, string[]>();
+  for (const id of modelIds) {
+    const key = id.toLowerCase();
+    const group = byLower.get(key);
+    if (group) {
+      group.push(id);
+    } else {
+      byLower.set(key, [id]);
+    }
+  }
+
+  const pairs: CaseDuplicatePair[] = [];
+  for (const variants of byLower.values()) {
+    if (variants.length < 2) continue;
+    const liveVariants = variants.filter((id) => liveIds.has(id));
+    if (liveVariants.length !== 1) continue; // neither or both live — don't guess
+    const survivorId = liveVariants[0] as string;
+    for (const loserId of variants) {
+      if (loserId !== survivorId) pairs.push({ loserId, survivorId });
+    }
+  }
+  return pairs;
+}
+
+/** Plans which of a child table's rows should move from loser to survivor, and
+ *  which would collide with a row the survivor already holds (same content key
+ *  under a different model_id) and so should be dropped instead of moved. Pure
+ *  planning over already-fetched rows — this is what makes the fold testable
+ *  without a live DB. */
+export function planTableReconciliation<Row extends { id: number; model_id: string }>({
+  loserId,
+  survivorId,
+  rows,
+  uniqueKey,
+}: {
+  loserId: string;
+  survivorId: string;
+  rows: Row[];
+  uniqueKey: (row: Row) => string;
+}): { repoint: number[]; dropAsCollision: number[] } {
+  const survivorKeys = new Set(
+    rows.filter((r) => r.model_id === survivorId).map((r) => uniqueKey(r)),
+  );
+  const repoint: number[] = [];
+  const dropAsCollision: number[] = [];
+  for (const row of rows) {
+    if (row.model_id !== loserId) continue;
+    const key = uniqueKey(row);
+    if (survivorKeys.has(key)) {
+      dropAsCollision.push(row.id);
+    } else {
+      repoint.push(row.id);
+      survivorKeys.add(key); // two loser rows can't both repoint onto the same key either
+    }
+  }
+  return { repoint, dropAsCollision };
+}
+
+/** Applies a plan to one child table and returns how many rows moved (repointed
+ *  or dropped as a collision). `update`/`del` close over the concrete table so
+ *  this stays a thin count-and-apply wrapper rather than a generic Drizzle
+ *  table abstraction. */
+async function applyReconciliationPlan({
+  plan,
+  update,
+  del,
+}: {
+  plan: { repoint: number[]; dropAsCollision: number[] };
+  update: (ids: number[]) => Promise<unknown>;
+  del: (ids: number[]) => Promise<unknown>;
+}): Promise<number> {
+  if (plan.dropAsCollision.length > 0) await del(plan.dropAsCollision);
+  if (plan.repoint.length > 0) await update(plan.repoint);
+  return plan.repoint.length + plan.dropAsCollision.length;
+}
+
+export interface CaseDuplicateTables {
+  models: typeof ModelsTable;
+  capabilityProbe: typeof CapabilityProbeTable;
+  metricSnapshot: typeof MetricSnapshotTable;
+  recommendation: typeof RecommendationTable;
+  stackChoice: typeof StackChoiceTable;
+  demo: typeof DemoTable;
+  newsItem: typeof NewsItemTable;
+}
+
+/** Folds every case-duplicate pair currently in `models` into the live-id
+ *  survivor, re-pointing every table with an FK onto `models.id`
+ *  (capability_probe, metric_snapshot, recommendation, stack_choice, demo,
+ *  news_item — found by grepping schema.ts for `models.id` references;
+ *  pick_probe and bench_run store model_id but are deliberately NOT FKs, per
+ *  their own schema comments, so they're out of scope here) before deleting
+ *  the loser row. Re-pointing before deleting matters: the FK is
+ *  onDelete: cascade, so deleting the loser first would wipe its children
+ *  instead of preserving them under the survivor. */
+export async function reconcileCaseDuplicates({
+  db,
+  tables,
+  liveIds,
+}: {
+  db: DbClient;
+  tables: CaseDuplicateTables;
+  liveIds: Set<string>;
+}): Promise<void> {
+  const { models, capabilityProbe, metricSnapshot, recommendation, stackChoice, demo, newsItem } =
+    tables;
+
+  const modelIds = (await db.select({ id: models.id }).from(models)).map((m) => m.id);
+  const pairs = findCaseDuplicatePairs({ modelIds, liveIds });
+
+  for (const pair of pairs) {
+    const { loserId, survivorId } = pair;
+    let moved = 0;
+
+    const capabilityRows = await db
+      .select({
+        id: capabilityProbe.id,
+        model_id: capabilityProbe.model_id,
+        checked_at: capabilityProbe.checked_at,
+      })
+      .from(capabilityProbe);
+    moved += await applyReconciliationPlan({
+      plan: planTableReconciliation({
+        loserId,
+        survivorId,
+        rows: capabilityRows,
+        uniqueKey: (r) => r.checked_at,
+      }),
+      update: (ids) =>
+        db
+          .update(capabilityProbe)
+          .set({ model_id: survivorId })
+          .where(inArray(capabilityProbe.id, ids)),
+      del: (ids) => db.delete(capabilityProbe).where(inArray(capabilityProbe.id, ids)),
+    });
+
+    const metricRows = await db
+      .select({
+        id: metricSnapshot.id,
+        model_id: metricSnapshot.model_id,
+        source: metricSnapshot.source,
+        metric: metricSnapshot.metric,
+        captured_at: metricSnapshot.captured_at,
+      })
+      .from(metricSnapshot);
+    moved += await applyReconciliationPlan({
+      plan: planTableReconciliation({
+        loserId,
+        survivorId,
+        rows: metricRows,
+        uniqueKey: (r) => `${r.source}|${r.metric}|${r.captured_at}`,
+      }),
+      update: (ids) =>
+        db.update(metricSnapshot).set({ model_id: survivorId }).where(inArray(metricSnapshot.id, ids)),
+      del: (ids) => db.delete(metricSnapshot).where(inArray(metricSnapshot.id, ids)),
+    });
+
+    const recommendationRows = await db
+      .select({
+        id: recommendation.id,
+        model_id: recommendation.model_id,
+        category: recommendation.category,
+        snapshot_date: recommendation.snapshot_date,
+      })
+      .from(recommendation);
+    moved += await applyReconciliationPlan({
+      plan: planTableReconciliation({
+        loserId,
+        survivorId,
+        rows: recommendationRows,
+        uniqueKey: (r) => `${r.category}|${r.snapshot_date}`,
+      }),
+      update: (ids) =>
+        db
+          .update(recommendation)
+          .set({ model_id: survivorId })
+          .where(inArray(recommendation.id, ids)),
+      del: (ids) => db.delete(recommendation).where(inArray(recommendation.id, ids)),
+    });
+
+    const stackRows = await db
+      .select({ id: stackChoice.id, model_id: stackChoice.model_id, category: stackChoice.category })
+      .from(stackChoice);
+    moved += await applyReconciliationPlan({
+      plan: planTableReconciliation({
+        loserId,
+        survivorId,
+        rows: stackRows,
+        uniqueKey: (r) => r.category,
+      }),
+      update: (ids) =>
+        db.update(stackChoice).set({ model_id: survivorId }).where(inArray(stackChoice.id, ids)),
+      del: (ids) => db.delete(stackChoice).where(inArray(stackChoice.id, ids)),
+    });
+
+    const demoRows = await db
+      .select({
+        id: demo.id,
+        model_id: demo.model_id,
+        modality: demo.modality,
+        text_content: demo.text_content,
+        lang: demo.lang,
+        preset: demo.preset,
+        voice: demo.voice,
+      })
+      .from(demo);
+    moved += await applyReconciliationPlan({
+      plan: planTableReconciliation({
+        loserId,
+        survivorId,
+        rows: demoRows,
+        uniqueKey: (r) => `${r.modality}|${r.text_content}|${r.lang}|${r.preset ?? ""}|${r.voice ?? ""}`,
+      }),
+      update: (ids) => db.update(demo).set({ model_id: survivorId }).where(inArray(demo.id, ids)),
+      del: (ids) => db.delete(demo).where(inArray(demo.id, ids)),
+    });
+
+    // model_id is nullable here (onDelete: set null) — only rows actually
+    // pointing at the loser are candidates to move.
+    const newsRows = (
+      await db
+        .select({ id: newsItem.id, model_id: newsItem.model_id, url: newsItem.url })
+        .from(newsItem)
+    ).filter((r): r is typeof r & { model_id: string } => r.model_id !== null);
+    moved += await applyReconciliationPlan({
+      plan: planTableReconciliation({
+        loserId,
+        survivorId,
+        rows: newsRows,
+        uniqueKey: (r) => r.url,
+      }),
+      update: (ids) => db.update(newsItem).set({ model_id: survivorId }).where(inArray(newsItem.id, ids)),
+      del: (ids) => db.delete(newsItem).where(inArray(newsItem.id, ids)),
+    });
+
+    await db.delete(models).where(eq(models.id, loserId));
+
+    console.warn(
+      `[probe] case-duplicate fold: "${loserId}" -> "${survivorId}" (${moved} child row${moved === 1 ? "" : "s"} moved)`,
+    );
+  }
+}
+
 // How many models to probe in parallel. The gateway tolerates this comfortably
 // and it keeps a full-catalog probe to a few minutes instead of ~hour.
 const PROBE_CONCURRENCY = 8;
@@ -188,26 +474,55 @@ async function mapPool<T, R>(
 
 export async function runProbe(): Promise<ProbeResult[]> {
   // Lazy imports keep probeModel() testable without a live DB connection
-  const [{ db }, { capabilityProbe, models }, { discoverIuModels }, { canon }] = await Promise.all([
+  const [
+    { db },
+    { capabilityProbe, metricSnapshot, recommendation, stackChoice, demo, newsItem, models },
+    { discoverIuModels },
+  ] = await Promise.all([
     import("../../db/index.js"),
     import("../../db/schema.js"),
     import("./discover.js"),
-    import("../collectors/normalize.js"),
   ]);
 
   // Merge in the live /v1/models list: it carries the simple working aliases
-  // (tts, tts-hd, whisper, lowercase gpt-4o) that the portal export omits. Only
-  // add ids whose canonical form isn't already covered, to avoid case/date dupes.
+  // (tts, tts-hd, whisper, lowercase gpt-4o) that the portal export omits, and it
+  // is the only source that stays current between portal exports.
+  //
+  // Dedupe on the EXACT id, not `canon()`. canon() exists to match a leaderboard's
+  // name to a catalog entry, and to do that it strips `eu`, `fast` and friends as
+  // noise — which is right there and wrong here: `gemini-3.5-flash-eu` is a
+  // physically different, EU-deployed route from `gemini-3.5-flash`, and collapsing
+  // them meant every `-eu` alias and every live id whose casing drifted from the
+  // portal export never got a `models` row at all. Everything keyed on those ids
+  // then failed the foreign key on write, silently, which is how the catalog went
+  // stale while the probe reported success. A cosmetic `GLM-5.3` / `glm-5.3` pair
+  // is a far cheaper problem than an unaddressable route.
+  let apiModels: ModelInsert[] = [];
   try {
-    const apiModels = await discoverIuModels();
+    apiModels = await discoverIuModels();
     const existing = await db.select({ id: models.id }).from(models);
-    const covered = new Set(existing.map((m) => canon(m.id)));
-    const toAdd = apiModels.filter((m) => !covered.has(canon(m.id)));
+    const covered = new Set(existing.map((m) => m.id));
+    const toAdd = apiModels.filter((m) => !covered.has(m.id));
     if (toAdd.length > 0) {
       await db.insert(models).values(toAdd).onConflictDoNothing();
     }
   } catch (err) {
     console.warn(`[probe] IU /models discovery skipped: ${String(err)}`);
+  }
+
+  // Fold the case-duplicate rows the merge above exposed (see the block comment
+  // near reconcileCaseDuplicates for why). Discovery failing above leaves
+  // apiModels empty, which makes every pair's "which id is live" check
+  // inconclusive — findCaseDuplicatePairs correctly skips all of them rather
+  // than guessing, so this stays safe with no live data.
+  try {
+    await reconcileCaseDuplicates({
+      db,
+      tables: { models, capabilityProbe, metricSnapshot, recommendation, stackChoice, demo, newsItem },
+      liveIds: new Set(apiModels.map((m) => m.id)),
+    });
+  } catch (err) {
+    console.warn(`[probe] case-duplicate reconciliation skipped: ${String(err)}`);
   }
 
   const catalog = await db
