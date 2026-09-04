@@ -27,6 +27,8 @@ export interface DeciderData {
   rawMetrics: RawMetricMap;
   /** Representative model ids surfaced by the default "current only" view. */
   currentIds: string[];
+  /** model id -> id of the newer-version sibling that superseded it. */
+  supersededBy: Record<string, string>;
 }
 
 function buildProbeMap(
@@ -108,7 +110,7 @@ export const getDeciderData = createServerFn({ method: "GET" }).handler(
 
     // Propagate leaderboard data across catalog variants and pick the "current"
     // representative per model so default views drop dated pins and stale models.
-    const { metrics: modelMetrics, currentIds } = curate(
+    const { metrics: modelMetrics, currentIds, supersededBy } = curate(
       allModels.map((m) => ({ id: m.id, modality: m.modality })),
       normalizeMetrics(latestMetrics),
       (id) => probes[id]?.accessible ?? false,
@@ -121,6 +123,7 @@ export const getDeciderData = createServerFn({ method: "GET" }).handler(
       probes,
       rawMetrics: rawMap,
       currentIds: [...currentIds],
+      supersededBy: Object.fromEntries(supersededBy),
     };
   },
 );

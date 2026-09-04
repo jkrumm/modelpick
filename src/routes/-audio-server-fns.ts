@@ -2,20 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { join } from "node:path";
 import {
   getModels,
-  getPublicDemos,
   getAllDemos,
   insertDemo,
   updateDemoAudioPath,
   setDemoPublic,
   setDemoPublicByVoice,
 } from "~/db/queries";
-import {
-  checkAdminKey,
-  generateTts,
-  generateStt,
-  writeDemoAudio,
-  getDemosDir,
-} from "~/server/audio/generate";
+import { generateTts, generateStt, writeDemoAudio, getDemosDir } from "~/server/audio/generate";
 import type { Demo, Model } from "~/db/schema";
 import {
   TTS_PRESETS,
@@ -61,20 +54,17 @@ export interface GenerateTtsDemoInput {
   style?: string;
   /** Gemini prebuilt voice name; OpenAI-route models ignore it. */
   voice?: string;
-  adminKey: string;
 }
 
 export interface RunSttDemoInput {
   modelId: string;
   /** ID of a TTS demo whose audio file will be transcribed. */
   sourceDemoId: number;
-  adminKey: string;
 }
 
 export interface ToggleDemoPublicInput {
   id: number;
   isPublic: boolean;
-  adminKey: string;
 }
 
 export interface GenerateTtsResult {
@@ -95,7 +85,7 @@ export interface RunSttResult {
 
 export const getTtsPlaygroundData = createServerFn({ method: "GET" }).handler(
   async (): Promise<AudioPlaygroundData> => {
-    const [ttsModels, ttsDemos] = await Promise.all([getModels("tts"), getPublicDemos("tts")]);
+    const [ttsModels, ttsDemos] = await Promise.all([getModels("tts"), getAllDemos("tts")]);
     return { models: ttsModels, demos: ttsDemos };
   },
 );
@@ -104,8 +94,8 @@ export const getSttPlaygroundData = createServerFn({ method: "GET" }).handler(
   async (): Promise<SttPlaygroundData> => {
     const [sttModels, sttDemos, ttsDemos] = await Promise.all([
       getModels("stt"),
-      getPublicDemos("stt"),
-      getPublicDemos("tts"),
+      getAllDemos("stt"),
+      getAllDemos("tts"),
     ]);
     return {
       models: sttModels,
@@ -115,18 +105,15 @@ export const getSttPlaygroundData = createServerFn({ method: "GET" }).handler(
   },
 );
 
-export const getAdminDemosFn = createServerFn({ method: "GET" })
-  .inputValidator((input: { modality: "tts" | "stt"; adminKey: string }) => input)
+export const getAllDemosFn = createServerFn({ method: "GET" })
+  .inputValidator((input: { modality: "tts" | "stt" }) => input)
   .handler(async ({ data }): Promise<Demo[]> => {
-    checkAdminKey(data.adminKey);
     return getAllDemos(data.modality);
   });
 
 export const generateTtsDemoFn = createServerFn({ method: "POST" })
   .inputValidator((input: GenerateTtsDemoInput) => input)
   .handler(async ({ data }): Promise<GenerateTtsResult> => {
-    checkAdminKey(data.adminKey);
-
     // Insert placeholder row to get the auto-increment ID before generating audio.
     const demoRow = await insertDemo({
       modality: "tts",
@@ -152,8 +139,6 @@ export const generateTtsDemoFn = createServerFn({ method: "POST" })
 export const runSttDemoFn = createServerFn({ method: "POST" })
   .inputValidator((input: RunSttDemoInput) => input)
   .handler(async ({ data }): Promise<RunSttResult> => {
-    checkAdminKey(data.adminKey);
-
     const allTtsDemos = await getAllDemos("tts");
     const sourceDemoRow = allTtsDemos.find((d) => d.id === data.sourceDemoId);
     if (!sourceDemoRow?.audio_path) {
@@ -181,7 +166,6 @@ export const runSttDemoFn = createServerFn({ method: "POST" })
 export const toggleDemoPublicFn = createServerFn({ method: "POST" })
   .inputValidator((input: ToggleDemoPublicInput) => input)
   .handler(async ({ data }): Promise<void> => {
-    checkAdminKey(data.adminKey);
     await setDemoPublic(data.id, data.isPublic);
   });
 
@@ -189,7 +173,6 @@ export interface ToggleVoiceInput {
   modality: "tts" | "stt";
   voice: string;
   isPublic: boolean;
-  adminKey: string;
 }
 
 /** Enable/disable an entire voice at once — bulk public toggle for narrowing the
@@ -197,6 +180,5 @@ export interface ToggleVoiceInput {
 export const toggleVoicePublicFn = createServerFn({ method: "POST" })
   .inputValidator((input: ToggleVoiceInput) => input)
   .handler(async ({ data }): Promise<void> => {
-    checkAdminKey(data.adminKey);
     await setDemoPublicByVoice(data.modality, data.voice, data.isPublic);
   });

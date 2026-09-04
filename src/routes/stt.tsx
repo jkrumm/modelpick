@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   Title,
@@ -21,11 +21,10 @@ import {
   getSttPlaygroundData,
   runSttDemoFn,
   toggleDemoPublicFn,
-  getAdminDemosFn,
+  getAllDemosFn,
   EU_STT_MODELS,
 } from "./-audio-server-fns";
 import type { Demo, Model } from "~/db/schema";
-import { useAdmin } from "~/admin/useAdmin";
 
 export const Route = createFileRoute("/stt")({
   loader: async () => getSttPlaygroundData(),
@@ -59,11 +58,10 @@ function groupBySource(demos: Demo[]): Map<string, Demo[]> {
 interface TranscriptionCardProps {
   demo: Demo;
   model: Model | undefined;
-  adminKey: string | null;
   onTogglePublic: (id: number, isPublic: boolean) => Promise<void>;
 }
 
-function TranscriptionCard({ demo, model, adminKey, onTogglePublic }: TranscriptionCardProps) {
+function TranscriptionCard({ demo, model, onTogglePublic }: TranscriptionCardProps) {
   const [toggling, setToggling] = useState(false);
 
   const handleToggle = async () => {
@@ -85,17 +83,15 @@ function TranscriptionCard({ demo, model, adminKey, onTogglePublic }: Transcript
             </Text>
             <ResidencyBadge modelId={demo.model_id} />
           </Group>
-          {adminKey && (
-            <ActionIcon
-              size="sm"
-              variant="subtle"
-              loading={toggling}
-              onClick={handleToggle}
-              title={demo.public ? "Make private" : "Make public"}
-            >
-              {demo.public ? <IconLockOpen size={14} /> : <IconLock size={14} />}
-            </ActionIcon>
-          )}
+          <ActionIcon
+            size="sm"
+            variant="subtle"
+            loading={toggling}
+            onClick={handleToggle}
+            title={demo.public ? "Make private" : "Make public"}
+          >
+            {demo.public ? <IconLockOpen size={14} /> : <IconLock size={14} />}
+          </ActionIcon>
         </Group>
         <Text size="sm" style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
           &ldquo;{demo.text_content}&rdquo;
@@ -105,14 +101,13 @@ function TranscriptionCard({ demo, model, adminKey, onTogglePublic }: Transcript
   );
 }
 
-interface AdminSttPanelProps {
-  adminKey: string;
+interface GenerateSttPanelProps {
   models: Model[];
   ttsAudioDemos: Demo[];
   onGenerated: () => Promise<void>;
 }
 
-function AdminSttPanel({ adminKey, models, ttsAudioDemos, onGenerated }: AdminSttPanelProps) {
+function GenerateSttPanel({ models, ttsAudioDemos, onGenerated }: GenerateSttPanelProps) {
   const [modelId, setModelId] = useState<string>(models[0]?.id ?? "");
   const [sourceDemoId, setSourceDemoId] = useState<string>(ttsAudioDemos[0]?.id.toString() ?? "");
   const [loading, setLoading] = useState(false);
@@ -139,7 +134,6 @@ function AdminSttPanel({ adminKey, models, ttsAudioDemos, onGenerated }: AdminSt
         data: {
           modelId,
           sourceDemoId: parseInt(sourceDemoId, 10),
-          adminKey,
         },
       });
       setResult(res.text);
@@ -207,23 +201,14 @@ function AdminSttPanel({ adminKey, models, ttsAudioDemos, onGenerated }: AdminSt
 function SttPage() {
   const { models, demos: initialDemos, ttsAudioDemos } = Route.useLoaderData();
   const [demos, setDemos] = useState(initialDemos);
-  const { effectiveKey: adminKey } = useAdmin();
 
   const refreshDemos = async () => {
-    if (adminKey) {
-      const allDemos = await getAdminDemosFn({
-        data: { modality: "stt", adminKey },
-      });
-      setDemos(allDemos);
-    } else {
-      const data = await getSttPlaygroundData();
-      setDemos(data.demos);
-    }
+    const allDemos = await getAllDemosFn({ data: { modality: "stt" } });
+    setDemos(allDemos);
   };
 
   const handleTogglePublic = async (id: number, isPublic: boolean) => {
-    if (!adminKey) return;
-    await toggleDemoPublicFn({ data: { id, isPublic, adminKey } });
+    await toggleDemoPublicFn({ data: { id, isPublic } });
     await refreshDemos();
   };
 
@@ -246,19 +231,9 @@ function SttPage() {
           <Stack gap="xs" align="center">
             <IconMicrophone size={32} opacity={0.4} />
             <Text c="dimmed">No transcription demos available.</Text>
-            {adminKey ? (
-              <Text size="sm" c="dimmed">
-                Generate TTS demos first, then use the admin panel to run transcriptions.
-              </Text>
-            ) : (
-              <Text size="sm" c="dimmed">
-                Enter admin mode on the{" "}
-                <Text component={Link} to="/admin" inherit c="blue">
-                  admin page
-                </Text>{" "}
-                to generate demos.
-              </Text>
-            )}
+            <Text size="sm" c="dimmed">
+              Generate TTS demos first, then use the panel below to run transcriptions.
+            </Text>
           </Stack>
         </Paper>
       ) : (
@@ -302,7 +277,6 @@ function SttPage() {
                       key={d.id}
                       demo={d}
                       model={modelMap.get(d.model_id)}
-                      adminKey={adminKey}
                       onTogglePublic={handleTogglePublic}
                     />
                   ))}
@@ -315,29 +289,16 @@ function SttPage() {
 
       <Divider />
 
-      {adminKey ? (
-        <Stack gap="md">
-          <Text fw={500} size="sm">
-            Admin Mode
-          </Text>
-          <AdminSttPanel
-            adminKey={adminKey}
-            models={models}
-            ttsAudioDemos={ttsAudioDemos}
-            onGenerated={refreshDemos}
-          />
-        </Stack>
-      ) : (
-        <Paper withBorder p="md" radius="md">
-          <Text size="sm" c="dimmed">
-            Running transcriptions is admin-only.{" "}
-            <Text component={Link} to="/admin" inherit c="blue">
-              Enter admin mode
-            </Text>{" "}
-            to unlock it.
-          </Text>
-        </Paper>
-      )}
+      <Stack gap="md">
+        <Text fw={500} size="sm">
+          Generate
+        </Text>
+        <GenerateSttPanel
+          models={models}
+          ttsAudioDemos={ttsAudioDemos}
+          onGenerated={refreshDemos}
+        />
+      </Stack>
     </Stack>
   );
 }

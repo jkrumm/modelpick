@@ -38,14 +38,6 @@ export interface SttResult {
   latency_ms: number;
 }
 
-/** Throws "Unauthorized" if provided key does not match ADMIN_KEY env var. */
-export function checkAdminKey(provided: string): void {
-  const expected = process.env["ADMIN_KEY"] ?? "";
-  if (!expected || provided !== expected) {
-    throw new Error("Unauthorized: invalid admin key");
-  }
-}
-
 export function getDemosDir(): string {
   return process.env["DEMOS_DIR"] ?? join(process.cwd(), "public", "demos");
 }

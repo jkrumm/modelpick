@@ -391,6 +391,8 @@ interface TableRow {
   probe_error: string | null;
   residency: "eu" | "us" | "unknown";
   latency_ms: number | null;
+  /** Display name of the newer-version sibling that superseded this row, if any. */
+  superseded_by: string | null;
 }
 
 const MAX_PINNED = 6;
@@ -523,9 +525,18 @@ function ModelTable({
                   </Tooltip>
                 </Table.Td>
                 <Table.Td>
-                  <Text size="sm" fw={500}>
-                    {row.display_name}
-                  </Text>
+                  <Group gap={4} wrap="nowrap">
+                    <Text size="sm" fw={500}>
+                      {row.display_name}
+                    </Text>
+                    {row.superseded_by !== null && (
+                      <Tooltip label={`A newer version (${row.superseded_by}) is available`} withArrow>
+                        <Badge color="gray" size="xs" variant="light" style={{ cursor: "help" }}>
+                          superseded by {row.superseded_by}
+                        </Badge>
+                      </Tooltip>
+                    )}
+                  </Group>
                   <Text size="xs" c="dimmed" ff="monospace">
                     {row.model_id}
                   </Text>
@@ -678,6 +689,7 @@ function buildTableRows(
 ): TableRow[] {
   const metricsMap = new Map<string, ModelMetrics>(data.modelMetrics.map((m) => [m.model_id, m]));
   const currentSet = new Set(data.currentIds);
+  const displayNameById = new Map(data.models.map((m) => [m.id, m.display_name]));
 
   return data.models
     .filter((m) => {
@@ -703,6 +715,9 @@ function buildTableRows(
       const cost = mm?.cost ?? null;
       const speed = mm?.speed ?? null;
       const score = (quality ?? 0) * 0.4 + (cost ?? 0) * 0.3 + (speed ?? 0) * 0.3;
+      const winnerId = data.supersededBy[m.id];
+      const superseded_by =
+        winnerId !== undefined ? (displayNameById.get(winnerId) ?? winnerId) : null;
       return {
         model_id: m.id,
         display_name: m.display_name,
@@ -724,6 +739,7 @@ function buildTableRows(
         probe_error: probe?.error ?? null,
         residency: probe?.residency ?? "unknown",
         latency_ms: probe?.latency_ms ?? null,
+        superseded_by,
       };
     });
 }

@@ -17,10 +17,9 @@ IU_REPLICATE_BASE_URL=https://unified-endpoint-main.app.iu-it.org/replicate/v1
 # "IU is slow". Free tier refuses Gemini Pro outright — see docs/decisions/iu-vs-ai-studio.md.
 GOOGLE_AI_STUDIO_KEY=op://hermes/google-ai-studio/api-key
 
-# --- External leaderboard APIs + admin gate ---
+# --- External leaderboard APIs ---
 OPENROUTER_API_KEY=op://vps/modelpick/OPENROUTER_API_KEY
 ARTIFICIALANALYSIS_API_KEY=op://vps/modelpick/ARTIFICIALANALYSIS_API_KEY
-ADMIN_KEY=op://vps/modelpick/ADMIN_KEY
 
 # --- Local SQLite DB (non-secret) ---
 DATABASE_URL=file:modelpick.db

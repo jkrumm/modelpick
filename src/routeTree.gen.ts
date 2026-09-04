@@ -12,10 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TtsRouteImport } from './routes/tts'
 import { Route as SttRouteImport } from './routes/stt'
 import { Route as StackRouteImport } from './routes/stack'
-import { Route as NewsRouteImport } from './routes/news'
 import { Route as CatalogRouteImport } from './routes/catalog'
 import { Route as BenchRouteImport } from './routes/bench'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 
 const TtsRoute = TtsRouteImport.update({
@@ -33,11 +31,6 @@ const StackRoute = StackRouteImport.update({
   path: '/stack',
   getParentRoute: () => rootRouteImport,
 } as any)
-const NewsRoute = NewsRouteImport.update({
-  id: '/news',
-  path: '/news',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CatalogRoute = CatalogRouteImport.update({
   id: '/catalog',
   path: '/catalog',
@@ -48,11 +41,6 @@ const BenchRoute = BenchRouteImport.update({
   path: '/bench',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -61,20 +49,16 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/bench': typeof BenchRoute
   '/catalog': typeof CatalogRoute
-  '/news': typeof NewsRoute
   '/stack': typeof StackRoute
   '/stt': typeof SttRoute
   '/tts': typeof TtsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/bench': typeof BenchRoute
   '/catalog': typeof CatalogRoute
-  '/news': typeof NewsRoute
   '/stack': typeof StackRoute
   '/stt': typeof SttRoute
   '/tts': typeof TtsRoute
@@ -82,53 +66,24 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/bench': typeof BenchRoute
   '/catalog': typeof CatalogRoute
-  '/news': typeof NewsRoute
   '/stack': typeof StackRoute
   '/stt': typeof SttRoute
   '/tts': typeof TtsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/admin'
-    | '/bench'
-    | '/catalog'
-    | '/news'
-    | '/stack'
-    | '/stt'
-    | '/tts'
+  fullPaths: '/' | '/bench' | '/catalog' | '/stack' | '/stt' | '/tts'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/admin'
-    | '/bench'
-    | '/catalog'
-    | '/news'
-    | '/stack'
-    | '/stt'
-    | '/tts'
-  id:
-    | '__root__'
-    | '/'
-    | '/admin'
-    | '/bench'
-    | '/catalog'
-    | '/news'
-    | '/stack'
-    | '/stt'
-    | '/tts'
+  to: '/' | '/bench' | '/catalog' | '/stack' | '/stt' | '/tts'
+  id: '__root__' | '/' | '/bench' | '/catalog' | '/stack' | '/stt' | '/tts'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
   BenchRoute: typeof BenchRoute
   CatalogRoute: typeof CatalogRoute
-  NewsRoute: typeof NewsRoute
   StackRoute: typeof StackRoute
   SttRoute: typeof SttRoute
   TtsRoute: typeof TtsRoute
@@ -157,13 +112,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StackRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/news': {
-      id: '/news'
-      path: '/news'
-      fullPath: '/news'
-      preLoaderRoute: typeof NewsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/catalog': {
       id: '/catalog'
       path: '/catalog'
@@ -178,13 +126,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BenchRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -197,10 +138,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
   BenchRoute: BenchRoute,
   CatalogRoute: CatalogRoute,
-  NewsRoute: NewsRoute,
   StackRoute: StackRoute,
   SttRoute: SttRoute,
   TtsRoute: TtsRoute,
@@ -208,3 +147,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

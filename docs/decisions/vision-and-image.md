@@ -95,3 +95,19 @@ call becomes a cheap direct fetch (stronger model, off Max), and only the genuin
 orchestration keeps an agent loop. The worker model for text tasks (sideclaw's `claude-sonnet-5`
 / `claude-haiku-4-5`, see [claude-code-model.md](./claude-code-model.md)) is irrelevant to
 these — they are direct fetches that spawn no session at all.
+
+## 2026-09-04 update: the committed pick moved, undocumented
+
+The verdict above (`gemini-3-flash-preview` default / `gemini-3-pro-preview` for hard cases) was
+never folded back into `stack_choice`. The actual committed vision pick, decided 2026-06-17, is
+**`gemini-3.5-flash`** — a different id this doc predates, and the doc itself predates
+`gemini-3.8-flash` entirely. From `src/db/seed.ts`:
+
+> Best flash-tier vision model for document/chart/diagram reading: tops Roboflow Vision Evals
+> across 67 prompts; AA quality 50 vs GPT-5.4-mini's 17 (the cheaper option is a false economy
+> for structured extraction). $1.50/$9.00 per 1M, 155 tok/s.
+
+That rationale is about document/chart reading generally, not a re-run of this doc's
+diagram/screenshot bake-off — the deeper comparison against `gemini-3-pro-preview` and
+`gemini-3.8-flash` on the dense-diagram cases above was never written up. Treat this doc's
+POC verdict as superseded by the `gemini-3.5-flash` pick, not confirmed by it.

@@ -15,8 +15,9 @@ make db-seed             # seed the model catalog + My Stack
 make dev                 # start the dev server
 ```
 
-The app runs at `http://localhost:3001`. No `.env` file needed — secrets resolve from 1Password at
-runtime (see Env below). You must be signed into the `op` CLI (account `tkrumm`).
+The app runs at `http://localhost:3001`. No `.env` file needed — secrets resolve via `secrets-run`
+at runtime (see Env below): the `op` CLI (account `tkrumm`) on the MacBook, an offline cache on the
+headless mini.
 
 ## Database
 
@@ -33,14 +34,14 @@ bun run demos:seed  # audio demos
 
 ## Daily refresh
 
-Run the full pipeline (probe access → collect external metrics → recommend → news) locally; schedule
+Run the full pipeline (probe access → collect external metrics → recommend) locally; schedule
 it with a LaunchAgent / cron if you want it daily:
 
 ```bash
 bun run refresh
 ```
 
-Individual steps: `bun run probe`, `bun run collect`, `bun run recommend`, `bun run news`.
+Individual steps: `bun run probe`, `bun run collect`, `bun run recommend`.
 
 ## Validation
 
@@ -55,11 +56,14 @@ bun run build       # SSR build
 
 Secrets resolve from 1Password at runtime — there is **no plaintext `.env`**. `.env.tpl` (tracked)
 holds `op://` references; the `dev`/`refresh`/`probe`/… scripts wrap their command in
-`op run --account tkrumm --env-file=.env.tpl`, so keys are injected into the process and never rest
-on disk. IU key lives in `op://common/anthropic`, the leaderboard/admin keys in `op://vps/modelpick`.
+`secrets-run run --env-file=.env.tpl`, so keys are injected into the process and never rest
+on disk. The shim resolves the backend from `~/.config/secrets/backend` (`op` on the MacBook, an
+offline cache on the headless mini — a raw `op run` hangs there since `op` isn't interactively
+signed in). IU key lives in `op://common/anthropic`, the leaderboard keys in
+`op://vps/modelpick`.
 
 Run a one-off script manually:
 
 ```bash
-op run --account tkrumm --env-file=.env.tpl -- bun run scripts/probe.ts
+secrets-run run --env-file=.env.tpl -- bun run scripts/probe.ts
 ```

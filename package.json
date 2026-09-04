@@ -20,7 +20,6 @@
     "probe": "secrets-run run --env-file=.env.tpl -- bun run scripts/probe.ts",
     "collect": "secrets-run run --env-file=.env.tpl -- bun run scripts/collect.ts",
     "recommend": "secrets-run run --env-file=.env.tpl -- bun run scripts/recommend.ts",
-    "news": "secrets-run run --env-file=.env.tpl -- bun run scripts/news.ts",
     "refresh": "secrets-run run --env-file=.env.tpl -- bun run scripts/refresh.ts",
     "benchmark": "secrets-run run --env-file=.env.tpl -- bun run scripts/benchmark-throughput.ts",
     "benchmark:tools": "secrets-run run --env-file=.env.tpl -- bun run scripts/benchmark-tool-calling.ts",

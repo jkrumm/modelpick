@@ -3,7 +3,6 @@ import { runProbe } from "../src/server/iu/probe.js";
 import { collectOpenRouter } from "../src/server/collectors/openrouter.js";
 import { collectArtificialAnalysis } from "../src/server/collectors/artificialanalysis.js";
 import { runRecommender } from "../src/server/scoring/recommend.js";
-import { collectNews } from "../src/server/collectors/news.js";
 import { createIdResolver } from "../src/server/collectors/normalize.js";
 import { db, client } from "../src/db/index.js";
 import { metricSnapshot, models } from "../src/db/schema.js";
@@ -32,13 +31,10 @@ const result = await runRefresh({
     );
   },
   runRecommender,
-  collectNews,
 });
 
 if (!result.allOk) {
-  const failed = (
-    Object.entries(result) as Array<[string, { ok: boolean } | boolean]>
-  )
+  const failed = (Object.entries(result) as Array<[string, { ok: boolean } | boolean]>)
     .filter(([k, v]) => k !== "allOk" && typeof v === "object" && !v.ok)
     .map(([k]) => k);
   console.error(`[refresh] failed steps: ${failed.join(", ")}`);

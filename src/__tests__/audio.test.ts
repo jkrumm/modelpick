@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { checkAdminKey, generateTts, generateStt, pcmToWav } from "../server/audio/generate.js";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { generateTts, generateStt, pcmToWav } from "../server/audio/generate.js";
 
 const fetchMock = vi.fn<typeof fetch>();
 vi.stubGlobal("fetch", fetchMock);
@@ -32,32 +32,6 @@ beforeEach(() => {
   process.env["IU_OPENAI_BASE_URL"] = "https://iu-test.example/openai/v1";
   process.env["IU_GEMINI_BASE_URL"] = "https://iu-test.example/gemini/v1beta";
   process.env["IU_API_KEY"] = "test-key";
-  process.env["ADMIN_KEY"] = "secret-admin";
-});
-
-afterEach(() => {
-  delete process.env["ADMIN_KEY"];
-});
-
-// ── checkAdminKey ──────────────────────────────────────────────────────────────
-
-describe("checkAdminKey", () => {
-  it("accepts matching key", () => {
-    expect(() => checkAdminKey("secret-admin")).not.toThrow();
-  });
-
-  it("rejects wrong key", () => {
-    expect(() => checkAdminKey("wrong")).toThrow("Unauthorized");
-  });
-
-  it("rejects when ADMIN_KEY is not set", () => {
-    delete process.env["ADMIN_KEY"];
-    expect(() => checkAdminKey("any")).toThrow("Unauthorized");
-  });
-
-  it("rejects empty provided key", () => {
-    expect(() => checkAdminKey("")).toThrow("Unauthorized");
-  });
 });
 
 // ── generateTts ────────────────────────────────────────────────────────────────

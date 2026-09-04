@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createIdResolver } from "../server/collectors/normalize.js";
+import { compareVersions, createIdResolver, versionOf } from "../server/collectors/normalize.js";
 import { collectOpenRouter } from "../server/collectors/openrouter.js";
 import { collectArtificialAnalysis } from "../server/collectors/artificialanalysis.js";
 
@@ -59,6 +59,45 @@ describe("createIdResolver", () => {
   });
 });
 
+// ── versionOf ─────────────────────────────────────────────────────────────────
+
+describe("versionOf", () => {
+  it("splits a dotted version into family + version, tier word kept in family", () => {
+    expect(versionOf("gemini-3.5-flash")).toEqual({ family: "gemini-flash", version: "3.5" });
+  });
+
+  it("splits a dashed multi-segment version", () => {
+    expect(versionOf("GLM-5.3")).toEqual({ family: "glm", version: "5.3" });
+    expect(versionOf("claude-opus-4-8")).toEqual({ family: "claude-opus", version: "4.8" });
+  });
+
+  it("returns a null version for ids with no numeric token run", () => {
+    expect(versionOf("gpt-4o")).toEqual({ family: "gpt-4o", version: null });
+  });
+
+  it("never mistakes a tier word for part of the version", () => {
+    const v = versionOf("gemini-3.5-flash-lite");
+    expect(v.version).toBe("3.5");
+    expect(v.family).toBe("gemini-flash-lite");
+  });
+});
+
+// ── compareVersions ───────────────────────────────────────────────────────────
+
+describe("compareVersions", () => {
+  it("orders numerically, not lexicographically — 3.10 beats 3.9", () => {
+    expect(compareVersions("3.10", "3.9")).toBeGreaterThan(0);
+  });
+
+  it("orders a higher major version above a lower one", () => {
+    expect(compareVersions("5.3", "4.5")).toBeGreaterThan(0);
+  });
+
+  it("treats equal versions as equal", () => {
+    expect(compareVersions("4.8", "4.8")).toBe(0);
+  });
+});
+
 // ── collectOpenRouter ──────────────────────────────────────────────────────────
 
 const OR_FIXTURE = {
@@ -68,12 +107,14 @@ const OR_FIXTURE = {
       name: "Anthropic: Claude Sonnet 4.6",
       context_length: 200000,
       pricing: { prompt: "0.000003", completion: "0.000015" },
+      created: 1750000000,
     },
     {
       id: "openai/gpt-5.5",
       name: "OpenAI: GPT-5.5",
       context_length: 128000,
       pricing: { prompt: "0.000005", completion: "0.000020" },
+      created: 1760000000,
     },
     {
       id: "some/totally-unknown-model",
@@ -90,8 +131,8 @@ describe("collectOpenRouter", () => {
 
     const result = await collectOpenRouter(resolve);
 
-    // claude-sonnet-4-6 and gpt-5.5 both match → 3 metrics each = 6 total
-    expect(result.metrics).toHaveLength(6);
+    // claude-sonnet-4-6 and gpt-5.5 both match → 4 metrics each = 8 total
+    expect(result.metrics).toHaveLength(8);
 
     const priceIn = result.metrics.find(
       (m) => m.model_id === "claude-sonnet-4-6" && m.metric === "price_in",
@@ -122,6 +163,17 @@ describe("collectOpenRouter", () => {
       (m) => m.model_id === "claude-sonnet-4-6" && m.metric === "context_window",
     );
     expect(ctx?.value).toBe(200000);
+  });
+
+  it("captures release_date metric from the created unix timestamp", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(OR_FIXTURE));
+    const result = await collectOpenRouter(resolve);
+
+    const releaseDate = result.metrics.find(
+      (m) => m.model_id === "claude-sonnet-4-6" && m.metric === "release_date",
+    );
+    expect(releaseDate?.value).toBe(1750000000);
+    expect(releaseDate?.source).toBe("openrouter");
   });
 
   it("records unmatched external models separately", async () => {

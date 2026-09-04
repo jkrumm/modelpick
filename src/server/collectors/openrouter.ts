@@ -10,6 +10,8 @@ interface OpenRouterModel {
   name: string;
   context_length: number | null;
   pricing: OpenRouterPricing;
+  /** Unix timestamp (seconds) the model was published on OpenRouter. */
+  created?: number;
 }
 
 interface OpenRouterResponse {
@@ -79,6 +81,18 @@ export async function collectOpenRouter(resolve: IdResolver): Promise<CollectorR
         source: "openrouter",
         metric: "context_window",
         value: model.context_length,
+        confidence: 0.9,
+      });
+    }
+    // Unix seconds, stored as-is: sorts/compares numerically with no parsing on
+    // read, and matches OpenRouter's own representation — the one thing this
+    // collector reads that's genuinely useful for version-supersession logic.
+    if (model.created !== undefined && model.created > 0) {
+      metrics.push({
+        model_id: localId,
+        source: "openrouter",
+        metric: "release_date",
+        value: model.created,
         confidence: 0.9,
       });
     }

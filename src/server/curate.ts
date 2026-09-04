@@ -1,4 +1,4 @@
-import { canon } from "./collectors/normalize.js";
+import { canon, compareVersions, versionOf } from "./collectors/normalize.js";
 import type { ModelMetrics } from "./scoring/normalize.js";
 
 // Curation collapses the raw IU catalog (which carries dated snapshot pins,
@@ -18,6 +18,10 @@ export interface CurationResult {
   metrics: ModelMetrics[];
   /** Representative model ids surfaced by the default "current only" view. */
   currentIds: Set<string>;
+  /** model id -> id of the newer-version sibling that superseded it. Only set
+   *  for ids that lost a same-family, same-residency version comparison; the
+   *  winner and every id without a version comparison are absent. */
+  supersededBy: Map<string, string>;
 }
 
 /** Residency variant a catalog id encodes via an `-eu` / `-us` token. EU and US
@@ -103,9 +107,55 @@ function isBetterRep(
 }
 
 /**
- * Propagates metrics, then collapses each (canonical id, residency) group to one
- * representative and marks it "current" when it carries a quality index (LLM) or
- * is reachable on the IU endpoint (audio/other). Pure — no DB or network.
+ * Version-supersedes each representative against its siblings that share both
+ * `family` (from `versionOf`) and `residencyClass` — never across residency
+ * classes. That grouping is what keeps `gemini-3.5-flash-eu` safe: it is the
+ * only EU-routed Gemini, so it sits alone in its (family, "eu") group with
+ * nothing to compare against and nothing supersedes it, even though
+ * `gemini-3.5-flash` (default residency) loses to a newer default-residency
+ * sibling. Only ids with both a parsed version *and* a quality metric compete;
+ * everything else is left alone (never superseded, never a superseder).
+ */
+function computeSupersededBy(
+  reps: CurateModelInput[],
+  byId: Map<string, ModelMetrics>,
+): Map<string, string> {
+  const familyGroups = new Map<string, CurateModelInput[]>();
+  for (const rep of reps) {
+    const key = `${versionOf(rep.id).family}|${residencyClass(rep.id)}`;
+    const arr = familyGroups.get(key);
+    if (arr) arr.push(rep);
+    else familyGroups.set(key, [rep]);
+  }
+
+  const supersededBy = new Map<string, string>();
+  for (const members of familyGroups.values()) {
+    const contenders = members.filter(
+      (m) => versionOf(m.id).version !== null && (byId.get(m.id)?.quality ?? null) !== null,
+    );
+    if (contenders.length < 2) continue;
+    const winner = contenders.reduce((best, cur) => {
+      const bestVersion = versionOf(best.id).version;
+      const curVersion = versionOf(cur.id).version;
+      // Non-null by construction of `contenders` above.
+      return bestVersion !== null && curVersion !== null && compareVersions(curVersion, bestVersion) > 0
+        ? cur
+        : best;
+    });
+    for (const m of contenders) {
+      if (m.id !== winner.id) supersededBy.set(m.id, winner.id);
+    }
+  }
+  return supersededBy;
+}
+
+/**
+ * Propagates metrics, collapses each (canonical id, residency) group to one
+ * representative, marks it "current" when it carries a quality index (LLM) or
+ * is reachable on the IU endpoint (audio/other), then runs version supersession
+ * across representatives so an older numbered sibling (`gemini-3.5-flash` next
+ * to `gemini-3.8-flash`) drops out of the default view too. Pure — no DB or
+ * network.
  */
 export function curate(
   models: CurateModelInput[],
@@ -123,13 +173,23 @@ export function curate(
     else groups.set(key, [m]);
   }
 
-  const currentIds = new Set<string>();
+  const reps: { model: CurateModelInput; isCurrent: boolean }[] = [];
   for (const group of groups.values()) {
     const rep = group.reduce((best, cur) => (isBetterRep(best, cur, byId) ? best : cur));
     const isCurrent =
       rep.modality === "llm" ? (byId.get(rep.id)?.quality ?? null) !== null : isAccessible(rep.id);
-    if (isCurrent) currentIds.add(rep.id);
+    reps.push({ model: rep, isCurrent });
   }
 
-  return { metrics: augmented, currentIds };
+  const supersededBy = computeSupersededBy(
+    reps.map((r) => r.model),
+    byId,
+  );
+
+  const currentIds = new Set<string>();
+  for (const r of reps) {
+    if (r.isCurrent && !supersededBy.has(r.model.id)) currentIds.add(r.model.id);
+  }
+
+  return { metrics: augmented, currentIds, supersededBy };
 }

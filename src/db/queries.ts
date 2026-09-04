@@ -4,7 +4,6 @@ import {
   capabilityProbe,
   demo,
   models,
-  newsItem,
   recommendation,
   stackChoice,
   metricSnapshot,
@@ -19,10 +18,9 @@ import type {
   Recommendation,
   StackChoice,
   Demo,
-  NewsItem,
 } from "./schema.js";
 
-export type { Model, CapabilityProbe, MetricSnapshot, Recommendation, StackChoice, Demo, NewsItem };
+export type { Model, CapabilityProbe, MetricSnapshot, Recommendation, StackChoice, Demo };
 
 // ── Models ────────────────────────────────────────────────────────────────────
 
@@ -136,22 +134,10 @@ export async function getStackChoices(): Promise<StackChoice[]> {
   return db.select().from(stackChoice);
 }
 
-// ── Audio demos ───────────────────────────────────────────────────────────────
+// ── Demo operations ────────────────────────────────────────────────────────────
 
-export async function getPublicDemos(modality?: Modality): Promise<Demo[]> {
-  if (modality !== undefined) {
-    return db
-      .select()
-      .from(demo)
-      .where(and(eq(demo.public, true), eq(demo.modality, modality)))
-      .orderBy(desc(demo.created_at));
-  }
-  return db.select().from(demo).where(eq(demo.public, true)).orderBy(desc(demo.created_at));
-}
-
-// ── Admin demo operations ─────────────────────────────────────────────────────
-
-/** Returns all demos for a modality, including non-public ones (admin use). */
+/** Returns all demos for a modality. `public` marks which ones are shown in the
+ *  default shortlist (see the TTS/STT playground's "Show disabled" toggle). */
 export async function getAllDemos(modality?: Modality): Promise<Demo[]> {
   if (modality !== undefined) {
     return db.select().from(demo).where(eq(demo.modality, modality)).orderBy(desc(demo.created_at));
@@ -196,50 +182,4 @@ export async function setDemoPublicByVoice(
     .update(demo)
     .set({ public: isPublic })
     .where(and(eq(demo.modality, modality), eq(demo.voice, voice)));
-}
-
-// ── News ──────────────────────────────────────────────────────────────────────
-
-export async function getReasonableNews(limit = 20): Promise<NewsItem[]> {
-  return db
-    .select()
-    .from(newsItem)
-    .where(eq(newsItem.reasonable, true))
-    .orderBy(desc(newsItem.published_at))
-    .limit(limit);
-}
-
-export async function getAllNewsItems(limit = 100): Promise<NewsItem[]> {
-  return db.select().from(newsItem).orderBy(desc(newsItem.published_at)).limit(limit);
-}
-
-export interface NewsItemInsert {
-  title: string;
-  url: string;
-  source: string;
-  summary?: string | null;
-  published_at?: string | null;
-  model_id?: string | null;
-  reasonable?: boolean;
-}
-
-/**
- * Insert a news item; returns true if inserted, false if the URL already exists.
- * Uses ON CONFLICT DO NOTHING on the unique url index for idempotent daily runs.
- */
-export async function upsertNewsItem(data: NewsItemInsert): Promise<boolean> {
-  const rows = await db
-    .insert(newsItem)
-    .values({
-      title: data.title,
-      url: data.url,
-      source: data.source,
-      summary: data.summary ?? null,
-      published_at: data.published_at ?? null,
-      model_id: data.model_id ?? null,
-      reasonable: data.reasonable ?? true,
-    })
-    .onConflictDoNothing()
-    .returning({ id: newsItem.id });
-  return rows.length > 0;
 }

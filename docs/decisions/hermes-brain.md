@@ -489,11 +489,11 @@ the same header-stripping US proxy layer that made DeepSeek's residency unverifi
 latency.
 
 **Open items.** IU's actual billed rates are still unknown (no `cost` field on any route now).
-The modelpick catalog snapshot is stale — IU lists 290 models on `/openai` and the snapshot has
-none of `gemini-3.7-flash`, `glm-5.3`, `qwen3.8-max`, so `metric_snapshot` writes for the new
-ids fail the FK and were skipped; run `/update-iu-models` against a fresh check-key export.
-No quality-index numbers (Artificial Analysis, LMArena, agentic benchmarks) were gathered for
-either model in this round — the research pass was scoped to pricing and residency.
+The modelpick catalog now carries `gemini-3.7-flash`, `glm-5.3`, and `qwen3.8-max` — the catalog
+syncs from the live `/v1/models` list on every `bun run probe`, so a portal export is no longer
+the only way to add a model. No quality-index numbers (Artificial Analysis, LMArena, agentic
+benchmarks) were gathered for either model in this round — the research pass was scoped to
+pricing and residency.
 
 ## 2026-09-02: `gemini-3.8-flash` bake-off — Luna still holds, but the gap is narrowing
 
@@ -594,9 +594,9 @@ does single-shot forced-`tool_choice` structured output rather than a multi-roun
 different answer — the multi-round penalty above simply does not apply to a call that never
 sends a tool result back. See `docs/decisions/gemini-tool-calling-shapes.md`.
 
-**Open items, same shape as before:** `gemini-3.8-flash` is not yet in the modelpick catalog
-snapshot (`metric_snapshot` writes failed the FK, same as every new IU release) — run
-`/update-iu-models`. IU still returns no `cost` field on any route, so all pricing above is
-vendor list price via OpenRouter, not IU's confirmed billed rate. The `thinkingLevel=low`
-slowdown is **closed** — re-checked at 3 passes on 2026-09-04, it was a `maxOutputTokens: 500`
-truncation artifact plus distribution tail, not a regression.
+**Open items, same shape as before:** `gemini-3.8-flash` is now in the modelpick catalog — the
+catalog syncs from the live `/v1/models` list on every `bun run probe`, so new IU releases no
+longer need a portal export to land. IU still returns no `cost` field on any route, so all
+pricing above is vendor list price via OpenRouter, not IU's confirmed billed rate. The
+`thinkingLevel=low` slowdown is **closed** — re-checked at 3 passes on 2026-09-04, it was a
+`maxOutputTokens: 500` truncation artifact plus distribution tail, not a regression.

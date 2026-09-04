@@ -274,30 +274,6 @@ export const demo = sqliteTable(
   (t) => [index("idx_demo_model_id").on(t.model_id), index("idx_demo_public").on(t.public)],
 );
 
-// ── News items (curated notable releases) ────────────────────────────────────
-
-export const newsItem = sqliteTable(
-  "news_item",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    title: text("title").notNull(),
-    url: text("url").notNull(),
-    source: text("source").notNull(),
-    summary: text("summary"),
-    published_at: text("published_at"),
-    model_id: text("model_id").references(() => models.id, {
-      onDelete: "set null",
-    }),
-    reasonable: integer("reasonable", { mode: "boolean" }).notNull().default(true),
-    created_at: text("created_at").notNull().default(now),
-  },
-  (t) => [
-    uniqueIndex("uq_news_item_url").on(t.url),
-    index("idx_news_item_published_at").on(t.published_at),
-    index("idx_news_item_reasonable").on(t.reasonable),
-  ],
-);
-
 // ── Inferred types ────────────────────────────────────────────────────────────
 
 export type Model = typeof models.$inferSelect;
@@ -310,7 +286,6 @@ export type Recommendation = typeof recommendation.$inferSelect;
 export type StackChoice = typeof stackChoice.$inferSelect;
 export type StackChoiceInsert = typeof stackChoice.$inferInsert;
 export type Demo = typeof demo.$inferSelect;
-export type NewsItem = typeof newsItem.$inferSelect;
 export type BenchRun = typeof benchRun.$inferSelect;
 export type BenchRunInsert = typeof benchRun.$inferInsert;
 

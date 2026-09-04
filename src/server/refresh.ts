@@ -9,7 +9,6 @@ export interface RefreshResult {
   probe: RefreshStepResult;
   collect: RefreshStepResult;
   recommend: RefreshStepResult;
-  news: RefreshStepResult;
   allOk: boolean;
 }
 
@@ -20,7 +19,6 @@ export interface RefreshDeps {
   /** Persists the merged metrics list to the DB. Called only when metrics.length > 0. */
   insertMetrics: (metrics: NormalizedMetric[]) => Promise<void>;
   runRecommender: () => Promise<void>;
-  collectNews: () => Promise<{ inserted: number }>;
 }
 
 async function runStep(name: string, fn: () => Promise<string>): Promise<RefreshStepResult> {
@@ -36,7 +34,7 @@ async function runStep(name: string, fn: () => Promise<string>): Promise<Refresh
 }
 
 /**
- * Orchestrates the daily refresh pipeline: probe → collect → recommend → news.
+ * Orchestrates the daily refresh pipeline: probe → collect → recommend.
  * Each step runs independently — one failure does not abort subsequent steps.
  * Within collect, individual collector failures are isolated via Promise.allSettled.
  */
@@ -77,14 +75,9 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
     return "done";
   });
 
-  const news = await runStep("news", async () => {
-    const result = await deps.collectNews();
-    return `${result.inserted} new items`;
-  });
+  const allOk = probe.ok && collect.ok && recommend.ok;
+  const okCount = [probe, collect, recommend].filter((s) => s.ok).length;
+  console.log(`[refresh] summary: ${okCount}/3 steps ok`);
 
-  const allOk = probe.ok && collect.ok && recommend.ok && news.ok;
-  const okCount = [probe, collect, recommend, news].filter((s) => s.ok).length;
-  console.log(`[refresh] summary: ${okCount}/4 steps ok`);
-
-  return { probe, collect, recommend, news, allOk };
+  return { probe, collect, recommend, allOk };
 }

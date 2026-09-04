@@ -97,9 +97,12 @@ here.
 3. ~~The 69.1 coding index rests on one aggregator (modelgrep).~~ **Closed 2026-08-02.** The
    ArtificialAnalysis API returns 69.1 / 59.4 directly, matching the researched figures.
 
-The refresh also surfaced two unrelated drifts not addressed here: `fast` now recommends
-GLM-5.2 over DeepSeek-V4-Flash, and `orchestrator` recommends `claude-opus-5` over the
-committed `claude-opus-4-8`. Both need their own investigation.
+The refresh also surfaced two unrelated drifts, not addressed here at the time. **Resolved
+2026-08-02:** `orchestrator` recommending `claude-opus-5` over the then-committed
+`claude-opus-4-8` — `MY_STACK` moved to `claude-opus-5` the same day. **Still open:** `fast`
+recommending GLM-5.2 over DeepSeek-V4-Flash was investigated and settled (see
+[fast-model.md](./fast-model.md)), but the `fast` recommendation has since moved again, to
+`gpt-5.6-luna` — a contender that hasn't been investigated yet.
 
 Reverting is a one-line change to `MY_STACK` in `src/db/seed.ts` plus `bun run db:seed`.
 Re-open when DeepSeek ships the V4-Pro GA it has announced, or if a SWE-bench Verified score

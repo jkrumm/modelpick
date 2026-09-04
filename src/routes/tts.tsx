@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
   Title,
@@ -26,13 +26,12 @@ import {
   generateTtsDemoFn,
   toggleDemoPublicFn,
   toggleVoicePublicFn,
-  getAdminDemosFn,
+  getAllDemosFn,
   TTS_PRESETS,
   TTS_CANDIDATE_VOICES,
   EU_TTS_MODELS,
 } from "./-audio-server-fns";
 import type { Demo, Model } from "~/db/schema";
-import { useAdmin } from "~/admin/useAdmin";
 import { GeminiTtsDocs } from "./-gemini-tts-docs";
 
 export const Route = createFileRoute("/tts")({
@@ -76,11 +75,10 @@ function InlineText({ text }: { text: string }) {
 interface DemoCardProps {
   demo: Demo;
   model: Model | undefined;
-  adminKey: string | null;
   onTogglePublic: (id: number, isPublic: boolean) => Promise<void>;
 }
 
-function DemoCard({ demo, model, adminKey, onTogglePublic }: DemoCardProps) {
+function DemoCard({ demo, model, onTogglePublic }: DemoCardProps) {
   const [toggling, setToggling] = useState(false);
 
   const handleToggle = async () => {
@@ -115,17 +113,15 @@ function DemoCard({ demo, model, adminKey, onTogglePublic }: DemoCardProps) {
             </Badge>
             <ResidencyBadge modelId={demo.model_id} />
           </Group>
-          {adminKey && (
-            <ActionIcon
-              size="sm"
-              variant="subtle"
-              loading={toggling}
-              onClick={handleToggle}
-              title={demo.public ? "Make private" : "Make public"}
-            >
-              {demo.public ? <IconLockOpen size={14} /> : <IconLock size={14} />}
-            </ActionIcon>
-          )}
+          <ActionIcon
+            size="sm"
+            variant="subtle"
+            loading={toggling}
+            onClick={handleToggle}
+            title={demo.public ? "Make private" : "Make public"}
+          >
+            {demo.public ? <IconLockOpen size={14} /> : <IconLock size={14} />}
+          </ActionIcon>
         </Group>
         <Text size="10px" c="dimmed">
           {model?.display_name ?? demo.model_id}
@@ -150,13 +146,12 @@ function DemoCard({ demo, model, adminKey, onTogglePublic }: DemoCardProps) {
   );
 }
 
-interface AdminPanelProps {
-  adminKey: string;
+interface GenerateTtsPanelProps {
   models: Model[];
   onGenerated: () => Promise<void>;
 }
 
-function AdminGeneratePanel({ adminKey, models, onGenerated }: AdminPanelProps) {
+function GenerateTtsPanel({ models, onGenerated }: GenerateTtsPanelProps) {
   const [modelId, setModelId] = useState<string>(models[0]?.id ?? "");
   const [presetId, setPresetId] = useState<string>(TTS_PRESETS[0]?.id ?? "");
   const [voice, setVoice] = useState<string>(TTS_CANDIDATE_VOICES[0]?.name ?? "");
@@ -176,7 +171,6 @@ function AdminGeneratePanel({ adminKey, models, onGenerated }: AdminPanelProps) 
           text: preset.text,
           lang: preset.lang,
           preset: preset.preset,
-          adminKey,
           ...(voice ? { voice } : {}),
           ...(preset.style ? { style: preset.style } : {}),
         },
@@ -259,7 +253,7 @@ interface VoiceToggleBarProps {
   onShowDisabled: (show: boolean) => void;
 }
 
-/** Admin-only board to enable/disable candidate voices and narrow the shortlist. */
+/** Board to enable/disable candidate voices and narrow the shortlist. */
 function VoiceToggleBar({
   enabledVoices,
   pendingVoice,
@@ -327,7 +321,6 @@ function groupLabel(key: string, by: GroupBy): string {
 function TtsPage() {
   const { models, demos: initialDemos } = Route.useLoaderData();
   const [demos, setDemos] = useState(initialDemos);
-  const { effectiveKey: adminKey } = useAdmin();
   const [langFilter, setLangFilter] = useState<"all" | "en" | "de">("all");
   const [presetFilter, setPresetFilter] = useState<string>("all");
   const [voiceFilter, setVoiceFilter] = useState<string>("all");
@@ -363,36 +356,28 @@ function TtsPage() {
   }, [demos]);
 
   const refreshDemos = async () => {
-    if (adminKey) {
-      const allDemos = await getAdminDemosFn({ data: { modality: "tts", adminKey } });
-      setDemos(allDemos);
-    } else {
-      const data = await getTtsPlaygroundData();
-      setDemos(data.demos);
-    }
+    const allDemos = await getAllDemosFn({ data: { modality: "tts" } });
+    setDemos(allDemos);
   };
 
   const handleTogglePublic = async (id: number, isPublic: boolean) => {
-    if (!adminKey) return;
-    await toggleDemoPublicFn({ data: { id, isPublic, adminKey } });
+    await toggleDemoPublicFn({ data: { id, isPublic } });
     await refreshDemos();
   };
 
   const handleToggleVoice = async (voice: string, enable: boolean) => {
-    if (!adminKey) return;
     setPendingVoice(voice);
     try {
-      await toggleVoicePublicFn({ data: { modality: "tts", voice, isPublic: enable, adminKey } });
+      await toggleVoicePublicFn({ data: { modality: "tts", voice, isPublic: enable } });
       await refreshDemos();
     } finally {
       setPendingVoice(null);
     }
   };
 
-  // Non-admins only ever receive public clips. In admin mode the shortlist (public
-  // clips) is shown by default; "Show disabled" reveals dropped voices for review.
-  const visibleDemos =
-    adminKey && !showDisabled ? demos.filter((d) => d.public || !d.voice) : demos;
+  // The shortlist (public clips) is shown by default; "Show disabled" reveals
+  // dropped voices for review.
+  const visibleDemos = showDisabled ? demos : demos.filter((d) => d.public || !d.voice);
 
   const filteredDemos = visibleDemos.filter((d) => {
     if (langFilter !== "all" && d.lang !== langFilter) return false;
@@ -426,15 +411,13 @@ function TtsPage() {
 
       <GeminiTtsDocs />
 
-      {adminKey && (
-        <VoiceToggleBar
-          enabledVoices={enabledVoices}
-          pendingVoice={pendingVoice}
-          showDisabled={showDisabled}
-          onToggleVoice={handleToggleVoice}
-          onShowDisabled={setShowDisabled}
-        />
-      )}
+      <VoiceToggleBar
+        enabledVoices={enabledVoices}
+        pendingVoice={pendingVoice}
+        showDisabled={showDisabled}
+        onToggleVoice={handleToggleVoice}
+        onShowDisabled={setShowDisabled}
+      />
 
       <Group gap="md" align="flex-end">
         <Box>
@@ -492,11 +475,9 @@ function TtsPage() {
           <Stack gap="xs" align="center">
             <IconSpeakerphone size={32} opacity={0.4} />
             <Text c="dimmed">No demos match the current filters.</Text>
-            {adminKey && (
-              <Text size="sm" c="dimmed">
-                Use the admin panel below to generate demos.
-              </Text>
-            )}
+            <Text size="sm" c="dimmed">
+              Use the panel below to generate demos.
+            </Text>
           </Stack>
         </Paper>
       ) : (
@@ -516,7 +497,7 @@ function TtsPage() {
                       disabled
                     </Badge>
                   )}
-                  {adminKey && isCandidate && (
+                  {isCandidate && (
                     <Button
                       size="compact-xs"
                       variant="subtle"
@@ -534,7 +515,6 @@ function TtsPage() {
                       key={d.id}
                       demo={d}
                       model={modelMap.get(d.model_id)}
-                      adminKey={adminKey}
                       onTogglePublic={handleTogglePublic}
                     />
                   ))}
@@ -547,24 +527,12 @@ function TtsPage() {
 
       <Divider />
 
-      {adminKey ? (
-        <Stack gap="md">
-          <Text fw={500} size="sm">
-            Admin Mode
-          </Text>
-          <AdminGeneratePanel adminKey={adminKey} models={models} onGenerated={refreshDemos} />
-        </Stack>
-      ) : (
-        <Paper withBorder p="md" radius="md">
-          <Text size="sm" c="dimmed">
-            Generating demos is admin-only.{" "}
-            <Text component={Link} to="/admin" inherit c="blue">
-              Enter admin mode
-            </Text>{" "}
-            to unlock it.
-          </Text>
-        </Paper>
-      )}
+      <Stack gap="md">
+        <Text fw={500} size="sm">
+          Generate
+        </Text>
+        <GenerateTtsPanel models={models} onGenerated={refreshDemos} />
+      </Stack>
     </Stack>
   );
 }

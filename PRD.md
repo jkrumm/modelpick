@@ -40,20 +40,18 @@ your own criteria → a clear recommendation per category, with charts and an au
    catalog. No fragile HTML scraping in v1.
 5. **Daily refresh.** A local run gathers data and writes a dated snapshot to SQLite. Trend charts
    read the snapshot history.
-6. **Model news** — surface notable *reasonable* new model releases (filtered, not a firehose).
-7. **Audio demos as static assets.** Public users hear *pre-computed* TTS/STT demos served as static
-   audio (no IU token spend, no key exposure on the public path). Admin (you) can generate fresh demos
-   live, configure texts/emotions, and curate which demos appear publicly.
-8. **Charts** reuse the Argo visx primitive system (ChartCard / ChartLegend / ChartTooltip / axes /
+6. **Audio demos as static assets.** TTS/STT demos are pre-computed and served as static audio
+   (no IU token spend on repeat playback). Generate fresh demos live, configure texts/emotions,
+   and curate which demos show in the default shortlist — all ungated, local-only tooling.
+7. **Charts** reuse the Argo visx primitive system (ChartCard / ChartLegend / ChartTooltip / axes /
    tokens) — consistent, theme-aware, no raw hex.
-9. **One-command local bring-up** (`make db-push && make db-seed && make dev`).
+8. **One-command local bring-up** (`make db-push && make db-seed && make dev`).
 
 ## Non-goals
 
 - No voice cloning, no custom-voice training (explicitly out — generic-but-good voices only).
 - No HTML scraping of leaderboard sites in v1 (APIs + curated seed only; revisit later).
-- No real auth / user accounts — admin gate is a lightweight client-side key (localStorage/cookie),
-  not a security boundary. Nothing on the public path spends IU tokens, so abuse surface is minimal.
+- No real auth / user accounts — local-only, single-user tool with no admin/visitor split.
 - No tool-aware coding recommendations in v1 (Claude Code→Anthropic / Codex→OpenAI /
   Antigravity→Google). Generic fast/coding/orchestrator categories only; tool-aware view is a
   later add.
@@ -67,13 +65,15 @@ your own criteria → a clear recommendation per category, with charts and an au
   `~/SourceRoot/argo`). Verify current TanStack Start / Mantine / visx versions via `/research` before
   pinning — don't assume.
 - **Secrets:** IU key + base via 1Password (`op://common/anthropic`, account `tkrumm`), injected with
-  `op run` into the server process — same pattern as Argo. No keys/hostnames in tracked files; the
-  OpenAI base is derived from the Anthropic base (`…/anthropic` → `…/openai/v1`), per the memos.
+  `secrets-run run` into the server process — the machine-role-aware shim resolves `op` on the
+  MacBook or an offline cache on the headless mini (a raw `op run` hangs there). No keys/hostnames
+  in tracked files; the OpenAI base is derived from the Anthropic base (`…/anthropic` →
+  `…/openai/v1`), per the memos.
 - **Data sourcing:** server-side collectors normalize three sources into one model schema —
   (a) **IU live catalog/probe** (ground truth: access + latency + residency), (b) **OpenRouter API**
   (rankings/pricing/context), (c) **artificialanalysis API** (quality/speed/price — confirmed to exist:
   `artificialanalysis.ai/api-reference`). A `source` + `confidence` field per metric; never trust a
-  single source. Keys: `op://vps/modelpick` (resolved at runtime via `op run`).
+  single source. Keys: `op://vps/modelpick` (resolved at runtime via `secrets-run`).
 - **Persistence:** **local SQLite** (`modelpick.db` via libsql), schema synced with `drizzle-kit
   push` from `src/db/schema.ts`. No migration folder, no DB server.
 - **Daily refresh:** a local job (`bun run refresh`) runs the collectors, writes a dated snapshot,
@@ -83,10 +83,11 @@ your own criteria → a clear recommendation per category, with charts and an au
   (`score = w_quality·Q + w_cost·C + w_speed·S`, weights adjustable in the UI), filtered to
   IU-available; a cheap fast model (e.g. `gpt-4o-mini` / `claude-haiku-4-5-eu`) writes a 1–2 sentence
   "why this one" per category. The score is the decision; the LLM only narrates.
-- **Audio pipeline:** admin generates demos via server functions → IU TTS/STT → audio stored as static
-  assets (object storage or a served volume) + a `demo` row (text, model, emotion/preset, public flag).
-  Public playground reads only the curated static demos. EU-residency respected per the memo (Azure
-  Sweden `tts`/`tts-hd`/`whisper` for anything voice-sensitive; US-vendor models flagged).
+- **Audio pipeline:** generate demos via server functions (ungated, local-only) → IU TTS/STT → audio
+  stored as static assets (a served volume) + a `demo` row (text, model, emotion/preset, `public`
+  flag — curation only, not access control: marks which demos show in the default shortlist vs.
+  "Show disabled"). EU-residency respected per the memo (Azure Sweden `tts`/`tts-hd`/`whisper` for
+  anything voice-sensitive; US-vendor models flagged).
 - **Deploy:** none — runs locally (`make dev`). Superseded by the pivot note above.
 
 ## Capability probe — seed inventory (verified 2026-05-22, re-confirm live)
@@ -116,10 +117,9 @@ ones (the catalog drifts). Residency is the deciding factor for audio.
 - **Charts:** quality-vs-price scatter, throughput bars, trend-over-time lines — all via the Argo visx
   primitives (theme-aware).
 - **TTS playground:** demo gallery (static audio), grouped by model; A/B compare 1..N models on the same
-  text/emotion preset; German + English presets. Admin controls (gated) to generate + curate demos.
-- **STT playground:** static sample transcriptions per model (accuracy/latency side-by-side); admin can
-  upload a clip and run it across models live.
-- **News:** curated feed of notable reasonable new releases.
+  text/emotion preset; German + English presets. Ungated controls to generate + curate demos.
+- **STT playground:** static sample transcriptions per model (accuracy/latency side-by-side); ungated
+  controls to run a clip across models live.
 
 ## Success Criteria
 
@@ -128,22 +128,24 @@ ones (the catalog drifts). Residency is the deciding factor for audio.
 3. Decider returns a defensible pick per category, IU-filtered, with a readable rationale; weight
    sliders change the ranking live.
 4. External rankings (≥1 aggregator API) are normalized and visible alongside IU ground truth.
-5. Public site is fully usable without spending IU tokens (static demos, cached pages); admin gate
-   unlocks live generation + curation.
+5. TTS/STT playgrounds are usable without spending IU tokens (static demos, cached pages); the same
+   local session can also generate + curate demos live, ungated.
 6. Daily cron writes a snapshot and the trend charts reflect history across days.
 7. Runs locally (`make dev`) off a single SQLite file; charts/theming match Argo's quality bar.
 
 ## Secrets / env (resolved at runtime — see `.env.tpl`)
 
 No plaintext `.env`. `.env.tpl` (tracked) holds `op://` references; scripts wrap their command in
-`op run --account tkrumm --env-file=.env.tpl`, so secrets are injected into the process, never disk.
+`secrets-run run --env-file=.env.tpl`, so secrets are injected into the process, never disk. The
+shim resolves the backend from `~/.config/secrets/backend` (`op` on the MacBook, an offline cache
+on the headless mini — a raw `op run` hangs there since `op` isn't interactively signed in).
 
 - `IU_API_KEY` — `op://common/anthropic`. The IU base-URL routes are non-secret config in `.env.tpl`.
-- `OPENROUTER_API_KEY`, `ARTIFICIALANALYSIS_API_KEY`, `ADMIN_KEY` — `op://vps/modelpick`.
+- `OPENROUTER_API_KEY`, `ARTIFICIALANALYSIS_API_KEY` — `op://vps/modelpick`.
 - `DATABASE_URL` — optional libsql file URL; defaults to `file:modelpick.db` in the repo root.
 
 ## Open questions (resolve during implementation)
 
 - Static audio host: resolved — local files under `public/demos/` (gitignored), served directly.
-- German-accent quality is subjective — define a fixed eval text + a small rubric the admin scores once
-  per model so the "native German" axis isn't hand-wavy.
+- German-accent quality is subjective — define a fixed eval text + a small rubric to score once per
+  model so the "native German" axis isn't hand-wavy.

@@ -10,7 +10,6 @@ import {
   metricSnapshot,
   recommendation,
   demo,
-  newsItem,
 } from "../db/schema.js";
 import { IU_CATALOG } from "../db/iu-catalog.js";
 
@@ -79,14 +78,6 @@ describe("schema table definitions", () => {
     expect(cols).toContain("lang");
     expect(cols).toContain("audio_path");
     expect(cols).toContain("public");
-  });
-
-  it("news_item table has expected columns", () => {
-    const cols = Object.keys(newsItem);
-    expect(cols).toContain("title");
-    expect(cols).toContain("url");
-    expect(cols).toContain("source");
-    expect(cols).toContain("reasonable");
   });
 });
 

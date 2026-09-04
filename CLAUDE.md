@@ -21,9 +21,11 @@ single SQLite file (`modelpick.db`, gitignored).
 - **Drizzle ORM + local SQLite** (libsql, `@libsql/client`), schema in `src/db/schema.ts`.
   The driver (`drizzle-orm/libsql`) runs under both node (the SSR server) and bun (the scripts).
 - **Secrets via 1Password** — no plaintext `.env`. `.env.tpl` (tracked) holds `op://` refs; the
-  secret-needing scripts wrap their command in `op run --account tkrumm --env-file=.env.tpl`. IU
-  key in `op://common/anthropic`, leaderboard/admin keys in `op://vps/modelpick`. You must be
-  signed into `op` to run `dev`/`refresh`/`probe`/etc.
+  secret-needing scripts wrap their command in `secrets-run run --env-file=.env.tpl`, the
+  machine-role-aware shim that resolves the backend from `~/.config/secrets/backend` (cache on
+  the headless mini, `op` on the MacBook) — a raw `op run` hangs on the mini since `op` isn't
+  interactively signed in there. IU key in `op://common/anthropic`, leaderboard keys in
+  `op://vps/modelpick`.
 - **Makefile targets**: `make dev`, `make build`, `make db-push`, `make db-seed`.
 
 ## The category model
@@ -51,10 +53,10 @@ actually changes. Manual categories carry no `recommendation`, so the `/stack` p
 them as "no recommendation" (gray `—`) rather than ok/drift. Current picks: fast
 `DeepSeek-V4-Flash`, coding `DeepSeek-V4-Flash` (2026-08-02, was `DeepSeek-V4-Pro` — see
 `docs/decisions/coding-model.md`; GPT-5.5 dropped as too expensive), orchestrator
-`claude-opus-4-8` (Opus 4.8 in Claude Code), tts `elevenlabs/flash-v2.5` (Mark, IU Replicate
-route; `elevenlabs/v3` for briefings — 2026-08-26, was Gemini 3.1 Flash TTS/Charon),
-stt `gpt-4o-transcribe`, embedding `text-embedding-3-small`, vision `gemini-3.5-flash`,
-image `gpt-image-2`.
+`claude-opus-5` (2026-08-02, replaced `claude-opus-4-8` on release), tts
+`elevenlabs/flash-v2.5` (Mark, IU Replicate route; `elevenlabs/v3` for briefings —
+2026-08-26, was Gemini 3.1 Flash TTS/Charon), stt `gpt-4o-transcribe`, embedding
+`text-embedding-3-small`, vision `gemini-3.5-flash`, image `gpt-image-2`.
 
 ## Database / schema changes
 
@@ -81,8 +83,8 @@ verifies real access and residency.
 ## Daily refresh pipeline
 
 `bun run refresh` runs `scripts/refresh.ts` locally: probe access → collect external
-metrics (OpenRouter, ArtificialAnalysis) → recommend (re-score + persist picks + rationale)
-→ news. Steps are independent; one failure doesn't abort the rest. Green tests ≠ working
+metrics (OpenRouter, ArtificialAnalysis) → recommend (re-score + persist picks + rationale).
+Steps are independent; one failure doesn't abort the rest. Green tests ≠ working
 pipeline — confirm against live data after changes.
 
 ## ccbench — the agentic benchmark

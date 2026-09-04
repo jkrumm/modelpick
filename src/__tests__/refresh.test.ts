@@ -16,12 +16,11 @@ const makeDeps = (overrides: Partial<RefreshDeps> = {}): RefreshDeps => ({
   collectArtificialAnalysis: vi.fn().mockResolvedValue({ metrics: [], unmatched: [] }),
   insertMetrics: vi.fn().mockResolvedValue(undefined),
   runRecommender: vi.fn().mockResolvedValue(undefined),
-  collectNews: vi.fn().mockResolvedValue({ inserted: 3 }),
   ...overrides,
 });
 
 describe("runRefresh", () => {
-  it("calls all four steps and returns allOk=true when all succeed", async () => {
+  it("calls all three steps and returns allOk=true when all succeed", async () => {
     const deps = makeDeps();
     const result = await runRefresh(deps);
 
@@ -30,7 +29,6 @@ describe("runRefresh", () => {
     expect(deps.collectArtificialAnalysis).toHaveBeenCalledOnce();
     expect(deps.insertMetrics).toHaveBeenCalledOnce();
     expect(deps.runRecommender).toHaveBeenCalledOnce();
-    expect(deps.collectNews).toHaveBeenCalledOnce();
     expect(result.allOk).toBe(true);
   });
 
@@ -43,11 +41,9 @@ describe("runRefresh", () => {
     expect(result.probe.ok).toBe(false);
     expect(result.collect.ok).toBe(true);
     expect(result.recommend.ok).toBe(true);
-    expect(result.news.ok).toBe(true);
     expect(result.allOk).toBe(false);
     // Subsequent steps still ran
     expect(deps.runRecommender).toHaveBeenCalledOnce();
-    expect(deps.collectNews).toHaveBeenCalledOnce();
   });
 
   it("continues when recommend fails", async () => {
@@ -59,21 +55,6 @@ describe("runRefresh", () => {
     expect(result.probe.ok).toBe(true);
     expect(result.collect.ok).toBe(true);
     expect(result.recommend.ok).toBe(false);
-    expect(result.news.ok).toBe(true);
-    expect(result.allOk).toBe(false);
-    expect(deps.collectNews).toHaveBeenCalledOnce();
-  });
-
-  it("continues when news fails", async () => {
-    const deps = makeDeps({
-      collectNews: vi.fn().mockRejectedValue(new Error("news error")),
-    });
-    const result = await runRefresh(deps);
-
-    expect(result.probe.ok).toBe(true);
-    expect(result.collect.ok).toBe(true);
-    expect(result.recommend.ok).toBe(true);
-    expect(result.news.ok).toBe(false);
     expect(result.allOk).toBe(false);
   });
 
@@ -104,7 +85,6 @@ describe("runRefresh", () => {
     expect(result.collect.ok).toBe(false);
     expect(result.probe.ok).toBe(true);
     expect(result.recommend.ok).toBe(true);
-    expect(result.news.ok).toBe(true);
     expect(result.allOk).toBe(false);
   });
 
@@ -131,15 +111,6 @@ describe("runRefresh", () => {
     expect(result.probe.message).toContain("2/3");
   });
 
-  it("news message includes inserted count", async () => {
-    const deps = makeDeps({
-      collectNews: vi.fn().mockResolvedValue({ inserted: 7 }),
-    });
-    const result = await runRefresh(deps);
-
-    expect(result.news.message).toContain("7");
-  });
-
   it("allOk false when multiple steps fail", async () => {
     const deps = makeDeps({
       probe: vi.fn().mockRejectedValue(new Error("probe error")),
@@ -150,7 +121,6 @@ describe("runRefresh", () => {
     expect(result.probe.ok).toBe(false);
     expect(result.collect.ok).toBe(true);
     expect(result.recommend.ok).toBe(false);
-    expect(result.news.ok).toBe(true);
     expect(result.allOk).toBe(false);
   });
 });

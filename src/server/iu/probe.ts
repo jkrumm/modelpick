@@ -14,7 +14,6 @@ import type {
   recommendation as RecommendationTable,
   stackChoice as StackChoiceTable,
   demo as DemoTable,
-  newsItem as NewsItemTable,
 } from "../../db/schema.js";
 // Type-only — mirrors the lazy value import of `db` inside runProbe() below, so
 // importing this type never opens a live DB connection at module load.
@@ -290,7 +289,6 @@ export interface CaseDuplicateTables {
   recommendation: typeof RecommendationTable;
   stackChoice: typeof StackChoiceTable;
   demo: typeof DemoTable;
-  newsItem: typeof NewsItemTable;
 }
 
 /** Folds every case-duplicate pair currently in `models` into the live-id
@@ -311,7 +309,7 @@ export async function reconcileCaseDuplicates({
   tables: CaseDuplicateTables;
   liveIds: Set<string>;
 }): Promise<void> {
-  const { models, capabilityProbe, metricSnapshot, recommendation, stackChoice, demo, newsItem } =
+  const { models, capabilityProbe, metricSnapshot, recommendation, stackChoice, demo } =
     tables;
 
   const modelIds = (await db.select({ id: models.id }).from(models)).map((m) => m.id);
@@ -424,24 +422,6 @@ export async function reconcileCaseDuplicates({
       del: (ids) => db.delete(demo).where(inArray(demo.id, ids)),
     });
 
-    // model_id is nullable here (onDelete: set null) — only rows actually
-    // pointing at the loser are candidates to move.
-    const newsRows = (
-      await db
-        .select({ id: newsItem.id, model_id: newsItem.model_id, url: newsItem.url })
-        .from(newsItem)
-    ).filter((r): r is typeof r & { model_id: string } => r.model_id !== null);
-    moved += await applyReconciliationPlan({
-      plan: planTableReconciliation({
-        loserId,
-        survivorId,
-        rows: newsRows,
-        uniqueKey: (r) => r.url,
-      }),
-      update: (ids) => db.update(newsItem).set({ model_id: survivorId }).where(inArray(newsItem.id, ids)),
-      del: (ids) => db.delete(newsItem).where(inArray(newsItem.id, ids)),
-    });
-
     await db.delete(models).where(eq(models.id, loserId));
 
     console.warn(
@@ -476,7 +456,7 @@ export async function runProbe(): Promise<ProbeResult[]> {
   // Lazy imports keep probeModel() testable without a live DB connection
   const [
     { db },
-    { capabilityProbe, metricSnapshot, recommendation, stackChoice, demo, newsItem, models },
+    { capabilityProbe, metricSnapshot, recommendation, stackChoice, demo, models },
     { discoverIuModels },
   ] = await Promise.all([
     import("../../db/index.js"),
@@ -518,7 +498,7 @@ export async function runProbe(): Promise<ProbeResult[]> {
   try {
     await reconcileCaseDuplicates({
       db,
-      tables: { models, capabilityProbe, metricSnapshot, recommendation, stackChoice, demo, newsItem },
+      tables: { models, capabilityProbe, metricSnapshot, recommendation, stackChoice, demo },
       liveIds: new Set(apiModels.map((m) => m.id)),
     });
   } catch (err) {
