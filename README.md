@@ -34,12 +34,15 @@ bun run demos:seed  # audio demos
 
 ## Daily refresh
 
-Run the full pipeline (probe access → collect external metrics → recommend) locally; schedule
-it with a LaunchAgent / cron if you want it daily:
+Run the full pipeline (probe access → collect external metrics → recommend) locally:
 
 ```bash
 bun run refresh
 ```
+
+On the mini it runs daily at 06:00 as the `com.jkrumm.modelpick-refresh` LaunchAgent
+(`launchd/*.plist.template`): `make refresh-setup` installs it, `make refresh-check` reports
+the last exit, `make refresh-teardown` removes it. Logs: `~/Library/Logs/modelpick-refresh.{log,err}`.
 
 Individual steps: `bun run probe`, `bun run collect`, `bun run recommend`.
 

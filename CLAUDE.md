@@ -84,8 +84,10 @@ verifies real access and residency.
 
 `bun run refresh` runs `scripts/refresh.ts` locally: probe access → collect external
 metrics (OpenRouter, ArtificialAnalysis, Epoch AI) → recommend (re-score + persist picks +
-rationale). Steps are independent; one failure doesn't abort the rest. Green tests ≠ working
-pipeline — confirm against live data after changes.
+rationale). Steps are independent; one failure doesn't abort the rest, but the exit is 1.
+Green tests ≠ working pipeline — confirm against live data after changes. On the mini the
+`com.jkrumm.modelpick-refresh` LaunchAgent (`make refresh-setup`, 06:00, no `KeepAlive` —
+a failed step must not retry all day) runs it; `make refresh-check` shows the last exit.
 
 ## Epoch AI benchmark collector
 
