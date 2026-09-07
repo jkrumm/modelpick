@@ -48,3 +48,26 @@ Audiobookshelf are the listening test. Output prices per M: Opus 5/4.6 $25, Sonn
   with `low`, rejected on the owner's call (no time pressure, deliberation is what we pay for).
 - Re-pick triggers: a German dialogue eval appearing; EQ-Bench Longform moving; Opus 4.6 retired
   on IU; a reviewer model consistently producing notes the writer ignores (then drop it).
+
+## Researcher role (2026-09-07)
+
+Podcast v2 added a tool-calling **researcher** in front of the writers' room (brain
+search/read, past episodes, past transcript, research-gateway; `PODCAST_RESEARCH_MODEL`).
+Live `benchmark-tool-calling.ts` run, 2026-09-07, same 3-tool scenario:
+
+| Model | Tools | Final answer | Wall | $/M in → out |
+|-|-|-|-|-|
+| `gpt-5.6-terra` | 3/3 | yes | 4.3 s | 2.00 → 12.00 |
+| `gpt-5.6-sol` | 3/3 | yes | 5.3 s | 4.00 → 20.00 |
+| `gpt-5.6-luna` | 3/3 | yes | 5.6 s | 0.20 → 1.20 |
+| `DeepSeek-V4-Pro` | 3/3 | yes | 17.0 s | — |
+| `glm-5.3-flash` | 3/3 | yes | 26.2 s | 0.075 → 0.25 |
+| `gemini-3.8-flash` | 2/3 | no | 10.3 s | 0.75 → 3.75 |
+
+**Decision: `gpt-5.6-terra`.** The role is judgment (what is worth looking up, what the
+listener doesn't know) over ~7–12 rounds and ~60k input tokens per episode — at Terra's
+price that is ~$0.15 per episode, so cost does not rank the candidates; speed and tool
+reliability do, and Terra leads both. Sol is the quality ceiling but 20× Luna's output
+price for no measured tool advantage; Gemini 3.8 Flash is flaky on tools in this shape
+(see gemini-tool-calling-shapes.md); the open-weight models are 3–6× slower. Luna
+(the 2026-09-06 first pick) stays the metadata/review workhorse.
