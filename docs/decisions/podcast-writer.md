@@ -8,7 +8,7 @@ all on the IU endpoint:
 |-|-|-|-|
 | Story pass: through-line, hook, reveals, digressions, segments | `PODCAST_OUTLINE_MODEL` | `claude-opus-5` | Smartest structural thinker on the endpoint; holds long arcs. Reasons long (1.4k tokens even on a toy task) — fine for one call per episode. Not allowed near dialogue. |
 | **Voice owner**: segment writers, every revision and tightening pass | `PODCAST_WRITE_MODEL` | `claude-opus-4-6` | Writers' consensus for organic, human-sounding German dialogue; fewer Claude-isms than Opus 5. No other model ever writes or rewrites a line. |
-| Reviewers (3 lenses × each model, parallel, notes only) | `PODCAST_REVIEW_MODELS` | `gemini-3.1-pro-preview,gpt-5.6-luna` | A different lab's model finds different faults (AI-isms, essay sentences, pace, facts); Gemini for structure critique at $12/M out, Luna cheap and fast. Advisory: they point, they don't draft. |
+| Reviewers (3 lenses × each model, parallel, notes only) | `PODCAST_REVIEW_MODELS` | `gemini-3.8-flash,gpt-5.6-luna` | A different lab's model finds different faults (AI-isms, essay sentences, pace, facts); Gemini for structure critique, Luna cheap and fast. Advisory: they point, they don't draft. 3.1 Pro Preview at $12/M out was overkill for an advisory pass — swapped for 3.8 Flash the same day (audio-gateway `612f895`). |
 | Metadata: title, show notes, cover prompt, chapter titles | `PODCAST_METADATA_MODEL` | `gpt-5.6-luna` | Volume work, cheap, fast, good German. |
 | Escalation only | — | `claude-fable-5-1` | Strongest writer/knowledge model but $10/$50 per M; only if a complex episode's outline or voice misses. Not a default. |
 

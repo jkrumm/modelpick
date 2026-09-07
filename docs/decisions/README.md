@@ -39,7 +39,9 @@ Two cross-cutting principles:
 
 ## Records
 
-- [audio-stack.md](./audio-stack.md) — cloud TTS (`gemini-3.1-flash-tts-preview`, Charon) + STT
+- [audio-stack.md](./audio-stack.md) — cloud TTS (`elevenlabs/flash-v2.5` for chat replies,
+  `elevenlabs/v3` for briefings, via the IU Replicate route since 2026-08-26;
+  `gemini-3.1-flash-tts-preview`/Charon stays served as audio-gateway's default) + STT
   (`gpt-4o-transcribe`, EU `whisper` fallback) on the IU endpoint via audio-gateway (VPS
   container; audio-proxy retired 2026-06-17); why the local Fish/Parakeet stack was retired; the
   chunking / long-generation-drift carryover.
