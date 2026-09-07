@@ -12,7 +12,7 @@ import {
 } from "@tabler/icons-react";
 import type { StackCategory } from "~/db/schema";
 import { getMyStack } from "./-stack-server-fns";
-import type { StackEntry } from "./-stack-server-fns";
+import type { StackEntry, StackPick } from "./-stack-server-fns";
 
 export const Route = createFileRoute("/stack")({
   loader: async () => getMyStack(),
@@ -40,6 +40,21 @@ function CategoryIcon({ category }: { category: StackCategory }) {
   if (category === "embedding") return <IconVector size={size} />;
   if (category === "vision") return <IconEye size={size} />;
   return <IconPhoto size={size} />; // image
+}
+
+function driftLabel(entry: StackEntry): string {
+  const parts: string[] = [];
+  if (entry.algo !== null && entry.algo.model_id !== entry.pick.model_id) {
+    parts.push(`Algorithm prefers ${entry.algo.display_name}`);
+  }
+  if (entry.bench !== null) {
+    const picks = [entry.bench.worker, entry.bench.interactive].filter(
+      (p): p is StackPick => p !== null,
+    );
+    if (!picks.some((p) => p.model_id === entry.pick.model_id))
+      parts.push(`ccbench prefers ${picks.map((p) => p.display_name).join(" / ")}`);
+  }
+  return `${parts.join("; ")} — review your pick`;
 }
 
 function StackRow({ entry }: { entry: StackEntry }) {
@@ -83,14 +98,20 @@ function StackRow({ entry }: { entry: StackEntry }) {
             no recommendation
           </Text>
         )}
+        {entry.bench !== null && (
+          <Text size="xs" c="dimmed" mt={4} style={{ lineHeight: 1.4 }}>
+            ccbench: {entry.bench.worker?.display_name ?? "—"} (worker) ·{" "}
+            {entry.bench.interactive?.display_name ?? "—"} (interactive)
+          </Text>
+        )}
       </Table.Td>
       <Table.Td>
-        {entry.algo === null ? (
+        {entry.algo === null && entry.bench === null ? (
           <Badge color="gray" size="sm" variant="light">
             —
           </Badge>
         ) : entry.drift ? (
-          <Tooltip label={`Algorithm prefers ${entry.algo.display_name} — review your pick`}>
+          <Tooltip label={driftLabel(entry)}>
             <Badge color="yellow" size="sm" variant="light">
               review
             </Badge>
@@ -122,7 +143,8 @@ function StackPage() {
         <Title order={2}>My Stack</Title>
         <Text size="xs" c="dimmed">
           The models I actually use, per category — diffed against the daily algorithmic pick
-          {data.snapshotDate !== null && <> (snapshot {data.snapshotDate})</>}.
+          {data.snapshotDate !== null && <> (snapshot {data.snapshotDate})</>} and, for coding,
+          against ccbench&apos;s worker and interactive picks.
         </Text>
       </Box>
 

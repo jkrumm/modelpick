@@ -63,12 +63,12 @@ const MY_STACK: StackChoiceInsert[] = [
   },
   {
     category: "coding",
-    model_id: "DeepSeek-V4-Flash",
+    model_id: "glm-5.3-flash",
     env_note:
-      "Drives the ca launcher and sideclaw's iu backend — agentic harnesses, which is the axis this pick is made on. IU serves the alias only (no -0731 id in the catalog), so which weights back it is unverified. Residency unverified (probe: unknown).",
+      "The unattended worker: sideclaw's iu backend, rd bg, batch jobs. Interactive Claude Code over IU (the ca launcher, agent-dispatch) runs claude-sonnet-5 instead — 35% faster on wall clock, 32x the price. ccbench (bun run bench) is the gate; /stack diffs this pick against its worker and interactive picks.",
     rationale:
-      "Flash-0731 overtook Pro on coding while Pro sat unchanged since April: AA coding index 69.1 vs 59.4, Terminal-Bench 2.1 82.7 vs 72.1, DeepSWE 54.4 vs 12.8, at 3x cheaper output and 2.6x faster TTFT on IU. Pro keeps long-context retrieval (MRCR 83.5 vs 78.7) and the only SWE-bench Verified score.",
-    decided_at: "2026-08-02",
+      "ccbench 2026-08-31: perfect score on all ten tasks at $0.035 per suite against claude-sonnet-5's $1.127, and above it on the AA coding index. Its two timeouts were the clock, not capability (13 tok/s on this route; retest 4/4). DeepSeek-V4-Flash, the previous pick, dropped 16% of tool calls on the same suite. See docs/decisions/claude-code-model.md.",
+    decided_at: "2026-08-31",
   },
   {
     category: "orchestrator",
@@ -82,7 +82,8 @@ const MY_STACK: StackChoiceInsert[] = [
   {
     category: "tts",
     model_id: "elevenlabs/flash-v2.5",
-    env_note: "Mark voice, via the IU Replicate route. elevenlabs/v3 for briefings (prep LLM + tags).",
+    env_note:
+      "Mark voice, via the IU Replicate route. elevenlabs/v3 for briefings (prep LLM + tags).",
     rationale:
       "Chat path: ~1.2 s per reply vs ~10 s on Gemini 3.1 Flash TTS once the prep LLM is counted; Hermes streams sentence-by-sentence so per-request latency is what the ear hears. v3 (AA #5, tags, previous/next_text continuity) takes the long-form lane. US-routed — accepted for reply text, not for recorded voice. See docs/decisions/audio-stack.md.",
     decided_at: "2026-08-26",
