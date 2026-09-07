@@ -15,9 +15,19 @@ make db-seed             # seed the model catalog + My Stack
 make dev                 # start the dev server
 ```
 
-The app runs at `http://localhost:3001`. No `.env` file needed — secrets resolve via `secrets-run`
-at runtime (see Env below): the `op` CLI (account `tkrumm`) on the MacBook, an offline cache on the
-headless mini.
+The app runs at `http://localhost:7727` (also `https://modelpick.test` via the dotfiles Caddyfile).
+No `.env` file needed — secrets resolve via `secrets-run` at runtime (see Env below): the `op` CLI
+(account `tkrumm`) on the MacBook, an offline cache on the headless mini.
+
+## Picking a model without the UI
+
+```bash
+cap --list          # print the whole recommendation table
+cap                  # pick a model from measured data, then launch `ca` with it
+bun run bench        # run the agentic ccbench suite that backs the coding-model pick
+```
+
+`cap`/`bun run route-map` read only the local SQLite file — no key, no network, nothing spent.
 
 ## Database
 

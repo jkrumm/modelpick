@@ -16,8 +16,10 @@ one number does not cover both.
 
 Note the split matches the mechanism: native subagents inherit their parent session's endpoint,
 so a Max session cannot delegate to an IU model. Handing work to `glm-5.3-flash` from a Max
-orchestrator goes through sideclaw's separately-spawned workers
-(`SIDECLAW_WORKER_BACKEND` unset → IU), not through `@implementer`.
+orchestrator only happens through the subprocess lanes (`rd bg`/`agent-dispatch`, `ca`/`cap`),
+which run on IU credentials directly — never through sideclaw's `mcp__sideclaw__dispatch`,
+which is pinned to Sonnet on Max (fallback IU) regardless of any worker-backend env var; see
+`sideclaw/server/lib/routing.ts` for the live per-tool table.
 
 This supersedes the earlier LiteLLM-bridge lane (retired 2026-09-04), whose premises have both
 expired.
@@ -364,9 +366,11 @@ is the strongest reason to leave the whole 4.6 line behind.
   `claude-opus-4-0` and `claude-sonnet-4-0` are served by `GET /models` and return 503 on every
   call. Recorded in `DEAD_IDS` so nobody rediscovers them.
 - **Every model reports a 200K context window.** The CLI cannot discover the real window
-  through the gateway, so a 1M model runs as a 200K model unless
-  `CLAUDE_CODE_MAX_CONTEXT_TOKENS` says otherwise. Set it deliberately; too high is a hard API
-  rejection mid-task, not a compaction.
+  through the gateway. For a Claude id (`claude-sonnet-5`) the fix is the `[1m]` model
+  suffix, stripped before the id reaches the provider — never
+  `CLAUDE_CODE_MAX_CONTEXT_TOKENS`, which is `claude.zsh`'s fix for *gateway* ids only (a
+  client-side compaction budget from `_CA_CTX`, not a capability claim; too high there is a
+  hard API rejection mid-task, not a compaction).
 - **`ANTHROPIC_API_KEY` must be unset, not empty.** claude v2.x rejects it with "Not logged
   in". `ANTHROPIC_AUTH_TOKEN` is the working door.
 - **All four `ANTHROPIC_DEFAULT_*` tiers must pin to the same id**, or a spawned subagent asks

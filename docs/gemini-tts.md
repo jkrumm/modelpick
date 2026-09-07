@@ -1,5 +1,10 @@
 # Gemini 3.1 Flash TTS
 
+*How-to for modelpick's own TTS playground, not a stack decision — the current TTS
+pick (`elevenlabs/flash-v2.5`/`v3`) is [`docs/decisions/audio-stack.md`](decisions/audio-stack.md).
+Gemini TTS stays live here (audio-gateway's `ttsModel` default) and in modelpick's
+playground, which is why the dual-provider branching below still matters.*
+
 `gemini-3.1-flash-tts-preview` is Google's expressive text-to-speech model. On the
 IU gateway it is **EU-resident** (routed through the "GDPR ONLY" Gemini gateway).
 modelpick uses it for the TTS playground demos; the `audio-gateway` service

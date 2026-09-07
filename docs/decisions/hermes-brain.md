@@ -163,12 +163,12 @@ tool, no over-calling — this is the resilience requirement #5 re-test, and Fla
    "DeepSeek-V3-0324". If IU follows the upstream alias it is already serving 0731; if its
    provider pins a snapshot it may lag by days. The live IU measurements above hold either
    way, because they measure what IU actually serves.
-2. **Leaderboard metrics in `modelpick.db` are stale** (2026-07-11) and could not be
-   refreshed during this decision: `bun run collect` needs `op://vps/modelpick/*`, which is
+2. **Leaderboard metrics in `modelpick.db` were stale** (2026-07-11) and could not be
+   refreshed during this decision: `bun run collect` needs `op://vps/modelpick/*`, which was
    not in the mini's `headless.refs` allowlist, and `op` cannot run interactively on a
-   headless box. The external numbers above therefore come from research, not from
-   `metric_snapshot`. Seeding those three refs would let the full `refresh` pipeline run on
-   the mini.
+   headless box. The external numbers above therefore came from research, not from
+   `metric_snapshot`. **Closed 2026-08-02** — those refs are seeded and `bun run refresh` runs
+   headless (see [coding-model.md](./coding-model.md) Open item 1).
 
 **Residency is unchanged in substance.** Both DeepSeek aliases were verified EU-resident
 (Azure Spain Central) on 2026-06-02; since the Requesty proxy layer went in, `capability_probe`

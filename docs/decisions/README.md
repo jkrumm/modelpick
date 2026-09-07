@@ -76,18 +76,17 @@ Two cross-cutting principles:
   GLM-5.2 recommendation: AA overstated GLM's throughput by 3.8× (37.7 tok/s measured live),
   GLM reports no TTFT at all, and it costs 3.75–15× more. Also records the scoring defect this
   exposed — live `ttft_ms` was collected and never read by the scorer.
-- [coding-model.md](./coding-model.md) — why the coding pick moved from `DeepSeek-V4-Pro` to
-  `DeepSeek-V4-Flash` on 2026-08-02: the AA coding index flipped 69.1 vs 59.4 while Pro sat
-  unchanged since April, the agentic-coding sweep (Terminal-Bench, DeepSWE, NL2Repo) that
-  matters for sideclaw's `iu` worker backend, and what Pro keeps (long-context retrieval, the
-  only SWE-bench Verified score).
+- [coding-model.md](./coding-model.md) — **superseded by claude-code-model.md** (below); kept
+  for the DeepSeek `Pro` → `Flash` evidence (AA coding index 69.1 vs 59.4 after Pro sat
+  unchanged since April) and its own re-open trigger, not the current pick.
 - [execution-modes.md](./execution-modes.md) — the orchestrator execution-mode framework
   (inline / native `Agent` subagent / MCP (sideclaw) / `agent-dispatch` subprocess /
   research-gateway), model tiers, and "never switch the orchestrator model mid-session."
 - [claude-code-model.md](./claude-code-model.md) — which model to run Claude Code against on
   the IU Anthropic route, from a 130-session graded bake-off across 13 models (ccbench):
-  `claude-sonnet-5` interactive, `minimax-m3` for non-confidential worker sessions at 5.8x less,
-  `claude-opus-5` for anything confidential. Twelve of thirteen models scored a flat 1.00 on
+  `claude-sonnet-5` interactive, `glm-5.3-flash` for unattended workers at 32x less (and
+  above `claude-sonnet-5` on the AA index), `claude-opus-5` for anything EU-pinned or
+  confidential. Twelve of thirteen models scored a flat 1.00 on
   every task — including five non-Claude ids — so the pick is decided on cost, wall clock and
   residency, not capability. Also: the CLI's cost figure is fiction for non-Claude ids (over by
   up to 77x) and how ccbench prices them instead; the backend map read out of the gateway's

@@ -1,14 +1,17 @@
 # Coding Model — DeepSeek-V4-Pro → DeepSeek-V4-Flash
 
-**Current:** `DeepSeek-V4-Flash` since 2026-08-02, replacing `DeepSeek-V4-Pro` (held since
+**Superseded 2026-08-31 by [claude-code-model.md](./claude-code-model.md)**, which moved the
+worker pick again to `glm-5.3-flash` (ccbench) and the interactive pick to `claude-sonnet-5`.
+Kept here for the Pro-vs-Flash evidence and its own re-open trigger (below) — not the current
+answer for either `fast` or `coding`.
+
+**Was current:** `DeepSeek-V4-Flash` from 2026-08-02, replacing `DeepSeek-V4-Pro` (held since
 2026-06-02). The same `-0731` re-post-training that took the Hermes brain
 ([hermes-brain.md](./hermes-brain.md)) also flipped the coding case, and by a wider margin
 than the general intelligence index did.
 
-This is the pick behind `ca` (IU unified endpoint, native Anthropic route — see
-[claude-code-model.md](./claude-code-model.md) for the interactive default that superseded the
-retired local LiteLLM bridge) and sideclaw's `iu` worker backend — both **agentic coding
-harnesses**, which is what the decision turns on.
+This was the pick behind `ca` (IU unified endpoint, native Anthropic route) and sideclaw's
+`iu` worker backend — both **agentic coding harnesses**, which is what the decision turned on.
 
 ## The asymmetry that decides it
 
