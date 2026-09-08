@@ -32,7 +32,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "codestral-2508",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "llm",
     "display_name": "Codestral Embed",
@@ -41,7 +41,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "codestral-embed-2505",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "embedding",
     "display_name": "Codestral 25.01",
@@ -60,33 +60,6 @@ export const IU_CATALOG: ModelInsert[] = [
   {
     "id": "DeepSeek-V4-Pro",
     "provider": "deepseek",
-    "family": null,
-    "modality": "llm",
-    "display_name": "DeepSeek V4 Pro",
-    "context_window": 1000000,
-    "iu_listed": true
-  },
-  {
-    "id": "devstral-2512",
-    "provider": "other",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Devstral 2512",
-    "context_window": 1000000,
-    "iu_listed": true
-  },
-  {
-    "id": "devstral-latest",
-    "provider": "other",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Google Gemini 2.0 Flash",
-    "context_window": 1000000,
-    "iu_listed": true
-  },
-  {
-    "id": "devstral-medium-latest",
-    "provider": "other",
     "family": null,
     "modality": "llm",
     "display_name": "Google Gemini 2.0 Flash",
@@ -301,12 +274,30 @@ export const IU_CATALOG: ModelInsert[] = [
     "iu_listed": true
   },
   {
+    "id": "gemini-3.5-transcribe",
+    "provider": "google",
+    "family": null,
+    "modality": "stt",
+    "display_name": "Gemini 3.5 Transcribe",
+    "context_window": null,
+    "iu_listed": true
+  },
+  {
+    "id": "gemini-3.5-transcribe-live",
+    "provider": "google",
+    "family": null,
+    "modality": "stt",
+    "display_name": "Gemini 3.5 Transcribe Live",
+    "context_window": null,
+    "iu_listed": true
+  },
+  {
     "id": "gemini-3.6-flash",
     "provider": "google",
     "family": null,
     "modality": "llm",
-    "display_name": "Gemini 3.6 Flash",
-    "context_window": null,
+    "display_name": "Gemini 3.8 Flash",
+    "context_window": 1048576,
     "iu_listed": true
   },
   {
@@ -314,8 +305,8 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "google",
     "family": null,
     "modality": "llm",
-    "display_name": "Gemini 3.7 Flash",
-    "context_window": null,
+    "display_name": "Gemini 3.8 Flash",
+    "context_window": 1048576,
     "iu_listed": true
   },
   {
@@ -323,8 +314,8 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "google",
     "family": null,
     "modality": "embedding",
-    "display_name": "Gemini Embedding 001",
-    "context_window": null,
+    "display_name": "Gemini 3.8 Flash",
+    "context_window": 1048576,
     "iu_listed": true
   },
   {
@@ -332,8 +323,8 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "google",
     "family": null,
     "modality": "embedding",
-    "display_name": "Gemini Embedding 2",
-    "context_window": null,
+    "display_name": "Gemini 3.8 Flash",
+    "context_window": 1048576,
     "iu_listed": true
   },
   {
@@ -364,6 +355,15 @@ export const IU_CATALOG: ModelInsert[] = [
     "iu_listed": true
   },
   {
+    "id": "gemini-omni-1.1-flash",
+    "provider": "google",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Gemini Omni 1.1 Flash",
+    "context_window": null,
+    "iu_listed": true
+  },
+  {
     "id": "gemini-omni-flash-preview",
     "provider": "google",
     "family": null,
@@ -378,15 +378,6 @@ export const IU_CATALOG: ModelInsert[] = [
     "family": null,
     "modality": "llm",
     "display_name": "Gemini Pro Latest",
-    "context_window": null,
-    "iu_listed": true
-  },
-  {
-    "id": "gemini-robotics-er-1.6-preview",
-    "provider": "google",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Gemini Robotics Er 1.6 Preview",
     "context_window": null,
     "iu_listed": true
   },
@@ -410,7 +401,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "GLM-4.5",
-    "provider": "other",
+    "provider": "zhipu",
     "family": null,
     "modality": "llm",
     "display_name": "GLM 4.5",
@@ -419,7 +410,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "GLM-5",
-    "provider": "other",
+    "provider": "zhipu",
     "family": null,
     "modality": "llm",
     "display_name": "GLM 5",
@@ -428,7 +419,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "GLM-5.1",
-    "provider": "other",
+    "provider": "zhipu",
     "family": null,
     "modality": "llm",
     "display_name": "GLM 5.1",
@@ -437,7 +428,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "GLM-5.2",
-    "provider": "other",
+    "provider": "zhipu",
     "family": null,
     "modality": "llm",
     "display_name": "GLM 5.2 Fast",
@@ -446,10 +437,10 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "GLM-5.3",
-    "provider": "other",
+    "provider": "zhipu",
     "family": null,
     "modality": "llm",
-    "display_name": "GLM 5.2 Fast",
+    "display_name": "GLM-5.3 Flash",
     "context_window": 1000000,
     "iu_listed": true
   },
@@ -458,7 +449,7 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "openai",
     "family": null,
     "modality": "llm",
-    "display_name": "GPT 3.5 Turbo",
+    "display_name": "GLM-5.3 Flash",
     "context_window": 1000000,
     "iu_listed": true
   },
@@ -467,7 +458,7 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "openai",
     "family": null,
     "modality": "llm",
-    "display_name": "GPT 3.5 Turbo 0125",
+    "display_name": "GLM-5.3 Flash",
     "context_window": 1000000,
     "iu_listed": true
   },
@@ -1025,8 +1016,8 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "openai",
     "family": null,
     "modality": "tts",
-    "display_name": "GPT 5.6 Terra",
-    "context_window": 105000,
+    "display_name": "GPT-6 Astra",
+    "context_window": 1050000,
     "iu_listed": true
   },
   {
@@ -1034,8 +1025,8 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "openai",
     "family": null,
     "modality": "tts",
-    "display_name": "GPT 5.6 Terra",
-    "context_window": 105000,
+    "display_name": "GPT-6 Astra",
+    "context_window": 1050000,
     "iu_listed": true
   },
   {
@@ -1229,7 +1220,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "Hermes-4-405B",
-    "provider": "other",
+    "provider": "nousresearch",
     "family": null,
     "modality": "llm",
     "display_name": "Hermes 4 405B",
@@ -1238,7 +1229,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "Hy3",
-    "provider": "other",
+    "provider": "tencent",
     "family": null,
     "modality": "llm",
     "display_name": "Hy3",
@@ -1247,7 +1238,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "Kimi-K2.5",
-    "provider": "other",
+    "provider": "moonshot",
     "family": null,
     "modality": "llm",
     "display_name": "Kimi K2.5",
@@ -1256,7 +1247,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "Kimi-K2.6",
-    "provider": "other",
+    "provider": "moonshot",
     "family": null,
     "modality": "llm",
     "display_name": "Kimi K2.7 Code",
@@ -1265,7 +1256,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "MiMo-V2.5-Pro",
-    "provider": "other",
+    "provider": "xiaomi",
     "family": null,
     "modality": "llm",
     "display_name": "MiMo V2.5 Pro",
@@ -1274,16 +1265,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "MiniMax-M2.5",
-    "provider": "other",
-    "family": null,
-    "modality": "llm",
-    "display_name": "MiniMax M3",
-    "context_window": 1000000,
-    "iu_listed": true
-  },
-  {
-    "id": "MiniMaxAI/MiniMax-M2.5",
-    "provider": "minimaxai",
+    "provider": "minimax",
     "family": null,
     "modality": "llm",
     "display_name": "MiniMax M3",
@@ -1292,7 +1274,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "MiniMaxAI/MiniMax-M3",
-    "provider": "minimaxai",
+    "provider": "minimax",
     "family": null,
     "modality": "llm",
     "display_name": "MiniMax M3",
@@ -1301,16 +1283,16 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "ministral-14b-2512",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "llm",
-    "display_name": "Ministral 14b 2512",
-    "context_window": null,
+    "display_name": "MiniMax M3",
+    "context_window": 1000000,
     "iu_listed": true
   },
   {
     "id": "ministral-14b-latest",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "llm",
     "display_name": "Ministral 3B",
@@ -1319,7 +1301,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "ministral-3b-2512",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "llm",
     "display_name": "Ministral 3B",
@@ -1328,7 +1310,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "ministral-8b-2512",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "llm",
     "display_name": "Ministral 3B",
@@ -1337,20 +1319,11 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "ministral-8b-latest",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "llm",
     "display_name": "Ministral 3B",
     "context_window": 128000,
-    "iu_listed": true
-  },
-  {
-    "id": "mistral-code-agent-latest",
-    "provider": "mistral",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Mistral Code Agent Latest",
-    "context_window": null,
     "iu_listed": true
   },
   {
@@ -1399,30 +1372,12 @@ export const IU_CATALOG: ModelInsert[] = [
     "iu_listed": true
   },
   {
-    "id": "mistral-medium-2505",
+    "id": "mistral-medium-2604",
     "provider": "mistral",
     "family": null,
     "modality": "llm",
     "display_name": "Mistral Large",
     "context_window": 128000,
-    "iu_listed": true
-  },
-  {
-    "id": "mistral-medium-2508",
-    "provider": "mistral",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Mistral Medium 2508",
-    "context_window": null,
-    "iu_listed": true
-  },
-  {
-    "id": "mistral-medium-2604",
-    "provider": "mistral",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Mistral Medium 2604",
-    "context_window": null,
     "iu_listed": true
   },
   {
@@ -1553,7 +1508,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "NVIDIA-Nemotron-3-Super-120B-A12B",
-    "provider": "other",
+    "provider": "nvidia",
     "family": null,
     "modality": "llm",
     "display_name": "o1 Pro",
@@ -1697,7 +1652,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "omni-moderation-2024-09-26",
-    "provider": "other",
+    "provider": "openai",
     "family": null,
     "modality": "llm",
     "display_name": "Syntea Premium GPT-4.1",
@@ -1706,20 +1661,11 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "omni-moderation-latest",
-    "provider": "other",
+    "provider": "openai",
     "family": null,
     "modality": "llm",
     "display_name": "Syntea Premium GPT-4.1",
     "context_window": 1000000,
-    "iu_listed": true
-  },
-  {
-    "id": "Qwen/Qwen3-Next-80B-A3B-Thinking",
-    "provider": "qwen",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Qwen 3 Embedding 8B",
-    "context_window": 128000,
     "iu_listed": true
   },
   {
@@ -1742,7 +1688,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "voxtral-mini-2602",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "llm",
     "display_name": "Text to Speech HD",
@@ -1751,7 +1697,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "voxtral-mini-latest",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "llm",
     "display_name": "Text to Speech HD",
@@ -1760,7 +1706,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "voxtral-mini-realtime-2602",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "llm",
     "display_name": "Voxtral Mini Realtime 2602",
@@ -1769,7 +1715,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "voxtral-mini-realtime-latest",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "llm",
     "display_name": "Voxtral Mini Realtime Latest",
@@ -1778,7 +1724,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "voxtral-mini-transcribe-realtime-2602",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "stt",
     "display_name": "Voxtral Mini Transcribe Realtime 2602",
@@ -1787,7 +1733,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "voxtral-mini-tts-2603",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "tts",
     "display_name": "Voxtral Mini TTS 2603",
@@ -1796,7 +1742,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "voxtral-mini-tts-latest",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "tts",
     "display_name": "Voxtral Mini TTS Latest",
@@ -1805,7 +1751,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "voxtral-small-2507",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "llm",
     "display_name": "Voxtral Small 2507",
@@ -1814,7 +1760,7 @@ export const IU_CATALOG: ModelInsert[] = [
   },
   {
     "id": "voxtral-small-latest",
-    "provider": "other",
+    "provider": "mistral",
     "family": null,
     "modality": "llm",
     "display_name": "Voxtral Small Latest",
