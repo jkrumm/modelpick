@@ -93,3 +93,6 @@ Two cross-cutting principles:
   forwarding headers (`claude-sonnet-4-6` is a US route, `claude-opus-5` is EU-pinned, the whole
   cheap tier is a Requesty hop to the vendor); and the two `-eu` aliases that probe 200 but
   cannot run a Claude Code session at all.
+- [sideclaw-tiers.md](./sideclaw-tiers.md) — sideclaw's five routing tiers (CLASSIFY, JUDGE,
+  PROSE, VISION, adversary): which two are this repo's scored picks (`coding`, `vision`) and
+  why the other three are structural choices with no scored category of their own.

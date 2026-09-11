@@ -19,7 +19,9 @@ so a Max session cannot delegate to an IU model. Handing work to `glm-5.3-flash`
 orchestrator only happens through the subprocess lanes (`rd bg`/`agent-dispatch`, `ca`/`cap`),
 which run on IU credentials directly — never through sideclaw's `mcp__sideclaw__dispatch`,
 which is pinned to Sonnet on Max (fallback IU) regardless of any worker-backend env var; see
-`sideclaw/server/lib/routing.ts` for the live per-tool table.
+`sideclaw/server/lib/routing.ts` for the live per-tool table, and
+[sideclaw-tiers.md](./sideclaw-tiers.md) for why the other four tiers are routed the way
+they are.
 
 This supersedes the earlier LiteLLM-bridge lane (retired 2026-09-04), whose premises have both
 expired.
