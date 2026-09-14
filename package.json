@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "npx kill-port 7727 && secrets-run run --env-file=.env.tpl -- vite dev",
     "build": "vite build",
-    "start": "secrets-run run --env-file=.env.tpl -- node .output/server/index.mjs",
+    "start": "secrets-run run --env-file=.env.tpl -- node --import ./scripts/exit-guard.mjs .output/server/index.mjs",
     "typecheck": "tsr generate && tsc --noEmit",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
