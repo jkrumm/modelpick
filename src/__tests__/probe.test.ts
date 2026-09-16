@@ -1,11 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { parseResidency, IuFetchError, iuFetch, gatewayChat } from "../server/iu/client.js";
 import { classifyProbe, isAccessible } from "../server/iu/classify.js";
-import {
-  probeModel,
-  findCaseDuplicatePairs,
-  planTableReconciliation,
-} from "../server/iu/probe.js";
+import { probeModel, findCaseDuplicatePairs, planTableReconciliation } from "../server/iu/probe.js";
 
 // Replace global fetch with a Vitest mock
 const fetchMock = vi.fn<typeof fetch>();

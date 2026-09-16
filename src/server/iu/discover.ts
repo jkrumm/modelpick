@@ -27,9 +27,7 @@ export function classifyModality(id: string): Modality {
 export function deriveProvider(id: string): string {
   const s = id.toLowerCase();
   if (/^claude|anthropic/.test(s)) return "anthropic";
-  if (
-    /^(gpt|o1|o3|o4|chatgpt|dall-e|text-embedding|tts|whisper|omni-moderation)/.test(s)
-  ) {
+  if (/^(gpt|o1|o3|o4|chatgpt|dall-e|text-embedding|tts|whisper|omni-moderation)/.test(s)) {
     return "openai";
   }
   if (/^gemini|google/.test(s)) return "google";
@@ -42,9 +40,7 @@ export function deriveProvider(id: string): string {
   if (/^cohere|command-r/.test(s)) return "cohere";
   if (s.startsWith("jamba")) return "ai21";
   if (
-    /^mistral|mixtral|dolphin|^codestral|^devstral|^ministral|^magistral|^pixtral|^voxtral/.test(
-      s,
-    )
+    /^mistral|mixtral|dolphin|^codestral|^devstral|^ministral|^magistral|^pixtral|^voxtral/.test(s)
   ) {
     return "mistral";
   }

@@ -349,8 +349,7 @@ export async function reconcileCaseDuplicates({
   tables: CaseDuplicateTables;
   liveIds: Set<string>;
 }): Promise<void> {
-  const { models, capabilityProbe, metricSnapshot, recommendation, stackChoice, demo } =
-    tables;
+  const { models, capabilityProbe, metricSnapshot, recommendation, stackChoice, demo } = tables;
 
   const modelIds = (await db.select({ id: models.id }).from(models)).map((m) => m.id);
   const pairs = findCaseDuplicatePairs({ modelIds, liveIds });
@@ -398,7 +397,10 @@ export async function reconcileCaseDuplicates({
         uniqueKey: (r) => `${r.source}|${r.metric}|${r.captured_at}`,
       }),
       update: (ids) =>
-        db.update(metricSnapshot).set({ model_id: survivorId }).where(inArray(metricSnapshot.id, ids)),
+        db
+          .update(metricSnapshot)
+          .set({ model_id: survivorId })
+          .where(inArray(metricSnapshot.id, ids)),
       del: (ids) => db.delete(metricSnapshot).where(inArray(metricSnapshot.id, ids)),
     });
 
@@ -426,7 +428,11 @@ export async function reconcileCaseDuplicates({
     });
 
     const stackRows = await db
-      .select({ id: stackChoice.id, model_id: stackChoice.model_id, category: stackChoice.category })
+      .select({
+        id: stackChoice.id,
+        model_id: stackChoice.model_id,
+        category: stackChoice.category,
+      })
       .from(stackChoice);
     moved += await applyReconciliationPlan({
       plan: planTableReconciliation({
@@ -456,7 +462,8 @@ export async function reconcileCaseDuplicates({
         loserId,
         survivorId,
         rows: demoRows,
-        uniqueKey: (r) => `${r.modality}|${r.text_content}|${r.lang}|${r.preset ?? ""}|${r.voice ?? ""}`,
+        uniqueKey: (r) =>
+          `${r.modality}|${r.text_content}|${r.lang}|${r.preset ?? ""}|${r.voice ?? ""}`,
       }),
       update: (ids) => db.update(demo).set({ model_id: survivorId }).where(inArray(demo.id, ids)),
       del: (ids) => db.delete(demo).where(inArray(demo.id, ids)),
