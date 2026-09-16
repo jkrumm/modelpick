@@ -34,12 +34,15 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 });
 
+// "Leaderboards" (external metrics we collect) vs "ccbench" (our own agentic
+// benchmark runs) — both used to say "Benchmarks"/"Bench", which read as the
+// same thing and confused which page held which kind of data.
 const NAV_ITEMS: Array<{ to: string; label: string; exact?: boolean }> = [
-  { to: "/", label: "Decider", exact: true },
   { to: "/stack", label: "Stack" },
+  { to: "/", label: "Decider", exact: true },
   { to: "/catalog", label: "Catalog" },
-  { to: "/benchmarks", label: "Benchmarks" },
-  { to: "/bench", label: "Bench" },
+  { to: "/benchmarks", label: "Leaderboards" },
+  { to: "/bench", label: "ccbench" },
   { to: "/tts", label: "TTS" },
   { to: "/stt", label: "STT" },
 ];

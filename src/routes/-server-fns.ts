@@ -1,20 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
-import { desc } from "drizzle-orm";
-import { db } from "~/db/index";
-import { capabilityProbe } from "~/db/schema";
-import type { MetricSnapshot, Model, ProbeStatus, Recommendation } from "~/db/schema";
-import { getLatestMetrics, getLatestRecommendations, getModels } from "~/db/queries";
+import type { MetricSnapshot, Model, Recommendation } from "~/db/schema";
+import {
+  getLatestMetrics,
+  getLatestProbes,
+  getLatestRecommendations,
+  getModels,
+} from "~/db/queries";
+import type { ProbeSummary } from "~/db/queries";
 import { normalizeMetrics } from "~/server/scoring/normalize";
 import type { ModelMetrics } from "~/server/scoring/normalize";
 import { curate } from "~/server/curate";
 
-export interface ProbeInfo {
-  accessible: boolean;
-  probe_status: ProbeStatus;
-  error: string | null;
-  latency_ms: number | null;
-  residency: "eu" | "us" | "unknown";
-}
+export type ProbeInfo = ProbeSummary;
 
 // Raw metric value per model — for chart display (price_in, quality, throughput, etc.)
 export type RawMetricMap = Record<string, Record<string, number>>;
@@ -29,32 +26,6 @@ export interface DeciderData {
   currentIds: string[];
   /** model id -> id of the newer-version sibling that superseded it. */
   supersededBy: Record<string, string>;
-}
-
-function buildProbeMap(
-  allProbes: Array<{
-    model_id: string;
-    accessible: boolean;
-    probe_status: ProbeStatus;
-    error: string | null;
-    latency_ms: number | null;
-    residency: "eu" | "us" | "unknown";
-    checked_at: string;
-  }>,
-): Record<string, ProbeInfo> {
-  const map = new Map<string, ProbeInfo>();
-  for (const p of allProbes) {
-    if (!map.has(p.model_id)) {
-      map.set(p.model_id, {
-        accessible: p.accessible,
-        probe_status: p.probe_status,
-        error: p.error,
-        latency_ms: p.latency_ms,
-        residency: p.residency,
-      });
-    }
-  }
-  return Object.fromEntries(map);
 }
 
 function deduplicateMetrics(rawMetrics: MetricSnapshot[]): MetricSnapshot[] {
@@ -86,31 +57,23 @@ function buildRawMetricMap(metrics: MetricSnapshot[]): RawMetricMap {
 
 export const getDeciderData = createServerFn({ method: "GET" }).handler(
   async (): Promise<DeciderData> => {
-    const [recs, allModels, rawMetrics, allProbes] = await Promise.all([
+    const [recs, allModels, rawMetrics, probes] = await Promise.all([
       getLatestRecommendations(),
       getModels(),
       getLatestMetrics(),
-      db
-        .select({
-          model_id: capabilityProbe.model_id,
-          accessible: capabilityProbe.accessible,
-          probe_status: capabilityProbe.probe_status,
-          error: capabilityProbe.error,
-          latency_ms: capabilityProbe.latency_ms,
-          residency: capabilityProbe.residency,
-          checked_at: capabilityProbe.checked_at,
-        })
-        .from(capabilityProbe)
-        .orderBy(desc(capabilityProbe.checked_at)),
+      getLatestProbes(),
     ]);
 
     const latestMetrics = deduplicateMetrics(rawMetrics);
-    const probes = buildProbeMap(allProbes);
     const rawMap = buildRawMetricMap(latestMetrics);
 
     // Propagate leaderboard data across catalog variants and pick the "current"
     // representative per model so default views drop dated pins and stale models.
-    const { metrics: modelMetrics, currentIds, supersededBy } = curate(
+    const {
+      metrics: modelMetrics,
+      currentIds,
+      supersededBy,
+    } = curate(
       allModels.map((m) => ({ id: m.id, modality: m.modality })),
       normalizeMetrics(latestMetrics),
       (id) => probes[id]?.accessible ?? false,

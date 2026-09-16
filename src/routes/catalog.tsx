@@ -579,7 +579,10 @@ function ModelTable({
                       {row.display_name}
                     </Text>
                     {row.superseded_by !== null && (
-                      <Tooltip label={`A newer version (${row.superseded_by}) is available`} withArrow>
+                      <Tooltip
+                        label={`A newer version (${row.superseded_by}) is available`}
+                        withArrow
+                      >
                         <Badge color="gray" size="xs" variant="light" style={{ cursor: "help" }}>
                           superseded by {row.superseded_by}
                         </Badge>
@@ -986,11 +989,7 @@ function CatalogPage() {
         </Group>
       </Paper>
 
-      <ComparisonPanel
-        rows={pinnedRows}
-        onUnpin={togglePin}
-        onClear={() => setPinnedIds([])}
-      />
+      <ComparisonPanel rows={pinnedRows} onUnpin={togglePin} onClear={() => setPinnedIds([])} />
 
       <Text size="sm" c="dimmed">
         {sortedRows.length} model{sortedRows.length !== 1 ? "s" : ""}
