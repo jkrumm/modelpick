@@ -10,6 +10,8 @@ import {
   extractScores,
 } from "../server/collectors/epoch.js";
 import { benchmarkSaturation } from "../server/collectors/epoch-benchmarks.js";
+import { collectEqbench, extractEmbeddedCsv } from "../server/collectors/eqbench.js";
+import { collectLmarena } from "../server/collectors/lmarena.js";
 
 const resolve = createIdResolver(["claude-sonnet-4-6", "gpt-5.5", "tts-hd", "whisper"]);
 
@@ -27,6 +29,14 @@ function jsonResponse(body: unknown, status = 200): Response {
     ok: status >= 200 && status < 300,
     status,
     json: async () => body,
+  } as unknown as Response;
+}
+
+function textResponse(body: string, status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () => body,
   } as unknown as Response;
 }
 
@@ -633,5 +643,273 @@ describe("benchmarkSaturation", () => {
   it("does not flag a spread-out field as saturated", () => {
     const result = benchmarkSaturation({ score_ceiling: 1.0 }, [0.3, 0.5, 0.6, 0.2]);
     expect(result?.saturated).toBe(false);
+  });
+});
+
+// ── eqbench ──────────────────────────────────────────────────────────────────
+
+describe("extractEmbeddedCsv", () => {
+  it("extracts the CSV, stopping at the first backtick after further JS/HTML follows", () => {
+    const js = [
+      "console.log('site boot');",
+      "let leaderboardDataCreativeWritingV3 = `",
+      "model_name,elo_score",
+      "gpt-5.5,1500",
+      "`;",
+      "",
+      "document.querySelector('.foo').innerHTML = `<div>not csv, has a backtick too\\`</div>`;",
+    ].join("\n");
+
+    expect(extractEmbeddedCsv(js, "leaderboardDataCreativeWritingV3")).toBe(
+      "model_name,elo_score\ngpt-5.5,1500\n",
+    );
+  });
+
+  it("returns null when the variable assignment is not present", () => {
+    expect(
+      extractEmbeddedCsv("let somethingElse = `a,b\n1,2`;", "leaderboardDataCreativeWritingV3"),
+    ).toBeNull();
+  });
+});
+
+const CREATIVE_WRITING_JS_FIXTURE = [
+  "console.log('site boot');",
+  "let leaderboardDataCreativeWritingV3 = `",
+  "model_name,elo_score,creative_writing_score,avg_length,vocab_complexity,slop_score,repetition_score",
+  "claude-sonnet-4-6,1550,8.5,3000,55.2,12.1,3.4",
+  "*gpt-5.5,1490,8.1,2800,50.0,15.6,4.0",
+  "some/totally-unknown-model,1400,7.0,2500,48.0,20.0,5.0",
+  "`;",
+  "",
+  "document.querySelector('.foo').innerHTML = `<div>not csv</div>`;",
+].join("\n");
+
+const LONGFORM_JS_FIXTURE = [
+  "let leaderboardDataLongformV3 = `",
+  "model_name,overall_score_100,avg_chapter_length,vocab_complexity,slop_score,repetition_score,chapter1_avg,chapter2_avg,final_judgement_avg",
+  "claude-sonnet-4-6,82.5,1200,60.0,10.0,2.0,8.0,8.2,8.4",
+  "`;",
+].join("\n");
+
+describe("collectEqbench", () => {
+  it("parses both leaderboards, strips a '*' new-entry marker, and records unmatched models", async () => {
+    fetchMock
+      .mockResolvedValueOnce(textResponse(CREATIVE_WRITING_JS_FIXTURE))
+      .mockResolvedValueOnce(textResponse(LONGFORM_JS_FIXTURE));
+
+    const result = await collectEqbench(resolve);
+
+    const elo = result.metrics.find(
+      (m) => m.model_id === "claude-sonnet-4-6" && m.metric === "creative_writing_elo",
+    );
+    expect(elo?.value).toBe(1550);
+    expect(elo?.source).toBe("eqbench");
+    expect(elo?.confidence).toBe(0.8);
+
+    // "*"-prefixed new-entry marker stripped before resolving
+    const gptSlop = result.metrics.find(
+      (m) => m.model_id === "gpt-5.5" && m.metric === "slop_score",
+    );
+    expect(gptSlop?.value).toBe(15.6);
+
+    const longform = result.metrics.find(
+      (m) => m.model_id === "claude-sonnet-4-6" && m.metric === "longform_writing",
+    );
+    expect(longform?.value).toBe(82.5);
+
+    expect(result.unmatched.some((u) => u.externalId === "some/totally-unknown-model")).toBe(true);
+  });
+
+  it("skips a row whose cell count does not match the header", async () => {
+    const ragged = [
+      "let leaderboardDataCreativeWritingV3 = `",
+      "model_name,elo_score,creative_writing_score,avg_length,vocab_complexity,slop_score,repetition_score",
+      "claude-sonnet-4-6,1550,8.5,3000", // too few cells — ragged, must be skipped
+      "`;",
+    ].join("\n");
+    fetchMock
+      .mockResolvedValueOnce(textResponse(ragged))
+      .mockResolvedValueOnce(textResponse("no literal here"));
+
+    const result = await collectEqbench(resolve);
+    expect(result.metrics).toHaveLength(0);
+  });
+
+  it("returns empty result when the embedded CSV cannot be located in either file", async () => {
+    fetchMock
+      .mockResolvedValueOnce(textResponse("no literal here at all"))
+      .mockResolvedValueOnce(textResponse("also nothing here"));
+
+    const result = await collectEqbench(resolve);
+    expect(result.metrics).toHaveLength(0);
+  });
+});
+
+// ── lmarena ──────────────────────────────────────────────────────────────────
+
+function categoryOf(url: string): string | null {
+  const match = new URL(url).searchParams.get("where")?.match(/'([^']+)'/);
+  return match?.[1] ?? null;
+}
+
+function arenaRow(overrides: { model_name: string; rating: number; vote_count?: number }): {
+  row_idx: number;
+  row: Record<string, unknown>;
+} {
+  return {
+    row_idx: 0,
+    row: {
+      model_name: overrides.model_name,
+      organization: "anthropic",
+      license: "Proprietary",
+      rating: overrides.rating,
+      rating_lower: overrides.rating - 10,
+      rating_upper: overrides.rating + 10,
+      variance: 5,
+      vote_count: overrides.vote_count ?? 1000,
+      rank: 1,
+      category: "overall",
+      leaderboard_publish_date: "2026-09-01",
+    },
+  };
+}
+
+describe("collectLmarena", () => {
+  const resolveArena = createIdResolver(["claude-sonnet-4-6", "claude-opus-4-6"]);
+
+  it("paginates a category until num_rows_total is covered", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const category = categoryOf(String(input));
+      const offset = Number(new URL(String(input)).searchParams.get("offset"));
+      if (category !== "overall") return jsonResponse({ rows: [], num_rows_total: 0 });
+      if (offset === 0) {
+        return jsonResponse({
+          rows: [arenaRow({ model_name: "claude-sonnet-4-6", rating: 1500 })],
+          num_rows_total: 150,
+        });
+      }
+      return jsonResponse({
+        rows: [arenaRow({ model_name: "claude-opus-4-6", rating: 1600 })],
+        num_rows_total: 150,
+      });
+    });
+
+    vi.useFakeTimers();
+    const promise = collectLmarena(resolveArena);
+    await vi.runAllTimersAsync(); // the inter-page delay
+    const result = await promise;
+    vi.useRealTimers();
+
+    const overall = result.metrics.filter((m) => m.metric === "arena_elo");
+    expect(overall.map((m) => m.model_id).toSorted()).toEqual([
+      "claude-opus-4-6",
+      "claude-sonnet-4-6",
+    ]);
+    // high vote_count (default 1000) — high-confidence tier
+    expect(overall.find((m) => m.model_id === "claude-sonnet-4-6")?.confidence).toBe(0.85);
+  });
+
+  it("retries the 'index is loading' error, then skips just that category", async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    fetchMock.mockImplementation(async () => {
+      calls++;
+      return jsonResponse({
+        error: "the dataset index is loading, this may take longer than usual",
+      });
+    });
+
+    const promise = collectLmarena(resolveArena);
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.metrics).toHaveLength(0);
+    // 5 categories x (initial attempt + two retries) = 15 fetch calls. The first
+    // page never succeeds, so num_rows_total stays unknown and each category
+    // stops after that one page instead of paging forever.
+    expect(calls).toBe(15);
+    vi.useRealTimers();
+  });
+
+  it("keeps the pages that succeeded when a later page fails", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const category = categoryOf(String(input));
+      const offset = Number(new URL(String(input)).searchParams.get("offset"));
+      if (category !== "overall") return jsonResponse({ rows: [], num_rows_total: 0 });
+      if (offset === 0) {
+        return jsonResponse({
+          rows: [arenaRow({ model_name: "claude-sonnet-4-6", rating: 1500 })],
+          num_rows_total: 150,
+        });
+      }
+      return jsonResponse({ error: "the dataset index is loading" });
+    });
+
+    const promise = collectLmarena(resolveArena);
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    // The second page is lost; the first page's model survives rather than the
+    // whole category being discarded.
+    expect(result.metrics.filter((m) => m.metric === "arena_elo").map((m) => m.model_id)).toEqual([
+      "claude-sonnet-4-6",
+    ]);
+    vi.useRealTimers();
+  });
+
+  it("resolves a hyphenated effort suffix, keeping the higher-rated variant", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const category = categoryOf(String(input));
+      if (category !== "creative_writing") return jsonResponse({ rows: [], num_rows_total: 0 });
+      return jsonResponse({
+        rows: [
+          arenaRow({ model_name: "claude-opus-4-6", rating: 1484.3 }),
+          arenaRow({ model_name: "claude-opus-4-6-high", rating: 1504.7 }),
+        ],
+        num_rows_total: 2,
+      });
+    });
+
+    const result = await collectLmarena(resolveArena);
+    const cw = result.metrics.filter((m) => m.metric === "arena_creative_writing");
+    expect(cw).toHaveLength(1);
+    expect(cw[0]?.model_id).toBe("claude-opus-4-6");
+    expect(cw[0]?.value).toBe(1504.7);
+    expect(result.unmatched).toHaveLength(0);
+  });
+
+  it("leaves a genuine -max model name intact when it resolves directly", async () => {
+    const resolveMax = createIdResolver(["qwen3.8-max"]);
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const category = categoryOf(String(input));
+      if (category !== "overall") return jsonResponse({ rows: [], num_rows_total: 0 });
+      return jsonResponse({
+        rows: [arenaRow({ model_name: "qwen3.8-max", rating: 1470 })],
+        num_rows_total: 1,
+      });
+    });
+
+    const result = await collectLmarena(resolveMax);
+    expect(result.metrics.filter((m) => m.metric === "arena_elo")[0]?.model_id).toBe("qwen3.8-max");
+  });
+
+  it("drops rows below the vote_count floor and lowers confidence under the high-confidence threshold", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const category = categoryOf(String(input));
+      if (category !== "overall") return jsonResponse({ rows: [], num_rows_total: 0 });
+      return jsonResponse({
+        rows: [
+          arenaRow({ model_name: "claude-sonnet-4-6", rating: 1500, vote_count: 50 }), // below floor
+          arenaRow({ model_name: "claude-opus-4-6", rating: 1600, vote_count: 200 }), // low confidence
+        ],
+        num_rows_total: 2,
+      });
+    });
+
+    const result = await collectLmarena(resolveArena);
+    const metrics = result.metrics.filter((m) => m.metric === "arena_elo");
+    expect(metrics.find((m) => m.model_id === "claude-sonnet-4-6")).toBeUndefined();
+    expect(metrics.find((m) => m.model_id === "claude-opus-4-6")?.confidence).toBe(0.7);
   });
 });

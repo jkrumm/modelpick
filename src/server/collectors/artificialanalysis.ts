@@ -114,7 +114,13 @@ export async function collectArtificialAnalysis(resolve: IdResolver): Promise<Co
       model.evaluations?.artificial_analysis_coding_index,
       0.9,
     );
-    addMetric(metrics, localId, "math_index", model.evaluations?.artificial_analysis_math_index, 0.9);
+    addMetric(
+      metrics,
+      localId,
+      "math_index",
+      model.evaluations?.artificial_analysis_math_index,
+      0.9,
+    );
     // Remaining AA evals: metric names mirror AA's own field names verbatim — they're
     // already short, stable benchmark identifiers with no ambiguity to resolve.
     addMetric(metrics, localId, "mmlu_pro", model.evaluations?.mmlu_pro, 0.9);
@@ -128,13 +134,7 @@ export async function collectArtificialAnalysis(resolve: IdResolver): Promise<Co
     addMetric(metrics, localId, "ifbench", model.evaluations?.ifbench, 0.9);
     addMetric(metrics, localId, "lcr", model.evaluations?.lcr, 0.9);
     addMetric(metrics, localId, "terminalbench_hard", model.evaluations?.terminalbench_hard, 0.9);
-    addMetric(
-      metrics,
-      localId,
-      "terminalbench_v2_1",
-      model.evaluations?.terminalbench_v2_1,
-      0.9,
-    );
+    addMetric(metrics, localId, "terminalbench_v2_1", model.evaluations?.terminalbench_v2_1, 0.9);
     addMetric(metrics, localId, "tau2", model.evaluations?.tau2, 0.9);
     addMetric(metrics, localId, "tau_banking", model.evaluations?.tau_banking, 0.9);
     addMetric(metrics, localId, "throughput", model.median_output_tokens_per_second, 0.9);

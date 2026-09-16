@@ -46,7 +46,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 0.6,
-    "release_date": null,
+    "release_date": "2025-07-11",
     "superseded_by": "FrontierMath-Tier-4-v2-Private"
   },
   {
@@ -55,7 +55,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-06-12",
     "superseded_by": null
   },
   {
@@ -64,7 +64,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-06-12",
     "superseded_by": null
   },
   {
@@ -100,7 +100,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2025-09-09",
     "superseded_by": null
   },
   {
@@ -109,7 +109,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0.0496,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2025-12-10",
     "superseded_by": null
   },
   {
@@ -118,7 +118,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-07-01",
     "superseded_by": null
   },
   {
@@ -127,7 +127,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0.0922,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-07-30",
     "superseded_by": null
   },
   {
@@ -136,7 +136,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-06-26",
     "superseded_by": null
   },
   {
@@ -406,7 +406,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-01-21",
     "superseded_by": null
   },
   {
@@ -415,7 +415,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2025-03-24",
     "superseded_by": null
   },
   {
@@ -424,7 +424,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0.048,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2025-01-23",
     "superseded_by": null
   },
   {
@@ -433,7 +433,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-03-11",
     "superseded_by": null
   },
   {
@@ -442,7 +442,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": false,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-03-11",
     "superseded_by": null
   },
   {
@@ -451,16 +451,16 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": false,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-05-02",
     "superseded_by": null
   },
   {
     "benchmark": "CritPt",
-    "metric": "critpt_external",
-    "in_eci": true,
+    "metric": null,
+    "in_eci": false,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2025-09-30",
     "superseded_by": null
   },
   {
@@ -469,7 +469,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-05-13",
     "superseded_by": null
   },
   {
@@ -478,7 +478,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2025-10-29",
     "superseded_by": null
   },
   {
@@ -487,7 +487,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2025-09-25",
     "superseded_by": null
   },
   {
@@ -496,7 +496,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-02-03",
     "superseded_by": null
   },
   {
@@ -505,7 +505,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-04-29",
     "superseded_by": null
   },
   {
@@ -514,7 +514,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-06-26",
     "superseded_by": null
   },
   {
@@ -523,7 +523,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-06-19",
     "superseded_by": null
   },
   {
@@ -532,7 +532,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2025-03-19",
     "superseded_by": null
   },
   {
@@ -541,7 +541,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-05-26",
     "superseded_by": null
   },
   {
@@ -550,7 +550,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-01-30",
     "superseded_by": null
   },
   {
@@ -559,7 +559,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-06-08",
     "superseded_by": null
   },
   {
@@ -568,7 +568,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0,
     "score_ceiling": 0.85,
-    "release_date": null,
+    "release_date": "2026-08-12",
     "superseded_by": null
   },
   {
@@ -577,7 +577,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": true,
     "random_baseline": 0.4,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2026-08-12",
     "superseded_by": null
   },
   {
@@ -604,7 +604,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "in_eci": false,
     "random_baseline": 0.5,
     "score_ceiling": 1,
-    "release_date": null,
+    "release_date": "2024-09-30",
     "superseded_by": null
   },
   {
@@ -632,6 +632,123 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "random_baseline": 0.25,
     "score_ceiling": 1,
     "release_date": "2024-05-31",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "FrontierMath-Erdos",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2026-09-03",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "GDP.pdf",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2026-04-14",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "FrontierSWE",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2026-09-02",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "SciCode",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2024-07-18",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "WebDev Arena",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2024-12-10",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "Blueprint-Bench 2",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2026-05-04",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "MindCube",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2025-06-26",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "SpatialViz-Bench",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2025-07-10",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "BTF-3",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": null,
+    "superseded_by": null
+  },
+  {
+    "benchmark": "EnigmaEval",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2025-02-13",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "AlgoTune",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2025-07-19",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "ALE-Bench",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2025-06-10",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "Vending-Bench 2",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2025-11-18",
     "superseded_by": null
   }
 ];
