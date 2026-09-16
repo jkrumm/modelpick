@@ -88,7 +88,11 @@ export interface BenchTask {
    *  specific hint here invalidates the comparison. */
   prompt: string;
   maxTurns: number;
-  timeoutMs: number;
+  /** An expectation used for reporting, not a kill — the harness no longer
+   *  wall-clocks a task. A run that exceeds this is recorded as over-budget in
+   *  the console output and allowed to keep running against the idle watchdog
+   *  and absolute ceiling instead (see `spawn.ts`). */
+  expectedMaxMs: number;
   /**
    * Files the agent must never see, copied in from
    * `fixtures/bench/<fixture>/.hidden/` only after the run ends. Sandbox-relative
@@ -136,6 +140,12 @@ export interface RunMetrics {
   terminalReason: string | null;
   /** Distinct sandbox-relative paths the agent wrote to. */
   filesEdited: string[];
+  /** Count of `system`/`thinking_tokens` telemetry events in the transcript —
+   *  evidence a stream was still producing turns, independent of `killed`. */
+  thinkingEstimateEvents: number;
+  /** `type` of the last transcript event, or null on an empty transcript —
+   *  distinguishes a clean `result` ending from a stream that died mid-turn. */
+  lastEventType: string | null;
   /** Anything the parser wants the report to surface verbatim. */
   notes: string[];
 }

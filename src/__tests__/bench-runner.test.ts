@@ -274,9 +274,25 @@ describe("parseTranscript", () => {
     expect(metrics.failure).toBe("none");
   });
 
-  it("classifies a killed run as a timeout even when the stream looks clean", () => {
-    const metrics = parseTranscript({ raw: PARALLEL_STREAM, durationMs: 600_000, killed: true });
+  it("classifies a ceiling kill as a timeout even when the stream looks clean", () => {
+    const metrics = parseTranscript({
+      raw: PARALLEL_STREAM,
+      durationMs: 600_000,
+      killed: true,
+      killReason: "ceiling",
+    });
     expect(metrics.failure).toBe("timeout");
+    expect(metrics.ok).toBe(false);
+  });
+
+  it("classifies an idle-watchdog kill as idle_stall, not timeout", () => {
+    const metrics = parseTranscript({
+      raw: PARALLEL_STREAM,
+      durationMs: 600_000,
+      killed: true,
+      killReason: "idle",
+    });
+    expect(metrics.failure).toBe("idle_stall");
     expect(metrics.ok).toBe(false);
   });
 
@@ -303,6 +319,7 @@ describe("parseTranscript", () => {
     expect(
       classifyFailure({
         killed: false,
+        killReason: null,
         hasResult: true,
         subtype: "error_during_execution",
         terminalReason: null,

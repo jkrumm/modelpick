@@ -157,7 +157,7 @@ const locate: BenchTask = {
     "backticks, no code fence, no explanation.",
   ].join("\n"),
   maxTurns: 15,
-  timeoutMs: 240_000,
+  expectedMaxMs: 240_000,
   grade: async (ctx: GradeContext): Promise<TaskGrade> => {
     const answer = normalizeLocation(ctx.finalText);
     const file = lastReferencedFile(ctx.finalText);
@@ -196,7 +196,7 @@ const fixFailingTest: BenchTask = {
     "run `bun test` once more and confirm it is green.",
   ].join("\n"),
   maxTurns: 30,
-  timeoutMs: 420_000,
+  expectedMaxMs: 420_000,
   grade: async (ctx: GradeContext): Promise<TaskGrade> => {
     const suite = await ctx.run(["bun", "test"]);
     const testFiles = await listPristine("fix-failing-test", "test");
@@ -274,7 +274,7 @@ const implementSpec: BenchTask = {
     "bun's built-in test runner and the standard library are enough.",
   ].join("\n"),
   maxTurns: 25,
-  timeoutMs: 360_000,
+  expectedMaxMs: 360_000,
   grade: async (ctx: GradeContext): Promise<TaskGrade> => {
     const source = await ctx.readFile("src/duration.ts");
     const suite = await ctx.run(["bun", "test", "test/duration.test.ts"]);
@@ -347,7 +347,7 @@ const threadField: BenchTask = {
     "Do not modify anything under `test/`. The existing suite must stay green — run `bun test`.",
   ].join("\n"),
   maxTurns: 30,
-  timeoutMs: 420_000,
+  expectedMaxMs: 420_000,
   grade: async (ctx: GradeContext): Promise<TaskGrade> => {
     const hidden = await ctx.run(["bun", "test", "test/discount.test.ts"]);
     const existing = await ctx.run(["bun", "test", "test/report.test.ts"]);
@@ -415,7 +415,7 @@ const batchRead: BenchTask = {
     "Your final message must be only that JSON object — no prose, no code fence, no explanation.",
   ].join("\n"),
   maxTurns: 15,
-  timeoutMs: 240_000,
+  expectedMaxMs: 240_000,
   grade: async (ctx: GradeContext): Promise<TaskGrade> => {
     const parsed = extractLastJsonObject(ctx.finalText);
     const wrong: string[] = [];
@@ -536,7 +536,7 @@ const houseRules: BenchTask = {
     "Add a test for it under `test/`.",
   ].join("\n"),
   maxTurns: 30,
-  timeoutMs: 420_000,
+  expectedMaxMs: 420_000,
   grade: async (ctx: GradeContext): Promise<TaskGrade> => {
     const suite = await ctx.run(["bun", "test", "test/csv.test.ts"]);
     const raw = await ctx.readFile("src/csv.ts");
@@ -676,7 +676,7 @@ const parserSpec: BenchTask = {
     "Add your own tests under `test/`. Do not add any dependency to `package.json`.",
   ].join("\n"),
   maxTurns: 35,
-  timeoutMs: 600_000,
+  expectedMaxMs: 600_000,
   grade: async (ctx: GradeContext): Promise<TaskGrade> => {
     const source = await ctx.readFile("src/expr.ts");
     const checks: BenchCheck[] = [
@@ -729,7 +729,7 @@ const perfRefactor: BenchTask = {
     "inputs are large enough that only a change of algorithm helps.",
   ].join("\n"),
   maxTurns: 35,
-  timeoutMs: 600_000,
+  expectedMaxMs: 600_000,
   grade: async (ctx: GradeContext): Promise<TaskGrade> => {
     const api = await ctx.run(["bun", "-e", PERF_API_SNIPPET], { timeoutMs: 60_000 });
     const tree = await compareTestTree(ctx, "perf-refactor");
@@ -797,7 +797,7 @@ const multiBug: BenchTask = {
     "add anything under `test/` — fix `src/` only.",
   ].join("\n"),
   maxTurns: 22,
-  timeoutMs: 600_000,
+  expectedMaxMs: 600_000,
   grade: async (ctx: GradeContext): Promise<TaskGrade> => {
     const checks: BenchCheck[] = [];
     for (const suite of MULTI_BUG_SUITES) {
@@ -875,7 +875,7 @@ const deepSearch: BenchTask = {
     "separated by a single space, nothing else. No prose, no backticks, no code fence.",
   ].join("\n"),
   maxTurns: 30,
-  timeoutMs: 480_000,
+  expectedMaxMs: 480_000,
   grade: async (ctx: GradeContext): Promise<TaskGrade> => {
     const line = answerLine(ctx.finalText);
     const name = (line.split(/\s+/)[0] ?? "").replace(/\(\)$/, "").replaceAll(/[^\w$]/g, "");

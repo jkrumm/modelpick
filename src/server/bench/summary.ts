@@ -656,6 +656,8 @@ export function benchRunResultFromRow(row: BenchRun): BenchRunResult {
       apiErrors: row.api_errors,
       terminalReason: row.terminal_reason,
       filesEdited: [],
+      thinkingEstimateEvents: 0,
+      lastEventType: null,
       notes: row.notes ? row.notes.split(" | ") : [],
     },
   };

@@ -43,6 +43,8 @@ const ZERO_METRICS: RunMetrics = {
   apiErrors: 0,
   terminalReason: "end_turn",
   filesEdited: [],
+  thinkingEstimateEvents: 0,
+  lastEventType: "result",
   notes: [],
 };
 

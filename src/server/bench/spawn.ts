@@ -169,11 +169,20 @@ export function makeRedactor(secret: string): Redactor {
   };
 }
 
+/** How often the idle watchdog checks `lastChunkAt`. Cheap enough to run
+ *  every tick of a multi-minute run without mattering to the measurement. */
+const IDLE_CHECK_INTERVAL_MS = 5_000;
+
 export interface SpawnRunOptions {
   modelId: string;
   prompt: string;
   maxTurns: number;
-  timeoutMs: number;
+  /** Killed only when no stdout chunk has arrived for this long — "wedged",
+   *  not "slow". Reset on every stdout chunk; stderr does not count. */
+  idleTimeoutMs: number;
+  /** Absolute wall-clock kill regardless of liveness — the backstop for a
+   *  model that keeps the stream alive (e.g. thinking deltas) forever. */
+  ceilingMs: number;
   cwd: string;
   configDir: string;
   /** Every byte of stdout is tee'd here as it arrives, so a killed run still
@@ -187,12 +196,30 @@ export interface SpawnRunOutcome {
   stderr: string;
   exitCode: number | null;
   killed: boolean;
+  /** Which watchdog fired, or null when the child exited on its own. */
+  killReason: "idle" | "ceiling" | null;
+  /** `Date.now() - lastChunkAt` at the moment of the kill; null when never killed. */
+  idleMsAtKill: number | null;
+  /** Epoch ms of the final stdout chunk; null when stdout never produced one. */
+  lastChunkAt: number | null;
   durationMs: number;
 }
 
 export type Spawner = (options: SpawnRunOptions) => Promise<SpawnRunOutcome>;
 
-/** The real spawn. Kills with SIGTERM on timeout, SIGKILL 15s later. */
+/**
+ * The real spawn. Killed on either of two independent watchdogs — an idle
+ * timer that resets on every stdout chunk, and an absolute ceiling — rather
+ * than a single wall-clock timeout. Measured 2026-09-11 with `glm-5.3-flash`:
+ * four of ten tasks were killed at exactly their wall-clock budget, three of
+ * them had already produced correct work and scored 1.00, and the harness
+ * recorded all four as `failure: "timeout"` with blank `api_duration_ms` and
+ * zero token counts. A single timer cannot tell "still working" from
+ * "wedged"; the idle watchdog can, because a wedged stream stops producing
+ * stdout while a working one, however slow, keeps emitting turns.
+ *
+ * Kill sequence is SIGTERM then SIGKILL `KILL_GRACE_MS` later, same as before.
+ */
 export const spawnClaude: Spawner = async (options) => {
   await fs.mkdir(path.dirname(options.transcriptPath), { recursive: true });
   const tee = createWriteStream(options.transcriptPath, { flags: "w" });
@@ -214,23 +241,36 @@ export const spawnClaude: Spawner = async (options) => {
     let raw = "";
     let stderr = "";
     let killed = false;
+    let killReason: "idle" | "ceiling" | null = null;
+    let idleMsAtKill: number | null = null;
+    let lastChunkAt: number | null = null;
     let settled = false;
     let hardKill: NodeJS.Timeout | null = null;
     // One redactor per stream — each keeps its own straddle buffer.
     const stdoutRedactor = makeRedactor(options.credentials.apiKey);
     const stderrRedactor = makeRedactor(options.credentials.apiKey);
 
-    const timer = setTimeout(() => {
+    const kill = (reason: "idle" | "ceiling"): void => {
+      if (killed) return;
       killed = true;
+      killReason = reason;
+      idleMsAtKill = Date.now() - (lastChunkAt ?? startedAt);
       child.kill("SIGTERM");
       hardKill = setTimeout(() => child.kill("SIGKILL"), KILL_GRACE_MS);
-    }, options.timeoutMs);
+    };
+
+    const idleWatchdog = setInterval(() => {
+      const reference = lastChunkAt ?? startedAt;
+      if (Date.now() - reference >= options.idleTimeoutMs) kill("idle");
+    }, IDLE_CHECK_INTERVAL_MS);
+    const ceilingTimer = setTimeout(() => kill("ceiling"), options.ceilingMs);
 
     // `error` and `close` can both fire; the first one wins.
     const finish = (exitCode: number | null): void => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      clearInterval(idleWatchdog);
+      clearTimeout(ceilingTimer);
       if (hardKill) clearTimeout(hardKill);
       // Release whatever the straddle buffers are still holding, or the last
       // few bytes of the transcript go missing.
@@ -239,10 +279,20 @@ export const spawnClaude: Spawner = async (options) => {
       if (tail !== "") tee.write(tail);
       stderr += stderrRedactor.flush();
       tee.end();
-      resolve({ raw, stderr, exitCode, killed, durationMs: Date.now() - startedAt });
+      resolve({
+        raw,
+        stderr,
+        exitCode,
+        killed,
+        killReason,
+        idleMsAtKill,
+        lastChunkAt,
+        durationMs: Date.now() - startedAt,
+      });
     };
 
     child.stdout?.on("data", (chunk: Buffer) => {
+      lastChunkAt = Date.now();
       const text = stdoutRedactor.push(chunk.toString());
       raw += text;
       if (text !== "") tee.write(text);
@@ -365,6 +415,15 @@ export function makeStubSpawner(stubOptions: StubSpawnerOptions = {}): Spawner {
     const raw = `${events.map((e) => JSON.stringify(e)).join("\n")}\n`;
     await fs.mkdir(path.dirname(options.transcriptPath), { recursive: true });
     await fs.writeFile(options.transcriptPath, raw, "utf8");
-    return { raw, stderr: "", exitCode: 0, killed: false, durationMs };
+    return {
+      raw,
+      stderr: "",
+      exitCode: 0,
+      killed: false,
+      killReason: null,
+      idleMsAtKill: null,
+      lastChunkAt: Date.now(),
+      durationMs,
+    };
   };
 }

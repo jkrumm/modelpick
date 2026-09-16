@@ -24,8 +24,12 @@ export interface ParseTranscriptInput {
   raw: string;
   /** Wall clock measured by the runner, spawn to exit. */
   durationMs: number;
-  /** True when the runner killed the child for exceeding `task.timeoutMs`. */
+  /** True when the runner's idle watchdog or absolute ceiling killed the child
+   *  — see `killReason` for which one. */
   killed?: boolean;
+  /** Which watchdog fired; distinguishes a wedged stream from one that simply
+   *  ran past its ceiling. Only meaningful when `killed` is true. */
+  killReason?: "idle" | "ceiling" | null;
   exitCode?: number | null;
   stderr?: string;
   /** Absolute sandbox path, used to make edited file paths relative. */
@@ -79,10 +83,25 @@ interface StreamScan {
   malformedLines: number;
   events: Record<string, unknown>[];
   resultEvent: Record<string, unknown> | null;
+  /** `type` of the last parsed event, or null on an empty/all-malformed
+   *  transcript. Evidence for "died mid-turn" vs "ended clean on `result`". */
+  lastEventType: string | null;
+  /** Count of `system`/`thinking_tokens` telemetry events — see
+   *  `thinkingTokensFromEvents` for why these matter. */
+  thinkingEstimateEvents: number;
+  /** The largest `estimated_tokens` seen across those events. */
+  maxEstimatedThinkingTokens: number;
 }
 
 function scanLines(raw: string): StreamScan {
-  const scan: StreamScan = { malformedLines: 0, events: [], resultEvent: null };
+  const scan: StreamScan = {
+    malformedLines: 0,
+    events: [],
+    resultEvent: null,
+    lastEventType: null,
+    thinkingEstimateEvents: 0,
+    maxEstimatedThinkingTokens: 0,
+  };
   for (const line of raw.split("\n")) {
     const trimmed = line.trim();
     if (trimmed === "") continue;
@@ -98,9 +117,33 @@ function scanLines(raw: string): StreamScan {
       continue;
     }
     scan.events.push(parsed);
-    if (str(parsed["type"]) === "result") scan.resultEvent = parsed;
+    const type = str(parsed["type"]);
+    scan.lastEventType = type;
+    if (type === "result") scan.resultEvent = parsed;
+    if (type === "system" && str(parsed["subtype"]) === "thinking_tokens") {
+      scan.thinkingEstimateEvents += 1;
+      const estimated = num(parsed["estimated_tokens"]) ?? 0;
+      if (estimated > scan.maxEstimatedThinkingTokens) scan.maxEstimatedThinkingTokens = estimated;
+    }
   }
   return scan;
+}
+
+/**
+ * Measured 2026-09-11 on a killed `glm-5.3-flash` transcript
+ * (`docs/experiments/ccbench/coding-2026-09-11/glm-5_3-flash__perf-refactor__1.jsonl`):
+ * the CLI emitted 17,083 `system`/`thinking_tokens` telemetry events with
+ * `estimated_tokens` peaking at 12,165, while the Requesty-proxied Anthropic
+ * door reports `usage.output_tokens_details.thinking_tokens` as a flat 0 for
+ * that model — so every stored row understated its real thinking spend as
+ * zero. `estimated_tokens` is cumulative, not a per-event delta, so the fix is
+ * the maximum seen, never a sum (and never a sum of `estimated_tokens_delta`
+ * either). Provider-reported usage is still preferred whenever it is non-zero;
+ * this is a fallback for doors that report nothing.
+ */
+function thinkingTokensFromEvents(scan: StreamScan, usageThinkingTokens: number): number {
+  if (usageThinkingTokens > 0) return usageThinkingTokens;
+  return scan.maxEstimatedThinkingTokens;
 }
 
 interface ToolScan {
@@ -303,6 +346,7 @@ export function parseTranscript(input: ParseTranscriptInput): RunMetrics {
 
   const failure = classifyFailure({
     killed,
+    killReason: input.killReason ?? null,
     hasResult: result !== null,
     subtype,
     terminalReason,
@@ -326,6 +370,7 @@ export function parseTranscript(input: ParseTranscriptInput): RunMetrics {
       ? (num(result["num_turns"]) ?? tools.assistantMessageIds)
       : tools.assistantMessageIds,
     ...usage,
+    thinkingTokens: thinkingTokensFromEvents(scan, usage.thinkingTokens),
     costUsd: costFromResult(result),
     toolCalls: tools.toolCalls,
     toolCallsByName: tools.toolCallsByName,
@@ -335,12 +380,16 @@ export function parseTranscript(input: ParseTranscriptInput): RunMetrics {
     apiErrors,
     terminalReason,
     filesEdited: tools.filesEdited,
+    thinkingEstimateEvents: scan.thinkingEstimateEvents,
+    lastEventType: scan.lastEventType,
     notes,
   };
 }
 
 interface FailureInput {
   killed: boolean;
+  /** Which watchdog killed the child; only meaningful when `killed` is true. */
+  killReason: "idle" | "ceiling" | null;
   hasResult: boolean;
   subtype: string | null;
   terminalReason: string | null;
@@ -359,7 +408,7 @@ interface FailureInput {
  * a transient `api_error`.
  */
 export function classifyFailure(input: FailureInput): BenchFailure {
-  if (input.killed) return "timeout";
+  if (input.killed) return input.killReason === "idle" ? "idle_stall" : "timeout";
 
   const hitTurnCap =
     input.subtype === "error_max_turns" ||
@@ -429,6 +478,8 @@ export function harnessErrorMetrics(message: string, durationMs: number): RunMet
     apiErrors: 0,
     terminalReason: null,
     filesEdited: [],
+    thinkingEstimateEvents: 0,
+    lastEventType: null,
     notes: [`harness error: ${message}`],
   };
 }

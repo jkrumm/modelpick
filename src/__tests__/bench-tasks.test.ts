@@ -52,6 +52,8 @@ function stubMetrics(overrides: Partial<RunMetrics> = {}): RunMetrics {
     apiErrors: 0,
     terminalReason: null,
     filesEdited: [],
+    thinkingEstimateEvents: 0,
+    lastEventType: null,
     notes: [],
     ...overrides,
   };
@@ -121,7 +123,7 @@ describe("BENCH_TASKS", () => {
     for (const task of BENCH_TASKS) {
       expect(task.prompt.trim().length, task.id).toBeGreaterThan(80);
       expect(task.maxTurns, task.id).toBeGreaterThan(0);
-      expect(task.timeoutMs, task.id).toBeGreaterThan(0);
+      expect(task.expectedMaxMs, task.id).toBeGreaterThan(0);
     }
   });
 });
@@ -364,7 +366,7 @@ describe("task tiers", () => {
   it("gives every hard task a generous budget", () => {
     for (const id of HARD_TASK_IDS) {
       const task = taskById(id);
-      expect(task.timeoutMs, id).toBeGreaterThanOrEqual(480_000);
+      expect(task.expectedMaxMs, id).toBeGreaterThanOrEqual(480_000);
       expect(task.measures.length, id).toBeGreaterThan(0);
     }
   });

@@ -3,7 +3,7 @@
  *
  *   bun run scripts/bench.ts [--models a,b] [--tasks t1,t2] [--repeats 1]
  *                            [--suite <id>] [--concurrency 2] [--json]
- *                            [--timeout-scale 1]
+ *                            [--idle-min 5] [--ceiling-min 120]
  *                            [--keep] [--dry-run] [--yes|-y]
  *                            [--include-incompatible] [--include-expensive]
  *   bun run scripts/bench.ts --reprice [--suite <id>]   # free, no model calls
@@ -27,6 +27,17 @@
  *    the model, not the operator's global CLAUDE.md, MCP servers and hooks.
  *  - `--dry-run` exercises the whole pipeline against a synthetic transcript.
  *    It validates the harness and proves nothing about any model.
+ *  - Every task used to carry a wall-clock `timeoutMs` kill. Measured
+ *    2026-09-11 with `glm-5.3-flash`: four of ten tasks were killed at exactly
+ *    their budget, three of them had already produced correct work and scored
+ *    1.00, and the harness recorded all four as `failure: "timeout"` with
+ *    blank `api_duration_ms` and zero token counts — a wall clock cannot tell
+ *    "still working" from "wedged", and it destroys the evidence needed to
+ *    tell them apart afterwards. The task field is now `expectedMaxMs`, an
+ *    expectation used only for the `+Ns over expected` reporting below; the
+ *    kill itself is `--idle-min` (no stdout chunk for that long — a real
+ *    watchdog) backstopped by `--ceiling-min` (an absolute wall clock, for a
+ *    model that keeps the stream alive forever).
  *
  * Spends real money without `--dry-run`.
  */
@@ -70,7 +81,12 @@ import { persistBenchRuns } from "../src/server/bench/persist.js";
 import { priceRun, priceRunResult, type Rates } from "../src/server/bench/cost.js";
 import { composite, perModel, perTask } from "../src/server/bench/score.js";
 import { renderReport, toJson } from "../src/server/bench/report.js";
-import type { BenchRunResult, BenchTask, TaskGrade } from "../src/server/bench/types.js";
+import type {
+  BenchRunResult,
+  BenchTask,
+  RunMetrics,
+  TaskGrade,
+} from "../src/server/bench/types.js";
 import { BENCH_TASKS, FIXTURE_ROOT, getTasks } from "../src/server/bench/tasks.js";
 
 const DEFAULT_CONCURRENCY = 2;
@@ -108,12 +124,15 @@ const includeExpensive = args.includes("--include-expensive");
 const repeats = Math.max(1, Number(flagValue("repeats") ?? 1));
 const concurrency = Math.max(1, Number(flagValue("concurrency") ?? DEFAULT_CONCURRENCY));
 /**
- * Multiplies every task's `timeoutMs`. A task timeout is a latency budget, not a
- * capability judgement — a model can do the work correctly and still be killed
- * for being slow, which is exactly what `glm-5.3-flash` did on the hard tier.
- * Scaling it up is how you tell "cannot" apart from "not within ten minutes".
+ * Idle budget applied to every task, in minutes: the child is killed only once
+ * no stdout chunk has arrived for this long, not on a fixed wall clock — see
+ * the module header for why. Default 5 minutes is generous against a live
+ * stream (turns land far more often than that) and tight against a wedged one.
  */
-const timeoutScale = Math.max(1, Number(flagValue("timeout-scale") ?? 1));
+const idleTimeoutMs = Math.max(1, Number(flagValue("idle-min") ?? 5)) * 60_000;
+/** Absolute backstop applied to every task, in minutes — for a model that
+ *  keeps the stream alive (e.g. thinking deltas) without ever finishing. */
+const ceilingMs = Math.max(1, Number(flagValue("ceiling-min") ?? 120)) * 60_000;
 const modelFilter = listValue("models");
 const taskFilter = listValue("tasks");
 
@@ -311,6 +330,9 @@ async function executeRun(
   };
 
   let sandboxDir: string | null = null;
+  // Tracked across try/catch so `finally` knows whether this run failed - a
+  // failed run keeps its sandbox regardless of `--keep` (see the module docs).
+  let finalMetrics: RunMetrics | null = null;
   const began = Date.now();
   try {
     sandboxDir = await createSandbox({
@@ -326,7 +348,8 @@ async function executeRun(
       modelId: run.modelId,
       prompt: run.task.prompt,
       maxTurns: run.task.maxTurns,
-      timeoutMs: run.task.timeoutMs * timeoutScale,
+      idleTimeoutMs,
+      ceilingMs,
       cwd: sandboxDir,
       configDir,
       transcriptPath,
@@ -337,6 +360,7 @@ async function executeRun(
       raw: outcome.raw,
       durationMs: outcome.durationMs,
       killed: outcome.killed,
+      killReason: outcome.killReason,
       exitCode: outcome.exitCode,
       stderr: outcome.stderr,
       sandboxDir,
@@ -355,17 +379,41 @@ async function executeRun(
       grade = graderCrashGrade(err instanceof Error ? err.message : String(err));
     }
 
+    if (metrics.failure !== "none") {
+      const idleDetail =
+        outcome.idleMsAtKill !== null
+          ? `${Math.round(outcome.idleMsAtKill / 1000)}s idle at kill`
+          : "not killed";
+      const resultDetail =
+        metrics.lastEventType !== "result"
+          ? "stream ended without a result event"
+          : "stream ended on a result event";
+      // The thinking-event count and last-event type are what separates "the
+      // model was still streaming when we killed it" from "the stream was
+      // genuinely dead" - the evidence a wall-clock timeout used to destroy.
+      metrics.notes.push(
+        `diagnostic: kill=${outcome.killReason ?? "none"} (${idleDetail}), ` +
+          `${metrics.numTurns} turn(s) observed, ${resultDetail}, ` +
+          `${metrics.thinkingEstimateEvents} thinking-token telemetry event(s), ` +
+          `last event type "${metrics.lastEventType ?? "none"}", sandbox kept at ${sandboxDir}`,
+      );
+    }
+    finalMetrics = metrics;
+
     return { ...base, metrics, grade };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`[bench] ${run.modelId} / ${run.task.id} #${run.attempt}: ${message}`);
+    const metrics = harnessErrorMetrics(message, Date.now() - began);
+    finalMetrics = metrics;
     return {
       ...base,
-      metrics: harnessErrorMetrics(message, Date.now() - began),
+      metrics,
       grade: FAILED_GRADE,
     };
   } finally {
-    if (sandboxDir && !keepSandboxes) {
+    const keepForFailure = finalMetrics !== null && finalMetrics.failure !== "none";
+    if (sandboxDir && !keepSandboxes && !keepForFailure) {
       await removeSandbox(sandboxDir).catch(() => undefined);
     }
   }
@@ -473,14 +521,26 @@ async function main(): Promise<void> {
       await executeRun(run, spawner, credentials, configDir),
       probeRates,
     );
+    const overBudgetMs = Math.max(0, result.metrics.durationMs - run.task.expectedMaxMs);
+    const overBudgetSuffix =
+      overBudgetMs > 0 ? ` +${Math.round(overBudgetMs / 1000)}s over expected` : "";
+    // The diagnostic note (kill reason, idleMsAtKill, turns observed, whether
+    // the transcript ended without a result event, retained sandbox path) was
+    // pushed as the last note only for a failed run - see `executeRun`.
+    const diagnosticSuffix =
+      result.metrics.failure !== "none" ? ` — ${result.metrics.notes.at(-1) ?? ""}` : "";
     console.log(
-      `  ${run.modelId} / ${run.task.id} #${run.attempt}: score ${result.grade.score.toFixed(2)} ${result.grade.passed ? "pass" : "fail"} (${result.metrics.failure})`,
+      `  ${run.modelId} / ${run.task.id} #${run.attempt}: score ${result.grade.score.toFixed(2)} ${result.grade.passed ? "pass" : "fail"} (${result.metrics.failure})${overBudgetSuffix}${diagnosticSuffix}`,
     );
     return result;
   });
 
-  // The per-run sandboxes are already gone; this drops the empty suite tree.
-  if (!keepSandboxes) await removeSandbox(suiteSandboxRoot(suiteId)).catch(() => undefined);
+  // The per-run sandboxes are already gone, unless a failure kept one behind
+  // for inspection - in which case the suite root must survive too.
+  const anyKeptForFailure = results.some((r) => r.metrics.failure !== "none");
+  if (!keepSandboxes && !anyKeptForFailure) {
+    await removeSandbox(suiteSandboxRoot(suiteId)).catch(() => undefined);
+  }
 
   await persistBenchRuns(results);
 
