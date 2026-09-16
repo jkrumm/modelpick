@@ -24,11 +24,13 @@
     "benchmark": "secrets-run run --env-file=.env.tpl -- bun run scripts/benchmark-throughput.ts",
     "benchmark:tools": "secrets-run run --env-file=.env.tpl -- bun run scripts/benchmark-tool-calling.ts",
     "benchmark:bakeoff": "secrets-run run --env-file=.env.tpl -- bun run scripts/benchmark-bakeoff.ts",
+    "bench:fast": "secrets-run run --env-file=.env.tpl -- bun run scripts/bench-fast.ts",
     "pick": "secrets-run run --env-file=.env.tpl -- bun run scripts/pick.ts",
     "cap": "bun run scripts/cap.ts",
     "route-map": "secrets-run run --env-file=.env.tpl -- bun run scripts/route-map.ts",
     "bench": "secrets-run run --env-file=.env.tpl -- bun run scripts/bench.ts",
-    "benchmark:crossprovider": "secrets-run run --env-file=.env.tpl -- bun run scripts/benchmark-crossprovider.ts"
+    "benchmark:crossprovider": "secrets-run run --env-file=.env.tpl -- bun run scripts/benchmark-crossprovider.ts",
+    "verify-deployments": "bun run scripts/verify-deployments.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
