@@ -69,3 +69,125 @@ resulting files mechanically. Rows land in `bench_run`.
 - `bun run route-map` surveys where each id physically lands, from the
   gateway's `x-middleware-forwarded-*` headers — the only place residency is
   visible.
+
+## Why a model looks slower on IU than on the leaderboard (2026-09-11)
+
+Short answer: it mostly isn't. Measured decode rates on IU match or beat ArtificialAnalysis
+for every model checked except one. What differs is **how much the model thinks before it
+answers**, and **what each side calls "time to first token"**.
+
+### The definitions do not line up
+
+AA's performance methodology defines TTFT as request → **first response token**, and for a
+reasoning model that is the *first reasoning token*. It publishes a separate **Time to First
+Answer Token** that includes the thinking interval. Output speed is a decode rate measured
+*after* the first chunk — and for models that do not expose all reasoning tokens, AA computes
+it over the last 80% of answer chunks. Numbers are P50 over 72h, 1,000-token input workload,
+standardized `o200k_base` tokens, measured from GCP `us-central1-a`.
+
+This repo's `ttft_ms` is time to the first **visible** token — AA's *answer*-token metric, not
+its TTFT column. Comparing the two reads as "IU is 10× slower" when the models agree.
+
+### What the streams actually do
+
+Same prompt (~250 words on TCP congestion control), IU `/openai/v1`, streamed, one pass:
+
+| model | 1st SSE frame | 1st visible token | done | completion (of which thinking) |
+|-|-|-|-|-|
+| `gpt-5.6-luna` | 1,329ms | 1,337ms | 4.3s | 458 (65) |
+| `deepseek-v4.1-flash` | **549ms** | 3,038ms | 5.4s | 629 (314) |
+| `DeepSeek-V4-Flash` | 830ms | 10,788ms | 11.9s | 2,775 (2,415) |
+| `glm-5.3-flash` | 1,793ms | 11,273ms | 14.1s | 1,383 (977) |
+| `glm-5.3` | 2,766ms | 17,227ms | 19.0s | 1,622 (1,273) |
+| `DeepSeek-V4-Pro` | 636ms | 5,359ms | 11.6s | 573 (199) |
+| `gemini-3.8-flash` | 5,406ms | 5,406ms | 6.6s | 384 visible + 1,078 hidden |
+
+**There is no proxy buffering on the Requesty path.** `deepseek-v4.1-flash` puts its first
+frame on the wire in 549ms — faster than Luna — and streams reasoning deltas continuously from
+there. The 3s wait for visible text is the model thinking out loud, not the gateway holding
+bytes. `DeepSeek-V4-Flash` spends 2,415 of its 2,775 tokens thinking; that, and only that, is
+why it takes 11.9s.
+
+Decode rate, computed as completion tokens over the window from the first frame:
+
+| model | AA median tok/s | measured on IU |
+|-|-|-|
+| `gpt-5.6-luna` | 126 | 154 |
+| `DeepSeek-V4-Flash` | 239 | 251 |
+| `glm-5.3-flash` | 92 | 112 |
+| `glm-5.3` | 53 | 100 |
+| `gemini-3.8-flash` | 331 | 319–397 |
+| `DeepSeek-V4-Pro` | 70 | 52 |
+| `deepseek-v4.1-flash` | 267 | **129** |
+
+Only `deepseek-v4.1-flash` is materially under its leaderboard number, and that is a *serving*
+difference, not an IU one: the response body names its upstream as
+`accounts/fireworks/models/deepseek-v4p1-flash`, i.e. Fireworks' shared serverless tier, whose
+own published figure is "up to 90–130 tok/s" with the caveat that load changes it. AA measures
+whichever endpoint it tests; the same open-weight model runs at different rates at different
+hosts, which is the whole point of AA's provider leaderboard.
+
+### Gemini streams nothing before the answer
+
+`gemini-3.8-flash` delivers its whole answer in ~16 SSE frames with the first at ~5.3s, on
+**both** IU doors (`/openai/v1` and native `/gemini/v1beta`) — Google does not emit thought
+parts unless `includeThoughts` is set, so the thinking interval is simply invisible. Its
+visible decode rate (319–397 tok/s) matches AA's 331 almost exactly. The intended external
+control (AI Studio, per [decisions/iu-vs-ai-studio.md](./decisions/iu-vs-ai-studio.md))
+returned 503 "high demand" on both passes, so there is no third-party comparison for this
+model today.
+
+Its token accounting is also the odd one out: `prompt 17 + completion 384` against
+`total 1479` — 1,078 thinking tokens that appear in the total and nowhere else.
+
+### The instrument was lying too
+
+Both live benchmarks computed throughput as *all* completion tokens (reasoning included)
+divided by the visible-decode window (reasoning excluded). That produced `DeepSeek-V4-Flash
+1160 tok/s` and `glm-5.3-flash 1045 tok/s` — artifacts, roughly 4–10× the real rate. The same
+code added `reasoning_tokens` on top of `completion_tokens` when pricing a turn, double-billing
+thinking on every OpenAI-shaped route (measured: `completion_tokens` already includes
+`reasoning_tokens` on Azure OpenAI *and* Requesty ids; only the Gemini-over-OpenAI shape hides
+them in `total_tokens`). Both were fixed on 2026-09-11, and `ttfb_ms` (first SSE frame) is now
+recorded alongside `ttft_ms` so transport latency and thinking time can never be conflated
+again.
+
+### What this means for picking a model
+
+**Thinking is not overhead — it is the quality lever.** AA's own ladder for one model, same
+weights and same price per token throughout:
+
+| `gpt-5.6-luna` at | non-reasoning | low | medium | high | xhigh | max |
+|-|-|-|-|-|-|-|
+| AA intelligence | 16.8 | 21.8 | 25.8 | 32.4 | 34.8 | **37.5** |
+| AA coding index | 39.3 | 44.2 | 50.7 | 63.3 | 68.6 | **71.4** |
+
+A model run at `reasoning_effort: none` is a **different and much weaker model** than the row
+you picked it from. Every headline leaderboard number in this repo is the max-effort row.
+
+So the question is never "does it think too much", it is **who decides how much**. Measured
+2026-09-11, same hard debugging prompt, `max_completion_tokens: 4000`:
+
+| config | 1st visible token | wall | thinking | visible |
+|-|-|-|-|-|
+| Luna, default | 14,227ms | 17.9s | 1,396 tok | 488 tok |
+| Luna, `none` | **795ms** | 4.9s | 0 | 428 tok |
+| Luna, `low` | 3,991ms | 7.9s | 321 tok | 472 tok |
+| Luna, `medium` | 5,781ms | 9.9s | 512 tok | 522 tok |
+| Luna, `high` / `xhigh` | — | 34.5s | **4,000 (cap)** | **0** |
+| `deepseek-v4.1-flash`, default | — | 38.9s | **4,000 (cap)** | **0** |
+| `deepseek-v4.1-flash`, `none` | 34,919ms | 38.2s | **3,267** | 473 tok |
+
+Three things fall out of that table:
+
+1. **Luna's default effort is adaptive**, and correctly so — 3 thinking tokens on the easy
+   250-word explainer above, 1,396 on this one. That is the behaviour you want by default;
+   forcing `none` to win a latency benchmark throws away most of the model.
+2. **`deepseek-v4.1-flash` ignores the dial.** `reasoning_effort: none` still produced 3,267
+   thinking tokens and took 35s to the first word; at default effort it spent the entire
+   4,000-token budget thinking and returned **no answer at all**. The parameter is accepted
+   (HTTP 200) and not honoured — that is the real objection to it, not the thinking itself.
+3. **`high`/`xhigh` need a bigger budget than 4,000**, on any model here: thinking bills
+   against `max_completion_tokens`, so a high-effort run under a small cap returns an empty
+   completion that is indistinguishable from a failure. Same trap as the bake-off's Gemini
+   note and the 600-token cap that used to sit in `benchmark-throughput.ts`.

@@ -21,5 +21,10 @@ GOOGLE_AI_STUDIO_KEY=op://hermes/google-ai-studio/api-key
 OPENROUTER_API_KEY=op://vps/modelpick/OPENROUTER_API_KEY
 ARTIFICIALANALYSIS_API_KEY=op://vps/modelpick/ARTIFICIALANALYSIS_API_KEY
 
+# --- Server (non-secret) ---
+# The built Nitro server defaults to 3000; the Caddy entry and `vite dev` both
+# expect 7727, so pin it here where dev and the LaunchAgent both read it.
+PORT=7727
+
 # --- Local SQLite DB (non-secret) ---
 DATABASE_URL=file:modelpick.db

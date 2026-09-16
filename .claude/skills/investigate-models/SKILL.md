@@ -9,13 +9,35 @@ Reasons over modelpick's own data to answer "what should I use for X?" and "is m
 pick still the best?". Inline skill — the analysis belongs in the main session so the user
 can act on it (e.g. update My Stack).
 
+## Read these first — they close most questions before the analysis starts
+
+- **[`docs/GUIDELINES.md`](../../../docs/GUIDELINES.md)** — the settled patterns. Choosing,
+  configuring, measuring, recording.
+- **[`docs/decisions/model-configs.md`](../../../docs/decisions/model-configs.md)** — exact
+  settings per model per wire, and which gateway leg serves what.
+
+Four facts that resolve a large share of "which model for X":
+
+1. **`gpt-5.6-luna`, `deepseek-v4.1-flash` and `gemini-3.8-flash` 404 on the Anthropic leg.**
+   If the slot is Claude Code, sideclaw `session`, `agent-dispatch` or a warden episode, the
+   candidate set is only `claude-*`, `glm-5.3-flash`, `minimax-m3`. Check this before comparing
+   anything.
+2. **The question is often the effort, not the model.** `glm-5.3-flash` defaults to `max`, which
+   spends 56x the reasoning of `high` for no better output. Ask what effort the slot runs at
+   before proposing a different model.
+3. **An empty response is a budget problem, not a capability one.** Raise the cap before
+   concluding a model failed.
+4. **Match the metric to the job.** AA `quality` is not vision evidence; `arena_german` is not
+   prose evidence; a `ttft_ms` without its effort setting is not a latency claim.
+
 ## Inputs to gather
 
 1. **The use-case / category.** Map it to a **scored** category (`fast | coding |
    orchestrator | tts | stt`) and use the metric-driven method below, or a **manual**
    category (`embedding | vision | image`) and use the research method below; otherwise
-   reason from raw metrics. Note hard constraints: EU residency required? Must be
-   IU-accessible? Cost ceiling? Latency-sensitive?
+   reason from raw metrics. Note hard constraints: which gateway leg
+   must serve it? Cost ceiling? Latency-sensitive? Does the slot cap output tokens (if under
+   ~1,000, every heavy-thinking model is disqualified — it will return empty)?
 
 ## Where the data lives
 

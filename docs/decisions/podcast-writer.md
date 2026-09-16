@@ -1,5 +1,17 @@
 # Podcast writer — a role split with one voice owner
 
+> **Current verdict (2026-09-13):** the role split holds, but every structural role has moved
+> off `gpt-5.6-luna` onto the estate default: `deepseek-v4.1-flash` at `reasoning_effort: high`
+> writes outline, editorial, metadata and research (`config.ts:392`, `:501`, `:416`, `:492`),
+> `claude-opus-4-6` is still the sole voice owner (`:401`), the review panel is
+> `gemini-3.8-flash,deepseek-v4.1-flash` (`:408`), `elevenlabs/v3` narrates (`:404`). This is the
+> same 2026-09-13 owner decision recorded in [hermes-brain.md](./hermes-brain.md) §2026-09-13, not
+> a per-service call. Open: drop `gemini-3.8-flash` from the panel — 14x `glm-5.3-flash`'s cost,
+> and it dropped a tool in the 2026-09-07 probe.
+> **Status of this record:** the body below still names `gpt-5.6-luna` and `gpt-5.6-terra` as the
+> live structural picks; those references are historical as of 2026-09-13.
+> Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
+
 **Decision (2026-09-02, third revision the same day):** audio-gateway's podcast pipeline
 (`POST /v1/podcasts`, the "writers' room" in `src/podcast-script.ts`) uses one model per role,
 all on the IU endpoint:

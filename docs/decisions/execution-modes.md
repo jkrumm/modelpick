@@ -1,5 +1,15 @@
 # Execution-Mode Framework — Where Work Runs
 
+> **Current verdict (2026-09-13):** the five execution modes (inline / native subagent / MCP /
+> subprocess / research-gateway) and their routing rules hold unchanged; this is the rationale
+> record behind dotfiles' always-on operational table. **A settled multi-file edit in this repo
+> now defaults to `mcp__sideclaw__dispatch`** (tier `implement`, `glm-5.3-flash`, off Max), not
+> a native subagent — `@implementer`/the subagent lane is reserved for work that must land in
+> this session's live uncommitted tree or needs tight iteration. See dotfiles
+> `config/global.CLAUDE.md`'s routing table for the exact wording.
+> **Status of this record:** current
+> Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
+
 This record captures the **rationale** behind the orchestrator's execution-mode framework:
 why work is routed across inline / native subagent / MCP / subprocess / research-gateway, why
 model tiers (Haiku / Sonnet / Opus / IU) map to specific homes, and why the orchestrator's own

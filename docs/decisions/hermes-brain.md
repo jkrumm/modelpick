@@ -1,5 +1,17 @@
 # Hermes Brain — Sonnet → Kimi-K2.6 → DeepSeek-V4-Pro → DeepSeek-V4-Flash → gpt-5.6-luna
 
+> **Current verdict (2026-09-13):** brain, delegation and compression run
+> **`deepseek-v4.1-flash`** at `reasoning_effort: high` on `chat_completions`; fallback is
+> `gpt-5.6-luna`. An owner decision for capability over cost — see §2026-09-13, and its
+> same-day correction: V4.1 does cache (92–96% live), so a real thread costs ~2× Luna, not 14.9×.
+> **Status of this record:** the 2026-09-12 (decisive) verdict for Luna is superseded by
+> §2026-09-13. Its measurements stand; only the weighting changed.
+> Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
+
+**2026-09-11 update:** re-run against `deepseek-v4.1-flash`. Luna still wins — and the
+challenger is not on the Anthropic route at all, so ccbench cannot score it. See the last
+dated section.
+
 **2026-09-02 update:** re-run against `gemini-3.8-flash` (IU's newest Gemini release,
 superseding 3.7). Luna still wins — see the dated section near the end for the live numbers.
 
@@ -90,6 +102,9 @@ its own.
 
 ## Verdict (2026-07-11 bake-off)
 
+> **Superseded** — see §2026-07-31: DeepSeek-V4-Flash-0731 takes the brain. Kept for the
+> measurements; the conclusion below did not survive.
+
 **Stay on DeepSeek-V4-Pro.** Closer than the external leaderboard numbers suggested — GLM-5.2
 is a genuine, verified-fast, verified-reliable alternative — but "faster and equally reliable"
 isn't "clearly better," and DeepSeek-V4-Pro still leads on quality, cost, context, and has the
@@ -177,6 +192,9 @@ not a new exposure either way — it has been the auxiliary model since 2026-06-
 compression already feeds it full conversation content.
 
 ### Verdict
+
+> **Superseded** — see §2026-08-10: Luna (`gpt-5.6-luna`) bake-off — residency prompts a
+> re-look. Kept for the measurements; the conclusion below did not survive.
 
 **Switch the brain to `DeepSeek-V4-Flash`**, fallback `claude-sonnet-4-6-eu` unchanged. The
 case is cost (~3× cheaper per output token), latency (~2.5× faster to first token, measured on
@@ -600,3 +618,363 @@ longer need a portal export to land. IU still returns no `cost` field on any rou
 pricing above is vendor list price via OpenRouter, not IU's confirmed billed rate. The
 `thinkingLevel=low` slowdown is **closed** — re-checked at 3 passes on 2026-09-04, it was a
 `maxOutputTokens: 500` truncation artifact plus distribution tail, not a regression.
+
+## 2026-09-11: `deepseek-v4.1-flash` bake-off — Luna holds, by a wider margin than the rate card suggests
+
+> **Superseded** — see §2026-09-12: the latency half of the V4.1 verdict is retracted and
+> §2026-09-12 (final): the tool-loop objection is retracted; caching decides instead. Kept for
+> the measurements; the conclusion below did not survive.
+
+DeepSeek shipped V4.1 Flash and IU lists it. It is the first DeepSeek release since the
+`-0731` build that once held this brain, it beats Luna on the (freshly recalibrated) AA
+intelligence index, and its list price is the same $1.20 output. It still loses, and not
+narrowly.
+
+**Where it is reachable.** `deepseek-v4.1-flash` answers on `/openai/v1` only. It is **not on
+the `/anthropic` route** — that route serves 36 ids and the DeepSeek entries there are still
+`DeepSeek-V4-Flash` / `DeepSeek-V4-Pro`. Consequence: ccbench cannot score it at all (the
+harness drives `claude -p` against the Anthropic route), so there is no agent-loop floor test
+for this model, and it cannot become a Claude Code worker even if it were wanted as one. The
+same is true of Luna, which is why neither appears in any ccbench suite.
+
+**Residency: worse than "unverified".** The old `DeepSeek-V4-Flash` was merely opaque — a
+Requesty hop reporting nothing finer than `global`. V4.1 names its upstream in the response
+body: `accounts/fireworks/models/deepseek-v4p1-flash`, backend header `Requesty-Global`. So
+the path is IU → Requesty → **Fireworks**, i.e. two third parties and a US inference provider,
+for a brain that touches calendar, health and email. Luna, same day, same probe:
+`x-middleware-forwarded-server: IU AI Middleware Sweden Central Azure`, `x-ms-region: Sweden
+Central`, `x-ms-served-model: gpt-5.6-luna-2026-07-09`. This decides it on its own, exactly as
+it did against Gemini 3.8 — the numbers below are tiebreakers that point the same way.
+
+**Numbers** (`bun run scripts/benchmark-bakeoff.ts all`, 3-turn conversation + 3× identical
+prefix + the scripted 3-tool scenario):
+
+| Config | first visible token | think/visible | 3-turn wall | 3-turn cost | tools |
+|-|-|-|-|-|-|
+| Luna, default | **819ms** | 0.09 | **10.2s** | **$0.00141** | 3/3 |
+| Luna, `reasoning_effort=none` | 660ms | 0.00 | 11.3s | $0.00128 | 3/3 |
+| V4.1 Flash, default | 13,542ms | 0.78 | 48.0s | $0.00515 | 3/3 |
+| V4.1 Flash, `reasoning_effort=low` | 10,847ms | 0.70 | 40.5s | $0.00358 | 3/3 |
+
+Costs corrected after the run: the harness was adding `reasoning_tokens` on top of
+`completion_tokens`, which already contains them on every OpenAI-shaped IU route. The figures
+above are the recomputed ones; see [../pipelines.md](../pipelines.md) for the fix and for why
+the "first visible token" column is *not* comparable to a leaderboard TTFT column.
+
+**16× the time to the first visible token**, and `reasoning_effort` barely moves it — Requesty
+accepts the parameter (HTTP 200, no error) and the think/visible ratio drops only 0.78 → 0.70,
+so the effort lever that makes Luna cheap is not available here. This is thinking, not
+transport: V4.1 puts its first SSE frame on the wire in 549ms, *faster* than Luna's 1,329ms,
+then streams ~1,400 reasoning tokens before the first word of the answer. Fatal for a brain
+whose replies stream sentence-by-sentence into TTS, and unfixable from our side.
+
+**Cheaper on the rate card, 3–4× more expensive in practice.** $0.30/$1.20 against Luna's
+$0.20/$1.20 should be near-parity; measured, V4.1 costs 3.7× more over the 3-turn conversation
+and 2.9× more over the tool loop. Two things break the parity: the 0.78 think/visible ratio
+(thinking bills as output), and caching. On the 3,155-token identical-prefix test Luna reads
+3,152 cached tokens at $0.02/M from call 2 on — a 9× drop to $0.00007 per call, unchanged
+since 2026-08-20. V4.1 Flash does report `cached_tokens` (3,046 of 3,175), but the route
+publishes no cached-input rate, so a cache hit bills at full input price and its per-call cost
+stays flat at ~$0.00098 — 14× Luna's cached call.
+
+**Tool calling is genuinely fixed, and it does not matter here.** The old `DeepSeek-V4-Flash`
+dropped `create_task` again on today's run (2/3 tools, same defect as the 2026-08-31 ccbench
+suite). V4.1 called 3/3 with well-formed args, finished with a real answer, and did so on both
+effort settings — a real improvement over its predecessor. It took 21.4s to Luna's 6.6s doing
+it.
+
+### The quality comparison, stated honestly
+
+"V4.1 at 39.5 against Luna at 37.5" compares two configurations neither side runs. **37.5 is
+Luna's max-effort row.** Its ladder, same weights and same per-token price throughout: 16.8
+non-reasoning · 21.8 low · 25.8 medium · 32.4 high · 34.8 xhigh · 37.5 max. AA's 39.5 for V4.1
+is likewise its "Reasoning, Max Effort" row.
+
+So thinking is not the overhead this record originally framed it as — it *is* the quality
+lever, and the objection to V4.1 is not that it thinks. It is that **nobody can decide how
+much**. Measured on a hard debugging prompt at `max_completion_tokens: 4000`:
+
+| config | 1st visible token | wall | thinking | visible |
+|-|-|-|-|-|
+| Luna, default | 14,227ms | 17.9s | 1,396 | 488 |
+| Luna, `none` | 795ms | 4.9s | 0 | 428 |
+| Luna, `low` | 3,991ms | 7.9s | 321 | 472 |
+| Luna, `medium` | 5,781ms | 9.9s | 512 | 522 |
+| V4.1 Flash, default | — | 38.9s | 4,000 (cap) | **0** |
+| V4.1 Flash, `none` | 34,919ms | 38.2s | 3,267 | 473 |
+
+Luna's default effort is **adaptive** — 3 thinking tokens on an easy explainer, 1,396 here —
+which is exactly the behaviour a brain wants: cheap on "what's on my calendar", deep on a real
+question. V4.1 has one mode, and at default effort on a 4k budget it returns no answer at all.
+
+**Consequence for the running config:** if hermes-agent pins Luna to a low effort to protect
+TTS latency, it is running a ~17–22-intelligence model, not a 37.5 one. The right shape is the
+adaptive default for the brain and an explicit raise on paths that can afford to wait — a dial
+that exists *because* thinking works. See [../pipelines.md](../pipelines.md) for the full
+ladder and the `max_completion_tokens` trap (`high`/`xhigh` return an empty completion under a
+4,000-token cap).
+
+### Verdict
+
+**Stay on `gpt-5.6-luna`.** V4.1 Flash is a better model than V4 Flash, and at max effort it
+is genuinely smarter than Luna at the effort Hermes can afford. It still loses on the two
+things that decide this brain: it is US-hosted through two proxies, and its thinking is
+uncontrollable — 35s to the first word even with the effort dial turned to zero. Re-open only if IU exposes a DeepSeek deployment with
+an EU region header — the AA-index gain (39.5 vs Luna's 37.5 on the new scale) is real but
+cannot be spent here.
+
+**Where it might still earn a slot:** nowhere obvious. The "521 tok/s decode" this record
+originally claimed was a harness artifact; re-measured honestly it runs ~129 tok/s against
+Luna's 154, and against its own leaderboard figure of 267 — Requesty serves it from Fireworks'
+shared serverless tier. It is not the throughput play it looked like. See
+[fast-model.md](./fast-model.md) for why it does *not* win the `fast` category either, and
+[../pipelines.md](../pipelines.md) for the measurement post-mortem.
+
+## 2026-09-12: the running config, and why `minimax-m3` never gets a bake-off
+
+Two questions came back to this record together — "should Hermes still be on Luna" and
+"didn't we disable thinking on it, which is why the TTFT looked so good". The second turns
+out to be the interesting one, and the answer is no.
+
+**Hermes runs Luna at `high` effort.** `agent.reasoning_effort: high`
+(`hermes-agent/config.yaml:77` as of the 2026-09-13 rollout) is the live key; `model.reasoning_effort`
+was a documented dead mirror that `resolve_reasoning_config()` never read, and has since been
+removed from `config.yaml` entirely. So the brain is the
+~37.5-intelligence configuration, not the ~17–22 one the 2026-09-11 section warned about.
+The warning was conditional and the condition does not hold.
+
+**Correction (2026-09-12, later the same day): the patch strips nothing today.** This record
+originally claimed `patches/transport-iu-reasoning-effort.patch` silently removed
+`reasoning_effort` from the `compression` and `web_extract` lanes. A full audit of the call
+graph disproves it, on three independent grounds: the patch lands only in
+`ChatCompletionsTransport.build_kwargs`, and the auxiliary lanes never traverse that transport
+at all (`agent/auxiliary_client.py` builds its own kwargs against the OpenAI SDK); the brain
+runs `api_mode: codex_responses`, so the patch never fires for it either; and the one slot that
+*does* reach the patch — the `claude-sonnet-4-6-eu` fallback — is Anthropic, so it takes the
+clamp branch instead, where `high` passes through unmodified. The strip branch is a **dormant
+regression guard** for the case where the brain falls back to `chat_completions`, not an active
+behaviour.
+
+What is true, and was true before: **no `reasoning_effort` is configured on any auxiliary
+slot.** They run at provider default. That is a gap worth closing deliberately, but it is a
+missing setting, not a patch side-effect.
+
+`web_extract` turns out to be **dead config entirely** — `hermes_cli/config_defaults.py:697`
+records that "web_extract and session_search no longer use an aux LLM; leftover blocks in user
+config are ignored", and no `task="web_extract"` LLM call exists. Its block, `session_search`'s,
+and the stale `DeepSeek-V4-Pro` entry in `providers.custom.models` (`config.yaml:19`) should be
+deleted together.
+
+**`minimax-m3` is screened out without a bake-off.** It is the weakest model in the
+candidate set on every axis that matters here, and it fails the same residency gate that
+already disqualified `deepseek-v4.1-flash`:
+
+| model | AA quality | AA coding | GPQA-Diamond | live probe residency |
+|-|-|-|-|-|
+| `gemini-3.8-flash` | 41.2 | 76.3 | 0.954 | unknown |
+| `gpt-5.6-luna` | 37.5 | 71.4 | 0.916 | **eu** (Sweden Central) |
+| `minimax-m3` | 29.6 | 58.6 | 0.813 | unknown |
+
+Luna is the only candidate that probes EU. For a brain that touches calendar, health and
+email that settles it before capability is weighed — and `minimax-m3` would lose on
+capability anyway. It aces ccbench, which measures whether a model can hold an agent loop
+and says nothing about whether it is smart; reading that as a quality result is exactly the
+error ccbench's own record warns against.
+
+**Verdict: stay on `gpt-5.6-luna` at `high`.** The open action is in `hermes-agent`, not
+here: decide deliberately what effort `compression` and `web_extract` should run at, and
+either move them to `codex_responses` or record that no-effort is intended. Tracked as
+slots `hermes/compression` and `hermes/web-extract` in modelpick's `deployment` table,
+both stamped `thinking: off` so the dashboard shows what reaches the wire rather than what
+the YAML says.
+
+## 2026-09-12: the latency half of the V4.1 verdict is retracted
+
+> **Superseded** — see §2026-09-12 (final): the tool-loop objection is retracted; caching
+> decides instead. Kept for the measurements; the conclusion below did not survive.
+
+The 2026-09-11 section above rejected `deepseek-v4.1-flash` on three grounds: residency,
+uncontrollable thinking, and "16× the time to the first visible token". `bun run bench:fast`
+(five graded tasks, full effort ladder, three repeats, medians, **total wall to a correct
+answer** — [`docs/experiments/fast-2026-09-12/report.md`](../experiments/fast-2026-09-12/report.md))
+retires the third ground and narrows the second.
+
+- **It is not slower.** Median wall 1110ms at `medium` against Luna's 1262ms at `default`, with
+  a *better* pass rate (14/15 vs 13/15). On the 1,200-word longform task it finishes in 14.4s
+  against Luna's 15.7s **despite starting 5.5s later** — its measured crossover against Luna is
+  **107 visible tokens**. The 13.5s figure in the section above is a time-to-first-token
+  measurement on a single open-ended generation prompt; on total wall for that same class of
+  task, V4.1 wins.
+- **`reasoning_effort` is honoured after all.** The earlier "Requesty accepts it and ignores it"
+  reading came from trusting `completion_tokens_details.reasoning_tokens`, which this route
+  reports as `0` while billing hidden thinking inside `completion_tokens` (live probe: a
+  one-word answer costs 22 completion tokens with `reasoning_tokens: 0`). Inferring the split
+  the way `benchmark-bakeoff.ts` already does shows the ladder moving: think:visible 5.89 at
+  `medium`, 7.45 at `default`.
+- **What survives: the spend is unpredictable.** Thinking spread 3,000–6,200 tokens per cell
+  against Luna's 28–510. It returns 273 completion tokens for a 94-character answer at a 4k cap
+  and 2,191 for the same answer at 16k. It is erratic on `extract` — 1.1s, 2.1s, 8.9s on three
+  identical calls. And below roughly a 1k budget it **starves**: `finish_reason: length`, zero
+  visible tokens, no answer at all.
+
+**The brain stays on `gpt-5.6-luna`, for a narrower reason than before.** bench-fast is
+single-call; it says nothing about a tool loop, and the tool loop is what a brain is. The
+standing tool-suite measurement still has Luna finishing the 3-tool scenario in 6.6s against
+V4.1's 21.4s, and Luna's per-turn spend is predictable in a way V4.1's is not — which matters
+more for a brain whose replies stream sentence-by-sentence into TTS than a 150ms median
+advantage does.
+
+**Re-open trigger, concretely:** run the bakeoff tools suite for both at a 4,000-token budget
+and `reasoning_effort: medium`. The old tool-suite numbers were taken before the budget trap was
+understood, so they may be measuring starvation too. If V4.1 completes the 3-tool scenario
+within ~1.5× of Luna's wall clock at a predictable token spend, this record should change.
+
+## 2026-09-12 (final): the tool-loop objection is retracted; caching decides instead
+
+The brain was held on `gpt-5.6-luna` above on one surviving argument — that V4.1 Flash took
+21.4s to complete the 3-tool scenario against Luna's 6.6s. That number was measured at
+`TOOL_MAX_TOKENS = 4000` in `scripts/benchmark-bakeoff.ts`: the same budget-starvation trap that
+had already invalidated the fast-model conclusions, sitting undiscovered in a second constant.
+Re-run at 16,000:
+
+| config | rounds | tools | args valid | finished | wall | cost |
+|-|-|-|-|-|-|-|
+| `deepseek-v4.1-flash` default | 3 | **3/3** | 3/3 | yes | **2.4s** | $0.001367 |
+| `deepseek-v4.1-flash` `low` | 3 | 3/3 | 3/3 | yes | 2.4s | $0.001359 |
+| `gpt-5.6-luna` `none` | 3 | 3/3 | 3/3 | yes | 2.7s | $0.000399 |
+| `gpt-5.6-luna` default | 3 | 3/3 | 3/3 | yes | 3.2s | $0.000486 |
+| `glm-5.3-flash` `high` | 3 | 3/3 | 3/3 | yes | 18.4s | $0.000355 |
+
+**V4.1 Flash is the fastest of the three on a real tool loop**, not 3× the slowest. Every
+latency argument this record has made against it is now retracted. `glm-5.3-flash` is 7×
+slower here and is not a brain candidate on wall clock, though it is the cheapest.
+
+### What actually decides it now: prompt caching
+
+Per tool loop V4.1 costs 2.8× Luna ($0.001367 vs $0.000486) — 644 output tokens against 156,
+i.e. it is simply more verbose. That gap is small. The one that is not small is the cache.
+
+Luna reads cached input at **$0.02/M** and reports 3,152 of 3,155 tokens cached on a warm
+identical prefix, dropping a repeat call **9×** to $0.00007. `deepseek-v4.1-flash` reports
+`cached_tokens` but the route publishes **no cached-input rate at all**, so a warm call bills
+at full input price and stays flat at ~$0.00098 — **14× Luna's cached call**.
+
+A brain is the worst possible shape for that. Hermes runs `context_length: 850000` and
+`max_turns: 90`; every turn re-sends the whole conversation prefix. The model that gets a 9×
+discount on exactly that prefix wins on economics by a margin no per-loop figure reflects, and
+the margin grows with conversation length rather than shrinking.
+
+**Verdict: stay on `gpt-5.6-luna` — on caching economics, not on speed.** The honest statement
+of the remaining gap is: V4.1 Flash is slightly faster per tool loop and slightly smarter on
+the AA index, and costs multiples more per turn on a long conversation while being unable to
+produce a long answer reliably. Re-open the moment IU publishes a cached-input rate for it.
+
+Two smaller facts from the same run, both worth carrying: `deepseek-v4.1-flash` reports
+`reasoning_tokens: 0` on this route while billing hidden thinking inside `completion_tokens`,
+so any think:visible figure computed from that field is wrong; and Luna at `reasoning_effort:
+none` completes the loop 0.5s faster than at default — which is not a reason to use it, since
+`none` is a 16.8-index configuration against default's 25.8 (see
+[reasoning-effort.md](./reasoning-effort.md)).
+
+## 2026-09-12 (decisive): caching at real context scale — measured, not asserted
+
+The section above kept the brain on Luna on a caching argument that had only been measured at a
+**3,155-token** prefix. That is "does caching work", not "does caching decide a brain". Re-run at
+**31k tokens**, the scale a real Hermes turn re-sends (`context_length: 850000`, compaction at
+240k), three identical calls each:
+
+| model | cold call | **warm call** | cached tokens reported | warm wall | needle answer |
+|-|-|-|-|-|-|
+| `gpt-5.6-luna` | $0.006254 | **$0.000632** | 31,232 / 31,235 | **491–580ms** | 7041, 7041, 7041 |
+| `glm-5.3-flash` @ `high` | $0.004944 | $0.000996 | 32,896 / 32,942 | 1,635–1,828ms | **7419, 7419**, 7041 |
+| `deepseek-v4.1-flash` | $0.009447 | **$0.009418** | **0** | 823–1,039ms | 7041, 7041, 7041 |
+
+**`deepseek-v4.1-flash` does no prompt caching on this route at all.** It reports `cached: 0` at
+31k tokens — this is not a missing discount rate, it is a missing cache. Its warm call costs the
+same as its cold one, **14.9× Luna's warm call**. Across a 90-turn conversation that is roughly
+$0.85 against $0.06, and the gap widens with context rather than closing.
+
+**At this scale Luna is also the faster model** — 491ms warm against V4.1's 823ms. The 2.4s
+tool-loop advantage V4.1 showed in the section above was measured on a ~1,100-token input; it
+does not survive a real prefix. Both halves of the case for V4.1 therefore fail at Hermes's
+actual operating point, and they fail for the same reason: everything that made it look good was
+measured on inputs far smaller than the ones it would face.
+
+**Incidental, and important elsewhere: `glm-5.3-flash` failed long-context retrieval.** Asked
+which port `service-42` uses, with the answer stated verbatim in the prefix, it answered `7419`
+twice and `7041` once — at `high` effort. Luna and V4.1 were 3/3. Whatever glm is used for, it
+should not be a slot that has to find a specific fact in a large context.
+
+### Verdict
+
+**`gpt-5.6-luna`, and the question is now closed for this workload.** It is the cheapest *and*
+the fastest at Hermes's context scale, and the only candidate that is both. Configure it for
+capability, not thrift: `agent.reasoning_effort: high` (already set, `config.yaml:77`), no output
+cap on the brain, and no thinking budget — the caching economics mean a long, well-reasoned turn
+is cheap, so there is nothing to save by constraining it.
+
+**Re-open trigger:** IU exposing a cached-input rate *and* non-zero `cached_tokens` for a DeepSeek
+deployment. Until then the comparison is not close, and the re-run that would change it is the
+cache suite at 31k, not another tool benchmark.
+
+> **Superseded by §2026-09-13.** The measurements above stand; the verdict does not.
+
+## 2026-09-13: owner decision — `deepseek-v4.1-flash`, capability over cost
+
+The owner moved the brain to `deepseek-v4.1-flash` knowing the 14.9x warm-turn figure above. The
+decision prices capability, not thrift: V4.1 tops Luna's ceiling (39.5 vs 37.5 at max effort),
+and one model now serves every mid-size lane in the estate (Hermes, research-gateway,
+audio-gateway's structural stages, warden's mapper, argo, image-gen enhance), so a future swap
+is one id per service rather than a per-slot argument. The ~$0.85 per 90-turn conversation is
+accepted as the price of that.
+
+Live probes the same day decided the wiring, not the choice:
+
+| probe | result | consequence |
+|-|-|-|
+| `deepseek-v4.1-flash` on `/openai/v1/responses` | **404** "No suitable backend" (though `/models` lists Responses) | `api_mode: chat_completions` |
+| function tools + `reasoning_effort: high`, auto and forced `tool_choice` | 200, tool called | effort survives tool turns — the transport patch must stop stripping it for non-gpt ids |
+| `gpt-5.6-luna` function tools + `reasoning_effort` on `/chat/completions` | **503** "not supported" | the strip stays, scoped to gpt-5.x only; fallback on Luna runs tools without effort |
+| `/models` `ContextSize` | V4.1 1,000,000; Luna listed 105,000 but served a 150k Chat prompt | `context_length: 850000` is inside V4.1's window; the Luna fallback keeps it too |
+
+**Re-open trigger:** a monthly Hermes bill that the owner judges out of proportion, or IU
+exposing non-zero `cached_tokens` for V4.1 (which only strengthens this pick). The comparison to
+re-run on a trigger is the 31k cache suite, not a tool benchmark.
+
+## 2026-09-13 (later): correction — V4.1 does cache, and the price moved
+
+The "no prompt caching" finding above does not hold in production. The first live day of the
+brain on `deepseek-v4.1-flash` recorded, from Hermes' own `state.db`:
+
+| session | calls | uncached input | cache read | output | cache share |
+|-|-|-|-|-|-|
+| 2026-09-12 Slack thread | 52 | 145,090 | 3,996,061 | 69,566 | 96% |
+| 2026-09-13 voice-memo turn | 20 | 68,588 | 829,056 | 12,259 | 92% |
+
+Direct probes reproduce it, but not every time: an ~11k identical prefix sent three times at 2s
+spacing read 10,880 cached tokens on calls 2 and 3; the same probe at 15s spacing, or three
+back-to-back non-streamed calls, read `cached: 0`. The cache is real and 64-token-granular,
+but a single probe run can miss it, and that is how the 31k suite above scored zero.
+**Re-run the cache suite at least twice, and read real sessions before a zero is believed.**
+
+Rates solved exactly (1e-7 USD residual) from the gateway's `usage.cost`, same day:
+
+| model | input | cached | output |
+|-|-|-|-|
+| `deepseek-v4.1-flash` | **$0.50** | **$0.05** | **$1.50** |
+| `glm-5.3-flash` | $0.15 | $0.03 | $0.50 |
+
+The earlier $0.30 / $1.20 figure no longer matches what the gateway bills. Cache writes carry
+no surcharge. `completion_tokens_details.reasoning_tokens` still reads 0, and thinking still
+bills inside `completion_tokens`.
+
+At those rates the 52-call thread cost **$0.38** on V4.1 against about $0.19 at Luna's rates for
+the same tokens: **~2×, not 14.9×**. The owner decision stands, on firmer ground than it was
+taken on.
+
+Wiring verified the same day, after a gateway restart loaded the patched code: `reasoning_effort:
+high` and `max_completion_tokens: 65536` reach the wire on every main-loop call, streaming carries
+usage, and `reasoning_content` is replayed on each tool round (3- and 9-round tool loops, finish
+`stop`). `reasoning_effort` is accepted but produced no measurable change in thinking length
+between `low`, `high` and `max` on a hard arithmetic task (1,800–2,850 completion tokens across all
+three). Thinking is always on.

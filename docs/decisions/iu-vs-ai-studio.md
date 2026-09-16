@@ -1,5 +1,11 @@
 # The IU gateway vs Google AI Studio, and where each tier actually lands
 
+> **Current verdict (2026-09-12):** keep going through IU for Gemini. The personal AI Studio
+> key is free-tier (Pro hard-blocked, Flash 503s under load, up to 35x run-to-run spread); IU
+> never refused a call across the same runs and is the only reliable door.
+> **Status of this record:** current
+> Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
+
 **Verdict:** keep going through IU for Gemini. The personal AI Studio key is a **free-tier**
 key — Gemini 3.1 Pro is hard-blocked on it (`limit: 0`), and the Flash tiers return
 `503 high demand` under any sustained load. IU never refused a single call across the same

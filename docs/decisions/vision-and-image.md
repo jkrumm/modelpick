@@ -1,5 +1,13 @@
 # Vision Reading + Image Generation
 
+> **Current verdict (2026-09-12):** `gemini-3.5-flash` holds for diagram/screenshot reading —
+> it is not obsolete, and the AA general intelligence index is not vision evidence.
+> `gpt-image-2` holds for generation.
+> **Status of this record:** partly superseded — see §2026-09-04 update: the committed pick
+> moved, undocumented (the 2026-05-22 POC verdict at the top predates the committed
+> `gemini-3.5-flash` pick).
+> Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
+
 **Decisions (POC 2026-05-22):**
 
 - **Diagram/screenshot reading** → `gemini-3-flash-preview` as default, `gemini-3-pro-preview`
@@ -111,3 +119,44 @@ That rationale is about document/chart reading generally, not a re-run of this d
 diagram/screenshot bake-off — the deeper comparison against `gemini-3-pro-preview` and
 `gemini-3.8-flash` on the dense-diagram cases above was never written up. Treat this doc's
 POC verdict as superseded by the `gemini-3.5-flash` pick, not confirmed by it.
+
+## 2026-09-12: `gemini-3.5-flash` is not obsolete for vision, and the general index cannot say whether it is
+
+The vision slot looked stale: on AA's general intelligence index `gemini-3.5-flash` reads 33.0
+against `gemini-3.8-flash`'s 41.2, at **twice the price** ($1.50/$9.00 vs $0.75/$3.75). That
+comparison is not evidence about vision, and using it as such is the same error this stack made
+with `arena_german` and prose — a scored dimension standing in for one it does not measure.
+
+What the published vision evidence actually says:
+
+| model | MMMU-Pro | CharXiv | Roboflow Vision Evals | note |
+|-|-|-|-|-|
+| `gemini-3.5-flash` | **83.6%** | 84.2% | **#1 of a 67-prompt leaderboard** | the incumbent |
+| `gemini-3.8-flash` | not published | **86.2%** | not published | card compares against 3.7, never 3.5 |
+| `glm-5.3-flash` | not published | 89.4% *with tools* | 66.3% overall | OCR **90.6**, extraction **83.5** |
+| `gpt-5.6-luna` | 78.4% | not published | **71.5% overall** | detection 59.9, counting 66.2 |
+
+Google's 3.8 model card benchmarks 3.8 against **3.7**, not 3.5, and publishes no MMMU-Pro,
+DocVQA, OCRBench, ScreenSpot or Roboflow figure for it. There is therefore **no controlled
+3.8-vs-3.5 vision comparison in existence**. The only same-protocol multi-model vision table
+found is Roboflow's, and it covers Luna and GLM — neither of them the incumbent.
+
+Two things worth carrying forward:
+
+- **The task decides, not the overall score.** Roboflow's same-sample run has GLM-5.3-Flash
+  *ahead* of Luna on OCR (90.6 vs 88.4) and data extraction (83.5 vs 81.4) while losing overall
+  (66.3 vs 71.5) on localization, counting and reasoning. `read_image` is mostly "tell me what
+  this diagram says", which is the OCR/extraction half.
+- **Protocol confounds dominate.** Roboflow measured a ~15 mAP swing on GPT detection purely
+  from box format (absolute XYXY vs normalized 0–1000 YXYX), and GPT-5.6 destabilising above
+  ~2000×2000 images at low effort. Any vision comparison that does not fix prompt, schema,
+  resolution and effort is measuring the harness.
+
+**Verdict: `gemini-3.5-flash` holds.** It has the strongest published vision evidence of the
+four and the only independent leaderboard win. The live argument against it is **price**, not
+capability — and `glm-5.3-flash` is $0.15/$0.50 with the best OCR row measured, which makes it
+the candidate to test if the vision bill ever matters. `vision` stays a **manual** category for
+exactly this reason: nothing the recommender scores can rank it.
+
+Re-open when Google publishes a 3.8-vs-3.5 vision comparison, or by running our own dense-diagram
+bake-off — the method that decided this record in the first place.

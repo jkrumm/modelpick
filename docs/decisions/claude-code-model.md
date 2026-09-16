@@ -1,5 +1,16 @@
 # Claude Code over the IU Anthropic Route — `claude-sonnet-5` interactive, `glm-5.3-flash` for workers
 
+> **Current verdict (2026-09-13):** `claude-sonnet-5` interactive, `glm-5.3-flash` unattended
+> worker, `claude-opus-5` EU-pinned. Only `claude-*`, `glm-5.3-flash` and `minimax-m3` are
+> reachable on the Anthropic leg at all, so the candidate set is structurally closed.
+> `MAX_THINKING_TOKENS` is the only reasoning-effort control that reaches `glm-5.3-flash` on
+> this leg (unset defaults to its worst setting, uncapped `max`): worker/agentic lanes
+> (agent-dispatch, sideclaw's AGENT tier, warden auto-dispatch) run **8192**; classify-shaped
+> lanes (sideclaw's CLASSIFY tier — check/overview/review_router) run **2048**, the value
+> measured on ccbench.
+> **Status of this record:** current
+> Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
+
 **Decision (2026-08-31):** two picks, because interactive and unattended are different jobs and
 one number does not cover both.
 
@@ -449,3 +460,186 @@ The graders are covered by committed golden-solution tests: every file-based tas
 to score 1.00 against a hand-written reference solution, and each has a negative control that
 must land on a specific partial score. Without those, "every model scored 1.00" and "the grader
 is broken" produce the same table.
+
+## 2026-09-11: the AA index rescale moved `glm-5.3-flash` below the `coding` floor
+
+ArtificialAnalysis recalibrated its intelligence index between the 2026-09-08 and 2026-09-09
+collections. It is a rescale, not a reranking: the top of the field is unchanged in order
+(`claude-fable-5-1` → `gpt-6-astra` → `claude-opus-5`) and every strong model lost 3–7 points
+of absolute score (fable 56.8 → 53.4, Luna 43.4 → 37.5), while weak legacy models gained a few
+(`gpt-4o-mini` 1.4 → 6.7). Mid-field ranks shuffle by ±3 places.
+
+The consequence for this repo is a floor artifact, not a model change. `CATEGORY_MIN_QUALITY`
+gates `coding` at 0.8 normalized quality, and normalization is min-max across the live field —
+so compressing the bottom and lowering the top moved what 0.8 *means* from ≈AA 51 to ≈AA 44.
+`glm-5.3-flash` sat at 0.810 before the rescale and 0.760 after, with no change to the model.
+The recommender's `coding` pick flipped `glm-5.3-flash` → `glm-5.3` on 2026-09-09 purely
+because of that crossing, and the eligible field for `coding` shrank to five models.
+
+**So the `coding` drift flag on `/stack` is currently an artifact — twice over.** Beyond the
+floor crossing, `glm-5.3` **404s on the IU Anthropic route** (verified 2026-09-11: the route
+serves 36 ids, and the GLM entries are `GLM-5.1`, `glm-5.2` and `glm-5.3-flash`). It cannot
+drive a Claude Code session at all, so it cannot be the worker pick whatever it scores. The
+recommender has no notion of which route serves an id; `/stack` drift for `coding` therefore
+needs the route check applied by hand until it does.
+
+Among ids the Anthropic route actually serves, `glm-5.3-flash` also wins the leaderboard
+comparison outright — AA coding index 71.5 at $0.15/$0.50 per MTok, against `DeepSeek-V4-Pro`
+at 68.8 for $1.32/$3.96, `DeepSeek-V4-Flash` 69.1, `kimi-k2.7-code` 60.8, `minimax-m3` 58.6,
+`GLM-5.1` 55.8. Re-derive the 0.8 floor against the new scale before treating a `coding`
+recommendation as a signal again — and read the re-bench below before treating that
+leaderboard row as the answer either.
+
+## 2026-09-11 re-bench: the timeouts were the clock, and `glm-5.3-flash` holds
+
+The 2026-08-31 verdict excused `glm-5.3-flash`'s two timeouts as "the clock, not capability".
+A re-run of the four cheap Anthropic-route candidates (`--suite coding-2026-09-11`, full report
+in [../experiments/ccbench/coding-2026-09-11/report.md](../experiments/ccbench/coding-2026-09-11/report.md))
+appeared to overturn that — four timeouts out of ten and a failed `perf-refactor`:
+
+| model | composite | quality | pass | suite cost | suite wall | mean turns | AA coding |
+|-|-|-|-|-|-|-|-|
+| `minimax-m3` | 0.82 | 1.00 | 10/10 | $0.164 | 5m 29s | 12.0 | 58.6 |
+| `glm-5.3-flash` | 0.78 | 0.91 | 9/10 | **$0.016** | 40m 22s | 9.8 | **71.5** |
+| `kimi-k2.7-code` | 0.72 | 1.00 | 10/10 | $0.354 | 9m 23s | 11.3 | 60.8 |
+| `DeepSeek-V4-Pro` | 0.68 | 1.00 | 10/10 | $0.774 | 13m 36s | 12.5 | 68.8 |
+
+**That reading was wrong, and the per-task rows say so.** Every timeout landed exactly on its
+budget — 600/600/420/360s, the task's own `timeoutMs` — with blank `api_duration_ms` and zero
+output tokens, because those rows are reconstructed from a partial transcript after the harness
+SIGKILLed the session. The "stream ended without a result event" note *is* the kill. Three of
+the four scored 1.00 anyway: the edits had landed before the clock fired. On the six tasks it
+was allowed to finish, `glm-5.3-flash` averaged 73s against `minimax-m3`'s 33s — 2.2× slower,
+not the 7× the suite-wall column implies, because most of that column is the harness's own
+budgets being spent.
+
+Re-run with `--timeout-scale 3` (`--suite glm-slowclock-2026-09-11`): **10/10, every task 1.00**,
+including the `perf-refactor` that scored 0.11 at 1×. `implement-spec` and `house-rules`, both
+killed at 1×, finished cleanly in 270s and 235s. The suite cost $0.048.
+
+### `minimax-m3` was the wrong conclusion for a second reason
+
+It aces ccbench and is the weakest model in the field everywhere else:
+
+| eval | `glm-5.3-flash` | `DeepSeek-V4-Pro` | `minimax-m3` | `claude-sonnet-5` |
+|-|-|-|-|-|
+| AA coding index | **71.5** | 68.8 | 58.6 | — |
+| DeepSWE (agentic SWE) | **0.634** | — | — | 0.538 |
+| SWE-bench Verified | — | **0.776** | — | — |
+| FrontierCode | — | 0.176 | 0.147 | 0.427 |
+| LMCA | — | 0.412 | 0.337 | 0.493 |
+| GPQA diamond | **0.902** | 0.896 | 0.813 | — |
+| OTIS mock AIME | 0.939 | **0.967** | **0.267** | — |
+
+That AIME row is the tell: `minimax-m3` is not a weak coder, it is a weak reasoner that drives
+a tool loop reliably. ccbench cannot see the difference — it saturates, which is the documented
+reason it is a gate and not a ranking. Picking on it alone selects for loop-hygiene and against
+intelligence.
+
+### The lever nobody had pulled: `glm-5.3-flash` defaults to max effort
+
+Its model card documents `reasoning_effort` ∈ {low, high, max} with **max as the default**, and
+Claude Code sends no effort hint. Measured against the IU Anthropic route, same prompt:
+
+| request | 1st visible token | thinking | answer |
+|-|-|-|-|
+| plain (what ccbench sent) | 60,994ms | 17,837 chars | 2,235 chars |
+| `thinking: {type: "disabled"}` | 51,031ms | 16,712 | 2,622 |
+| `reasoning_effort: "low"` (passthrough) | 58,025ms | 20,491 | 3,088 |
+| **`thinking: {enabled, budget_tokens: 512}`** | **2,089ms** | **58** | 2,393 |
+
+**29×, same answer length.** Requesty ignores `reasoning_effort` and ignores
+`thinking: disabled`; only an Anthropic-shaped thinking budget gets through — which Claude Code
+exposes as `MAX_THINKING_TOKENS` (present in CLI 2.1.268). The 40-minute suite was max-effort
+GLM under a ten-minute cap, a configuration no one in the field runs: Together measured Flash
+on DeepSWE at 12.5s/step and 26min/task, a local bench measured the same ten tasks at 98s on
+low effort against 1,735.8s on max, and Z.ai's own coding evaluations use six-hour task
+timeouts.
+
+### What the thinking cap is actually worth
+
+Third run, `MAX_THINKING_TOKENS=2048` at the **normal** 1× clock
+(`--suite glm-think2k-2026-09-11`):
+
+| run | clock | thinking cap | tasks passed | timeouts | suite cost |
+|-|-|-|-|-|-|
+| `coding-2026-09-11` | 1× | none | 9/10 scored, 6/10 completed | **4** | $0.016 |
+| `glm-slowclock-2026-09-11` | 3× | none | **10/10** | 1 (scored 1.00) | $0.048 |
+| `glm-think2k-2026-09-11` | 1× | 2,048 | 9/10 | **1** | $0.033 |
+
+On the six tasks that completed under every configuration, capping thinking cut wall-clock
+~31% (441s → 303s). More usefully, three tasks that the 1× clock killed now finish inside it:
+`implement-spec` 173s (budget 360), `house-rules` 318s (budget 420), `parser-spec` 551s
+(budget 600). One repeat each, so read the per-task drops as consistent rather than isolated —
+but they move in the same direction on all ten.
+
+`perf-refactor` is the residue: still killed at 600s having taken only 3 turns, and it is the
+one task that needed the 3× clock to pass. So **the cap is most of the fix, not all of it** —
+the hard tier also needs a budget that reflects minutes-per-turn work. The Anthropic door
+reports `thinking_tokens: 0` for every row regardless, so the cap cannot be confirmed from
+usage accounting; the wall-clock drop is the only evidence it applied.
+
+### Verdict
+
+**`glm-5.3-flash` keeps the worker slot**, on the strength of 10/10 once the clock stops being
+the experiment, the best coding index and DeepSWE score in the reachable field, and a suite
+cost of $0.016–0.048 against `DeepSeek-V4-Pro`'s $0.774. One operational condition comes with it,
+and it is the actual deliverable of this re-bench:
+
+**Budget on idle, not wall clock.** A wall-clock kill cannot tell "still thinking" from
+"wedged". It is a guess about how long work should take, and when the guess is wrong it
+destroys the evidence that would have corrected it — the four "failures" above have blank
+`api_duration_ms` and zero token counts precisely because the harness killed them. Claude Code
+already exposes `CLAUDE_STREAM_IDLE_TIMEOUT_MS`, `API_TIMEOUT_MS` and `CLAUDE_CODE_MAX_RETRIES`;
+ccbench and sideclaw both wrapped them in a fixed wall-clock kill. ccbench no longer does.
+
+**The thinking cap is a dial, not a requirement.** `MAX_THINKING_TOKENS=2048` buys roughly 30%
+wall-clock and is worth setting where latency is the product, but the model scores 10/10
+*uncapped* once nothing kills it. Treating the cap as a precondition would have encoded a
+workaround for a harness defect as a property of the model — which is how the `minimax-m3`
+detour happened in the first place.
+
+`DeepSeek-V4-Pro` remains the answer when wall clock is what you are paying for — 10/10 with
+zero timeouts at 13m36s, SWE-bench Verified 0.776 — at 16–48× the cost per suite. `minimax-m3`
+is a fast, reliable, *unintelligent* worker: fine for mechanical loops, wrong as the coding pick.
+
+Residency is unchanged and absent for all four: every one is a Requesty hop reporting `global`.
+Non-sensitive code only.
+
+## 2026-09-12: `glm-5.3` vs `glm-5.3-flash` — Flash is not the small version, it is the agentic version
+
+The recommender prefers `glm-5.3` for the `coding` category, which flagged seven worker slots
+as drift. The pick does not move, and the reason is that "Flash" is misleading here: these are
+**two separately trained models**, not one checkpoint at two sizes.
+
+| | `glm-5.3` | `glm-5.3-flash` |
+|-|-|-|
+| Parameters | 744B total / 40B active | 320B total / 18B active |
+| Lineage | post-trained from the GLM-5.2 base | **a new base**, not a distillation of 5.3 |
+| Attention | DeepSeek Sparse Attention | hybrid sparse + linear, mHC, IndexPool |
+| vs 5.3 | — | ~3.01× less attention compute, 4.44× smaller KV cache |
+| Context | 1M | 1M |
+| Thinking | forced on, `reasoning_effort` low/high/max | forced on, same |
+| Multimodal | no | **yes** — first natively multimodal in the GLM-5 line |
+| Price in / cached / out | $1.40 / $0.26 / $4.40 | **$0.15 / $0.03 / $0.50** |
+
+Measured on our own data: quality 44.9 vs 41.9, coding index 74.8 vs 71.5, throughput 54.8 vs
+**108.2 tok/s**, `latency_p50` 3.57s vs **2.04s**. So the larger model buys 3 points of index
+for **9× the input price, 8.8× the output price, half the decode rate and 1.75× the latency**.
+
+Two things settle it beyond the arithmetic:
+
+1. **Z.ai positions Flash specifically for agentic/tool-calling coding** — ZCode, Browser Use,
+   Computer Use, and a model card evaluated on DeepSWE, NL2Repo, Terminal-Bench and HLE-with-tools.
+   It is the model built for the loop we run it in; `glm-5.3` is the bigger generalist.
+2. **ccbench has run `glm-5.3-flash` 46 times for an average score of 0.966. `glm-5.3` has
+   never been run at all.** The recommendation is a leaderboard extrapolation; the pick is a
+   measurement.
+
+The seven worker slots are therefore marked `follows_recommendation: false` — the `coding`
+weight profile is quality-led (0.5 / 0.35 / 0.15) and the unattended-worker role is cost- and
+throughput-led. ccbench's worker verdict governs them, not the category score.
+
+Re-open if ccbench ever runs `glm-5.3` and it beats Flash on graded tasks, or if Flash's
+forced-thinking (it cannot be disabled on either model) starts costing more in latency than
+the price gap is worth.

@@ -1,5 +1,16 @@
 # sideclaw's Five Tiers — Structural Picks, Not All Scored Ones
 
+> **Current verdict (2026-09-13):** six tiers now: `dispatch` split off CLASSIFY into its own
+> **AGENT** tier (`glm-5.3-flash`, `thinkingTokens: 8192`) — an agentic episode needs more room
+> than a classify-shaped call but must not default to GLM's unbounded `max`. CLASSIFY
+> (`check`/`overview`/`review_router`) stays `glm-5.3-flash` at `thinkingTokens: 2048`. JUDGE
+> (`review`, `otel`) and PROSE (`narrative`, `excalidraw`) both still run `claude-sonnet-5` on
+> opposite billing lanes; VISION is `gemini-3.5-flash`; the adversary still runs `gpt-5.6-terra`.
+> `SIDECLAW_THINKING_TOKENS_<TOOL>` overrides any tier's budget per tool.
+> **Status of this record:** the table below still shows `dispatch` grouped under JUDGE — it now
+> runs on its own AGENT tier at the cheap IU rate, not on Max.
+> Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
+
 sideclaw's per-tool routing table (`sideclaw/server/lib/routing.ts`) assigns every worker
 route to one of five named tiers. Two of the five — CLASSIFY and VISION — are this repo's
 own scored picks (`coding` and `vision` in [`seed.ts`](../../src/db/seed.ts)). The other

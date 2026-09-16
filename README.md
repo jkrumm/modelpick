@@ -5,7 +5,20 @@ cross-checked against external leaderboards, plus an interactive audio playgroun
 curating voice demos. It records the models I have actually committed to (My Stack) and flags drift
 when the algorithm prefers a different pick.
 
+It also records **what every service actually runs**, slot by slot — the model, the reasoning
+budget, and the file in the other repo that wires it — and checks those claims mechanically
+(`bun run verify-deployments`).
+
 Single-user, local-only. State lives in one SQLite file (`modelpick.db`, gitignored).
+
+## Start here
+
+| | |
+|-|-|
+| **[docs/GUIDELINES.md](docs/GUIDELINES.md)** | The settled patterns: choosing a model, configuring it, measuring one, recording the decision. Start here. |
+| **[docs/decisions/model-configs.md](docs/decisions/model-configs.md)** | The rollout reference: exact settings per model per wire, which gateway leg serves what, and the traps. |
+| [docs/decisions/](docs/decisions/) | The evidence behind each pick, with a current-verdict block at the top of every record. |
+| `/stack` | What runs today, and what is flagged for review. |
 
 ## Quick start
 

@@ -1,5 +1,14 @@
 # Audio Stack — Cloud TTS + STT
 
+> **Current verdict (2026-09-12):** TTS runs ElevenLabs via the IU Replicate route
+> (`elevenlabs/flash-v2.5` chat, `elevenlabs/v3` briefings, voice `Mark`), with Gemini 3.1
+> Flash TTS kept served as the EU-resident fallback. STT stays `gpt-4o-transcribe` (US-routed)
+> with `whisper` for EU/diarization gaps — the primary STT's US routing is still an open
+> residency question.
+> **Status of this record:** partly superseded — see §TTS re-pick (2026-08-26): ElevenLabs via
+> Replicate, which moved the top-level 2026-05-25 TTS decision (Gemini 3.1 Flash default).
+> Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
+
 **Update (2026-08-26): TTS moves to ElevenLabs via the IU Replicate route** — `elevenlabs/flash-v2.5`
 for chat replies, `elevenlabs/v3` for briefings; Gemini stays served but is no longer the default.
 STT unchanged. Details in [TTS re-pick](#tts-re-pick-2026-08-26-elevenlabs-via-replicate) below.

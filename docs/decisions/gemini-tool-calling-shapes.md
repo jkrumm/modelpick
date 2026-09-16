@@ -1,5 +1,11 @@
 # Gemini on IU: two tool-calling shapes, two different answers
 
+> **Current verdict (2026-09-12):** the multi-round agent-loop penalty that keeps
+> `gemini-3.8-flash` out of the Hermes brain does not transfer to a service whose lead model
+> only does single-shot forced-tool calls — there Gemini is faster than `gpt-5.6-luna`.
+> **Status of this record:** current
+> Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
+
 **Verdict:** the multi-round agent-loop penalty that keeps `gemini-3.8-flash` out of the
 Hermes brain ([hermes-brain.md](./hermes-brain.md)) **does not transfer** to a service whose
 lead model only does single-shot forced `tool_choice` structured output. On that shape Gemini

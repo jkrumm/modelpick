@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.jkrumm.modelpick-web</string>
+  <!-- The always-on dashboard on :7727, behind the existing Caddy entry
+       (dotfiles/config/Caddyfile → modelpick.test → modelpick.mini.jkrumm.com).
+
+       Deliberately a LaunchAgent and NOT a Docker container, unlike rb and
+       linewatch. Those two own their SQLite file exclusively; modelpick's is
+       shared with host-side writers that cannot be containerised at all —
+       `bun run bench` spawns the `claude` CLI and reads the macOS Keychain,
+       and the 06:00 refresh agent writes the same file. Putting the web server
+       behind a Docker volume boundary gives either two divergent databases or
+       the fcntl/virtiofs corruption already measured twice in this house
+       (linewatch 2026-07-30, work dashboard 2026-07-21/26). Same-host
+       processes get real SQLite locking; a VM boundary does not.
+
+       Rendered by `make web-setup`; __HOME__ and __REPO__ are substituted. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/bun</string>
+    <string>run</string>
+    <string>start</string>
+  </array>
+  <key>WorkingDirectory</key><string>__REPO__</string>
+  <!-- launchd sets no shell PATH. `bun` and the `secrets-run` shim must be
+       reachable by absolute directory or the job dies at spawn (exit 127).
+       Note the `start` script runs the built server under bun, not node:
+       node here comes from an fnm multishell path that exists only inside an
+       interactive shell, so a node entrypoint would never resolve. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>__HOME__/.local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    <key>HOME</key><string>__HOME__</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <!-- A web server, unlike the refresh job, SHOULD come back when it dies. -->
+  <key>KeepAlive</key><true/>
+  <!-- Don't spin on a build that cannot start (missing .output, port taken). -->
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>StandardOutPath</key><string>__HOME__/Library/Logs/modelpick-web.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/Library/Logs/modelpick-web.err</string>
+</dict>
+</plist>
