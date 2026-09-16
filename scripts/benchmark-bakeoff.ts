@@ -16,8 +16,31 @@
  */
 import { db, client } from "../src/db/index.js";
 import { metricSnapshot } from "../src/db/schema.js";
+import type { Thinking } from "../src/db/schema.js";
 
 type MetricRow = typeof metricSnapshot.$inferInsert;
+
+/**
+ * The reasoning configuration a candidate was measured under, stamped onto every
+ * live metric row. Without it a TTFT recorded with thinking suppressed sits in
+ * the same column as one recorded at default effort and outranks it — which is
+ * how gpt-5.6-luna was once read as categorically faster than it is
+ * (docs/decisions/hermes-brain.md, 2026-09-11).
+ */
+function conditionsOf(candidate: Candidate): Thinking {
+  const effort = candidate.extra?.["reasoning_effort"];
+  if (effort === "none") return "off";
+  if (
+    effort === "minimal" ||
+    effort === "low" ||
+    effort === "medium" ||
+    effort === "high" ||
+    effort === "max"
+  ) {
+    return effort;
+  }
+  return "default";
+}
 
 /** Models not yet in the catalog fail the FK — don't lose a live run over it. */
 async function recordMetrics(rows: MetricRow[]): Promise<void> {
@@ -49,13 +72,30 @@ interface Candidate {
  * none and no longer returns a `cost` field on any route). Both vendors bill
  * reasoning/thinking tokens at the output rate.
  *   Luna: OpenAI/Azure post-2026-07-30 price cut, short context (<=272k).
- *   Gemini 3.7 Flash: Google intro price, valid through 2026-12-31 — it doubles
- *   to $1.50/$7.50 on 2027-01-01.
  */
 const LUNA_RATE = { input: 0.2, output: 1.2, cachedInput: 0.02 };
-const GEMINI_RATE = { input: 0.75, output: 3.75, cachedInput: 0.075 };
+/**
+ * DeepSeek V4.1 Flash list price per AA (2026-09-11). IU reaches it through
+ * Requesty, which forwards to Fireworks — so this is the model vendor's rate,
+ * not a confirmed IU billing rate. The route *reports* `cached_tokens` (3,046 of
+ * 3,175 on the cache suite) but publishes no discounted cached-input rate, so
+ * `cachedInput: null` bills a cache hit at the full input price — which is why
+ * its per-call cost stays flat across identical-prefix calls while Luna's drops 9x.
+ */
+const DEEPSEEK_FLASH_RATE = { input: 0.3, output: 1.2, cachedInput: null };
+
+const GLM_FLASH_RATE = { input: 0.15, output: 0.5, cachedInput: 0.03 };
 
 const CANDIDATES: Candidate[] = [
+  {
+    id: "glm-5.3-flash",
+    label: "GLM 5.3 Flash, reasoning_effort=high",
+    transport: "openai",
+    rate: GLM_FLASH_RATE,
+    // `high`, not the `max` default: max spends 56x the reasoning for no better output and
+    // starves at a normal budget (docs/decisions/model-configs.md). `medium` is rejected.
+    extra: { reasoning_effort: "high" },
+  },
   {
     id: "gpt-5.6-luna",
     label: "Luna, default effort",
@@ -70,24 +110,17 @@ const CANDIDATES: Candidate[] = [
     extra: { reasoning_effort: "none" },
   },
   {
-    id: "gemini-3.8-flash",
-    label: "Gemini 3.8 native, default thinking",
-    transport: "gemini",
-    rate: GEMINI_RATE,
-  },
-  {
-    id: "gemini-3.8-flash",
-    label: "Gemini 3.8 native, thinkingLevel=low",
-    transport: "gemini",
-    rate: GEMINI_RATE,
-    extra: { thinkingConfig: { thinkingLevel: "low" } },
-  },
-  {
-    id: "gemini-3.8-flash",
-    label: "Gemini 3.8 openai, reasoning_effort=none",
+    id: "deepseek-v4.1-flash",
+    label: "DeepSeek V4.1 Flash, default effort",
     transport: "openai",
-    rate: GEMINI_RATE,
-    extra: { reasoning_effort: "none" },
+    rate: DEEPSEEK_FLASH_RATE,
+  },
+  {
+    id: "deepseek-v4.1-flash",
+    label: "DeepSeek V4.1 Flash, reasoning_effort=low",
+    transport: "openai",
+    rate: DEEPSEEK_FLASH_RATE,
+    extra: { reasoning_effort: "low" },
   },
 ];
 
@@ -100,7 +133,11 @@ const TURNS = [
 // Gemini 3 counts thinking tokens against maxOutputTokens, so a 600-token cap
 // spends the whole budget on thoughts and truncates the answer. Give both models
 // enough headroom to finish naturally.
-const MAX_TOKENS = 4000;
+// Raised from 4000 on 2026-09-12. The previous tool-suite verdict (luna 6.6s vs V4.1 21.4s)
+// was taken at 4000, which is inside the budget-starvation zone that invalidated the
+// fast-model conclusions — a model that spends its whole allowance thinking looks like a
+// model that failed the task. 16000 is above every measured thinking spend in the field.
+const MAX_TOKENS = 16000;
 const TIMEOUT_MS = 90_000;
 
 interface Usage {
@@ -112,7 +149,9 @@ interface Usage {
 }
 
 interface TurnResult extends Usage {
+  ttfbMs: number | null;
   ttftMs: number | null;
+  thinkMs: number;
   decodeMs: number;
   wallMs: number;
   tokensPerSec: number | null;
@@ -186,6 +225,7 @@ async function streamOpenAi(
   extra?: Record<string, unknown>,
 ): Promise<TurnResult> {
   const start = performance.now();
+  let firstFrameAt: number | null = null;
   let firstTokenAt: number | null = null;
   let text = "";
   let finishReason = "?";
@@ -214,7 +254,10 @@ async function streamOpenAi(
 
   await readSse(resp, (event) => {
     const parsed = event as {
-      choices?: Array<{ delta?: { content?: string }; finish_reason?: string | null }>;
+      choices?: Array<{
+        delta?: { content?: string; reasoning_content?: string; reasoning?: string };
+        finish_reason?: string | null;
+      }>;
       usage?: {
         prompt_tokens?: number;
         completion_tokens?: number;
@@ -223,6 +266,11 @@ async function streamOpenAi(
         prompt_tokens_details?: { cached_tokens?: number };
       };
     };
+    // Any parsed data: frame counts toward ttfb, including reasoning-only
+    // deltas (delta.reasoning_content / delta.reasoning) — the point is
+    // separating transport latency from the model's thinking phase, not just
+    // measuring time to visible text.
+    firstFrameAt ??= performance.now();
     if (parsed.choices?.[0]?.finish_reason) finishReason = parsed.choices[0].finish_reason;
     const delta = parsed.choices?.[0]?.delta?.content;
     if (delta) {
@@ -230,18 +278,48 @@ async function streamOpenAi(
       text += delta;
     }
     if (parsed.usage) {
-      usage.promptTokens = parsed.usage.prompt_tokens ?? 0;
-      usage.visibleTokens = parsed.usage.completion_tokens ?? 0;
-      usage.totalTokens = parsed.usage.total_tokens ?? 0;
+      const promptTokens = parsed.usage.prompt_tokens ?? 0;
+      const completionTokens = parsed.usage.completion_tokens ?? 0;
+      const totalTokens = parsed.usage.total_tokens ?? 0;
+      usage.promptTokens = promptTokens;
+      usage.totalTokens = totalTokens;
       usage.cachedTokens = parsed.usage.prompt_tokens_details?.cached_tokens ?? 0;
+      /**
+       * IU's OpenAI-compat route reports usage in exactly two shapes (measured
+       * live, 2026-09-11):
+       *
+       *  1. Azure OpenAI ids (gpt-5.6-luna) and Requesty-proxied ids
+       *     (deepseek-v4.1-flash, glm-5.3-flash, DeepSeek-V4-Pro):
+       *     `completion_tokens` ALREADY INCLUDES
+       *     `completion_tokens_details.reasoning_tokens`, and
+       *     `total_tokens === prompt_tokens + completion_tokens`.
+       *     Measured: prompt 44, completion 629, reasoning 314, total 673.
+       *
+       *  2. Gemini ids served through this same route (gemini-3.8-flash):
+       *     `completion_tokens` EXCLUDES thinking and `reasoning_tokens` is
+       *     absent/0, while `total_tokens` counts it.
+       *     Measured: prompt 17, completion 384, reasoning 0, total 1479 —
+       *     1,078 hidden thinking tokens `completion_tokens` never mentions.
+       *
+       * Adding a reasoning figure on top of `completion_tokens` therefore
+       * double-bills reasoning under shape 1 (it's already inside
+       * `completion_tokens`). `billedOutput = max(completion_tokens,
+       * total_tokens - prompt_tokens)` is the shape-agnostic total: under
+       * shape 1 it collapses to `completion_tokens` (total - prompt ==
+       * completion by definition); under shape 2 it recovers the true total
+       * including the hidden thinking. Subtracting the reasoning figure back
+       * out of that gives the true visible count under either shape.
+       */
       const reported = parsed.usage.completion_tokens_details?.reasoning_tokens ?? 0;
-      // Some IU routes omit reasoning_tokens but still count them in total.
-      const implied = usage.totalTokens - usage.promptTokens - usage.visibleTokens;
-      usage.reasoningTokens = reported > 0 ? reported : Math.max(0, implied);
+      const hidden = Math.max(0, totalTokens - promptTokens - completionTokens);
+      const reasoning = reported > 0 ? reported : hidden;
+      const billedOutput = Math.max(completionTokens, totalTokens - promptTokens);
+      usage.reasoningTokens = reasoning;
+      usage.visibleTokens = Math.max(0, billedOutput - reasoning);
     }
   });
 
-  return finishTurn({ start, firstTokenAt, text, usage, backend, finishReason });
+  return finishTurn({ start, firstFrameAt, firstTokenAt, text, usage, backend, finishReason });
 }
 
 async function streamGeminiNative(
@@ -250,6 +328,7 @@ async function streamGeminiNative(
   extra?: Record<string, unknown>,
 ): Promise<TurnResult> {
   const start = performance.now();
+  let firstFrameAt: number | null = null;
   let firstTokenAt: number | null = null;
   let text = "";
   let finishReason = "?";
@@ -284,6 +363,10 @@ async function streamGeminiNative(
         totalTokenCount?: number;
       };
     };
+    // A part with `thought: true` is a frame (counts toward ttfb) but not
+    // visible text (does not count toward ttft) — same split as the OpenAI
+    // reasoning-delta case in streamOpenAi() above.
+    firstFrameAt ??= performance.now();
     if (parsed.candidates?.[0]?.finishReason) finishReason = parsed.candidates[0].finishReason;
     for (const part of parsed.candidates?.[0]?.content?.parts ?? []) {
       if (part.thought) continue;
@@ -302,11 +385,12 @@ async function streamGeminiNative(
     }
   });
 
-  return finishTurn({ start, firstTokenAt, text, usage, backend, finishReason });
+  return finishTurn({ start, firstFrameAt, firstTokenAt, text, usage, backend, finishReason });
 }
 
 function finishTurn(input: {
   start: number;
+  firstFrameAt: number | null;
   firstTokenAt: number | null;
   text: string;
   usage: Usage;
@@ -314,14 +398,19 @@ function finishTurn(input: {
   finishReason: string;
 }): TurnResult {
   const end = performance.now();
-  const { start, firstTokenAt, text, usage, backend, finishReason } = input;
+  const { start, firstFrameAt, firstTokenAt, text, usage, backend, finishReason } = input;
+  const ttfbMs = firstFrameAt === null ? null : firstFrameAt - start;
   const ttftMs = firstTokenAt === null ? null : firstTokenAt - start;
+  const thinkMs =
+    firstFrameAt !== null && firstTokenAt !== null ? Math.max(0, firstTokenAt - firstFrameAt) : 0;
   const decodeMs = firstTokenAt === null ? end - start : end - firstTokenAt;
   const visible = usage.visibleTokens > 0 ? usage.visibleTokens : Math.round(text.length / 4);
   return {
     ...usage,
     visibleTokens: visible,
+    ttfbMs,
     ttftMs,
+    thinkMs,
     decodeMs,
     wallMs: end - start,
     tokensPerSec: decodeMs > 0 ? visible / (decodeMs / 1000) : null,
@@ -360,7 +449,7 @@ async function suiteThroughput(): Promise<void> {
         const result = await runTurn(candidate, history, prompt);
         turns.push(result);
         console.log(
-          `  turn ${i + 1}: ttft ${result.ttftMs?.toFixed(0) ?? "—"}ms · ` +
+          `  turn ${i + 1}: ttfb ${result.ttfbMs?.toFixed(0) ?? "—"}ms · think ${result.thinkMs.toFixed(0)}ms · ttft ${result.ttftMs?.toFixed(0) ?? "—"}ms · ` +
             `${result.tokensPerSec?.toFixed(1) ?? "—"} tok/s · ` +
             `in ${result.promptTokens} (cached ${result.cachedTokens}) · ` +
             `out ${result.visibleTokens} + think ${result.reasoningTokens} · ` +
@@ -379,7 +468,7 @@ async function suiteThroughput(): Promise<void> {
     const totalCost = turns.reduce((s, t) => s + costUsd(candidate, t), 0);
     const totalWall = turns.reduce((s, t) => s + t.wallMs, 0);
     console.log(
-      `  AVG: ttft ${avg((t) => t.ttftMs).toFixed(0)}ms · ${avg((t) => t.tokensPerSec).toFixed(1)} tok/s · ` +
+      `  AVG: ttfb ${avg((t) => t.ttfbMs).toFixed(0)}ms · think ${avg((t) => t.thinkMs).toFixed(0)}ms · ttft ${avg((t) => t.ttftMs).toFixed(0)}ms · ${avg((t) => t.tokensPerSec).toFixed(1)} tok/s · ` +
         `think/visible ratio ${(avg((t) => t.reasoningTokens) / Math.max(1, avg((t) => t.visibleTokens))).toFixed(2)} · ` +
         `conversation ${(totalWall / 1000).toFixed(1)}s · $${totalCost.toFixed(5)} · backend "${turns[0]?.backend}"`,
     );
@@ -388,6 +477,7 @@ async function suiteThroughput(): Promise<void> {
       {
         model_id: candidate.id,
         source: "live",
+        conditions: conditionsOf(candidate),
         metric: "throughput",
         value: avg((t) => t.tokensPerSec),
         confidence: 0.9,
@@ -395,18 +485,34 @@ async function suiteThroughput(): Promise<void> {
       {
         model_id: candidate.id,
         source: "live",
+        conditions: conditionsOf(candidate),
         metric: "ttft_ms",
         value: avg((t) => t.ttftMs),
+        confidence: 0.9,
+      },
+      {
+        model_id: candidate.id,
+        source: "live",
+        conditions: conditionsOf(candidate),
+        metric: "ttfb_ms",
+        value: avg((t) => t.ttfbMs),
         confidence: 0.9,
       },
     ]);
   }
 }
 
+// 600 rules ~= 30k tokens. Sized deliberately: the 60-rule (~3.1k token) version answered
+// "does caching work at all", which is a different question from "does caching decide a brain".
+// Hermes runs `context_length: 850000` and compacts at 240k, so a real turn re-sends tens of
+// thousands of tokens of prefix — the regime where a cached-input rate either dominates the
+// bill or does not exist. Override with CACHE_PREFIX_RULES.
+const CACHE_PREFIX_RULES = Number(process.env["CACHE_PREFIX_RULES"] ?? 600);
+
 const CACHE_PREFIX = [
   "You are an operations assistant for a personal infrastructure stack.",
   ...Array.from(
-    { length: 60 },
+    { length: CACHE_PREFIX_RULES },
     (_, i) =>
       `Rule ${i + 1}: service-${i + 1} runs on port ${7000 + i} behind the reverse proxy, ` +
       `is health-checked every ${30 + i} seconds, restarts on failure with a ${i + 2}x backoff, ` +
@@ -510,7 +616,11 @@ const MAX_ROUNDS = 6;
 // At 500 a thinking-heavy round burns the whole budget on thoughts and returns an
 // empty candidate — which this harness scores as "dropped a tool / did not finish",
 // i.e. a truncation artifact indistinguishable from a real capability failure.
-const TOOL_MAX_TOKENS = 4000;
+// Raised from 4000 on 2026-09-12, same reason as MAX_TOKENS above: the standing
+// "luna 6.6s vs V4.1 21.4s on 3 tools" verdict was measured at this cap, and a model whose
+// thinking expands to fill the budget (deepseek-v4.1-flash: ~7,970 tokens per cell) cannot
+// reach the tool calls at all inside it. That is starvation, not a tool-calling failure.
+const TOOL_MAX_TOKENS = 16000;
 
 interface ToolRunResult {
   rounds: number;
@@ -584,18 +694,19 @@ async function toolRunOpenAi(candidate: Candidate): Promise<ToolRunResult> {
         completion_tokens_details?: { reasoning_tokens?: number };
       };
     };
-    tally.prompt += body.usage?.prompt_tokens ?? 0;
-    tally.output += body.usage?.completion_tokens ?? 0;
+    // Same shape-agnostic correction as streamOpenAi() above: completion_tokens
+    // already includes reasoning under the Azure/Requesty shape, so tallying
+    // both separately would double-bill it.
+    const roundPrompt = body.usage?.prompt_tokens ?? 0;
+    const roundCompletion = body.usage?.completion_tokens ?? 0;
+    const roundTotal = body.usage?.total_tokens ?? 0;
     const reported = body.usage?.completion_tokens_details?.reasoning_tokens ?? 0;
-    tally.reasoning +=
-      reported > 0
-        ? reported
-        : Math.max(
-            0,
-            (body.usage?.total_tokens ?? 0) -
-              (body.usage?.prompt_tokens ?? 0) -
-              (body.usage?.completion_tokens ?? 0),
-          );
+    const hidden = Math.max(0, roundTotal - roundPrompt - roundCompletion);
+    const roundReasoning = reported > 0 ? reported : hidden;
+    const roundBilledOutput = Math.max(roundCompletion, roundTotal - roundPrompt);
+    tally.prompt += roundPrompt;
+    tally.output += Math.max(0, roundBilledOutput - roundReasoning);
+    tally.reasoning += roundReasoning;
 
     const message = body.choices?.[0]?.message;
     const toolCalls = message?.tool_calls ?? [];
@@ -777,6 +888,7 @@ async function suiteTools(): Promise<void> {
         {
           model_id: candidate.id,
           source: "live",
+          conditions: conditionsOf(candidate),
           metric: "tool_call_success",
           value: success ? 1 : 0,
           confidence: 0.7,
@@ -784,6 +896,7 @@ async function suiteTools(): Promise<void> {
         {
           model_id: candidate.id,
           source: "live",
+          conditions: conditionsOf(candidate),
           metric: "tool_call_coverage",
           value: coverage / 3,
           confidence: 0.7,

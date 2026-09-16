@@ -74,7 +74,8 @@ export const MODEL_NOTES: Record<string, string> = {
   "claude-haiku-4-5": "200 / 978ms — fastest door on the route; the cheap-tier candidate",
   "claude-sonnet-4-6": "200 / 1247ms — the incumbent workhorse tier",
   "claude-sonnet-5": "200 / 1930ms — newer sonnet, slower first call than 4-6",
-  "claude-opus-4-8": "200 / 1197ms — current orchestrator pick in My Stack",
+  "claude-opus-4-8":
+    "200 / 1197ms — the previous orchestrator pick, replaced by claude-opus-5 on 2026-08-02",
   "claude-opus-5": "200 / 1472ms — top tier, the cost ceiling of the field",
 };
 

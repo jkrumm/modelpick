@@ -3,7 +3,8 @@
 // per model (0.0% residual), confirmed identical on the /openai route. Used as
 // the fallback so a fresh `pick` run without probing (or a model a live probe
 // couldn't solve) still renders a full comparison table — a live probe
-// overwrites these once cached in pick_probe.
+// overwrites these once cached in pick_probe. glm-5.3-flash re-solved 2026-09-13
+// from `usage.cost`: exactly double its 08-28 rate.
 export interface SeedPriceEntry {
   priceInPerM: number;
   priceOutPerM: number;
@@ -12,7 +13,7 @@ export interface SeedPriceEntry {
 }
 
 export const SEED_PRICES: Record<string, SeedPriceEntry> = {
-  "glm-5.3-flash": { priceInPerM: 0.075, priceOutPerM: 0.25, priceCacheReadPerM: 0.015 },
+  "glm-5.3-flash": { priceInPerM: 0.15, priceOutPerM: 0.5, priceCacheReadPerM: 0.03 },
   "NVIDIA-Nemotron-3-Super-120B-A12B": {
     priceInPerM: 0.1,
     priceOutPerM: 0.5,
