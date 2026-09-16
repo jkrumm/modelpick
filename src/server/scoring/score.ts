@@ -25,6 +25,9 @@ export interface ModelScore {
 export const CATEGORY_WEIGHTS: Record<RecommendationCategory, CategoryWeights> = {
   fast: { quality: 0.25, cost: 0.4, speed: 0.35 },
   coding: { quality: 0.5, cost: 0.35, speed: 0.15 },
+  // writing: a long-form/creative pick — prose quality dominates, this is not
+  // a cheap-utility category.
+  writing: { quality: 0.75, cost: 0.15, speed: 0.1 },
   orchestrator: { quality: 0.88, cost: 0.04, speed: 0.08 },
   tts: { quality: 0.5, cost: 0.3, speed: 0.2 },
   stt: { quality: 0.5, cost: 0.3, speed: 0.2 },
@@ -38,6 +41,10 @@ export const CATEGORY_WEIGHTS: Record<RecommendationCategory, CategoryWeights> =
 export const CATEGORY_MIN_QUALITY: Record<RecommendationCategory, number> = {
   fast: 0.5,
   coding: 0.8,
+  // The writing dimension is itself the floor — an unmeasured model scores 0
+  // on it (via scoreModels' `q ?? 0`), so no separate general-quality gate is
+  // needed here.
+  writing: 0,
   orchestrator: 0,
   tts: 0,
   stt: 0,
@@ -45,16 +52,16 @@ export const CATEGORY_MIN_QUALITY: Record<RecommendationCategory, number> = {
 
 // Score a list of models with the given weights and return them sorted
 // highest-score first. Null metric dimensions contribute 0. `qualityDim` selects
-// which quality signal to weight — "coding" for the coding category, else the
-// general intelligence index.
+// which quality signal to weight — "coding" for the coding category, "writing"
+// for the writing category, else the general intelligence index.
 export function scoreModels(
   metrics: ModelMetrics[],
   weights: CategoryWeights,
-  qualityDim: "quality" | "coding" = "quality",
+  qualityDim: "quality" | "coding" | "writing" = "quality",
 ): ModelScore[] {
   return metrics
-    .map(({ model_id, quality, coding, cost, speed }) => {
-      const q = qualityDim === "coding" ? coding : quality;
+    .map(({ model_id, quality, coding, cost, speed, writing }) => {
+      const q = qualityDim === "coding" ? coding : qualityDim === "writing" ? writing : quality;
       const score =
         weights.quality * (q ?? 0) + weights.cost * (cost ?? 0) + weights.speed * (speed ?? 0);
       return { model_id, score, quality: q, cost, speed };

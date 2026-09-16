@@ -12,6 +12,29 @@ import type { BenchModelRow } from "../server/bench/summary.js";
 // ── normalizeMetrics ──────────────────────────────────────────────────────────
 
 describe("normalizeMetrics", () => {
+  // The gpt-5.6-luna defect: a TTFT measured with thinking suppressed is an
+  // order of magnitude below the same model's default-effort latency, so
+  // averaging the two ranks a configuration nobody runs.
+  it("ignores speed metrics recorded with thinking suppressed", () => {
+    const withOff = normalizeMetrics([
+      { model_id: "a", metric: "ttft_ms", value: 8000, confidence: 1, conditions: "default" },
+      { model_id: "a", metric: "ttft_ms", value: 400, confidence: 1, conditions: "off" },
+      { model_id: "b", metric: "ttft_ms", value: 8000, confidence: 1, conditions: "default" },
+    ]);
+    // With the `off` row dropped both models measure 8000ms, so neither is
+    // faster — a min-max over one distinct value yields 0 for both.
+    expect(withOff[0]?.speed).toBe(withOff[1]?.speed);
+  });
+
+  it("keeps quality metrics regardless of the reasoning conditions", () => {
+    const result = normalizeMetrics([
+      { model_id: "a", metric: "quality", value: 40, confidence: 1, conditions: "off" },
+      { model_id: "b", metric: "quality", value: 20, confidence: 1, conditions: "default" },
+    ]);
+    expect(result.find((r) => r.model_id === "a")?.quality).toBe(1);
+    expect(result.find((r) => r.model_id === "b")?.quality).toBe(0);
+  });
+
   it("returns empty array for empty input", () => {
     expect(normalizeMetrics([])).toEqual([]);
   });
@@ -156,12 +179,56 @@ describe("normalizeMetrics", () => {
   });
 });
 
+// ── normalizeMetrics — writing dimension (preference chain) ─────────────────
+// LMArena's human pairwise-preference Elo wins over EQ-Bench's LLM-judged
+// rubric whenever both exist; EQ-Bench is a fallback only for a model Arena
+// never measured. See normalize.ts's own comment for why (same-family judge,
+// slop_score rewards strangeness over quality).
+
+describe("normalizeMetrics — writing dimension", () => {
+  it("prefers arena_creative_writing over creative_writing_elo when both exist, even if they disagree", () => {
+    const result = normalizeMetrics([
+      { model_id: "a", metric: "arena_creative_writing", value: 1500, confidence: 1.0 },
+      { model_id: "b", metric: "arena_creative_writing", value: 1400, confidence: 1.0 },
+      // EQ-Bench ranks the pair the opposite way — must not win
+      { model_id: "a", metric: "creative_writing_elo", value: 60, confidence: 1.0 },
+      { model_id: "b", metric: "creative_writing_elo", value: 90, confidence: 1.0 },
+    ]);
+    const a = result.find((m) => m.model_id === "a");
+    const b = result.find((m) => m.model_id === "b");
+    expect(a?.writing).toBeCloseTo(1.0);
+    expect(b?.writing).toBeCloseTo(0.0);
+  });
+
+  it("falls back to creative_writing_elo for a model Arena has no row for", () => {
+    const result = normalizeMetrics([
+      { model_id: "a", metric: "arena_creative_writing", value: 1500, confidence: 1.0 },
+      { model_id: "b", metric: "arena_creative_writing", value: 1400, confidence: 1.0 },
+      // "c" has no arena row at all — only an EQ-Bench measurement
+      { model_id: "c", metric: "creative_writing_elo", value: 85, confidence: 1.0 },
+    ]);
+    const c = result.find((m) => m.model_id === "c");
+    expect(c?.writing).not.toBeNull();
+  });
+
+  it("stays null with neither measurement — no fallback to general quality", () => {
+    const result = normalizeMetrics([
+      { model_id: "a", metric: "quality", value: 90, confidence: 1.0 },
+      { model_id: "a", metric: "arena_creative_writing", value: 1500, confidence: 1.0 },
+      { model_id: "b", metric: "quality", value: 50, confidence: 1.0 },
+    ]);
+    const b = result.find((m) => m.model_id === "b");
+    expect(b?.quality).not.toBeNull();
+    expect(b?.writing).toBeNull();
+  });
+});
+
 // ── scoreModels ───────────────────────────────────────────────────────────────
 
 describe("scoreModels", () => {
   it("scores a single model as the weighted sum of its dimensions", () => {
     const metrics: ModelMetrics[] = [
-      { model_id: "a", quality: 0.8, coding: 0.8, cost: 0.6, speed: 0.4 },
+      { model_id: "a", quality: 0.8, coding: 0.8, cost: 0.6, speed: 0.4, writing: null },
     ];
     const weights = { quality: 0.5, cost: 0.3, speed: 0.2 };
     const result = scoreModels(metrics, weights);
@@ -171,7 +238,7 @@ describe("scoreModels", () => {
 
   it("treats null dimensions as 0 in scoring", () => {
     const metrics: ModelMetrics[] = [
-      { model_id: "a", quality: 1.0, coding: 1.0, cost: null, speed: null },
+      { model_id: "a", quality: 1.0, coding: 1.0, cost: null, speed: null, writing: null },
     ];
     const weights = CATEGORY_WEIGHTS["orchestrator"];
     const result = scoreModels(metrics, weights);
@@ -181,9 +248,9 @@ describe("scoreModels", () => {
 
   it("returns models sorted highest score first", () => {
     const metrics: ModelMetrics[] = [
-      { model_id: "low", quality: 0.2, coding: 0.2, cost: 0.2, speed: 0.2 },
-      { model_id: "high", quality: 0.8, coding: 0.8, cost: 0.8, speed: 0.8 },
-      { model_id: "mid", quality: 0.5, coding: 0.5, cost: 0.5, speed: 0.5 },
+      { model_id: "low", quality: 0.2, coding: 0.2, cost: 0.2, speed: 0.2, writing: null },
+      { model_id: "high", quality: 0.8, coding: 0.8, cost: 0.8, speed: 0.8, writing: null },
+      { model_id: "mid", quality: 0.5, coding: 0.5, cost: 0.5, speed: 0.5, writing: null },
     ];
     const result = scoreModels(metrics, { quality: 0.4, cost: 0.3, speed: 0.3 });
     expect(result[0]?.model_id).toBe("high");
@@ -195,8 +262,8 @@ describe("scoreModels", () => {
   // model-x: high quality (1.0), low cost (0.0), low speed (0.0)
   // model-y: low quality (0.0), high cost (1.0), high speed (1.0)
   const tradeoffMetrics: ModelMetrics[] = [
-    { model_id: "model-x", quality: 1.0, coding: 1.0, cost: 0.0, speed: 0.0 },
-    { model_id: "model-y", quality: 0.0, coding: 0.0, cost: 1.0, speed: 1.0 },
+    { model_id: "model-x", quality: 1.0, coding: 1.0, cost: 0.0, speed: 0.0, writing: null },
+    { model_id: "model-y", quality: 0.0, coding: 0.0, cost: 1.0, speed: 1.0, writing: null },
   ];
 
   it("quality-heavy weights (orchestrator) favor the high-quality model", () => {
@@ -210,8 +277,8 @@ describe("scoreModels", () => {
   it("scores on the coding dimension when qualityDim='coding'", () => {
     // smart generalist vs strong coder: coding dim must flip the winner
     const metrics: ModelMetrics[] = [
-      { model_id: "generalist", quality: 1.0, coding: 0.3, cost: 0.0, speed: 0.0 },
-      { model_id: "coder", quality: 0.3, coding: 1.0, cost: 0.0, speed: 0.0 },
+      { model_id: "generalist", quality: 1.0, coding: 0.3, cost: 0.0, speed: 0.0, writing: null },
+      { model_id: "coder", quality: 0.3, coding: 1.0, cost: 0.0, speed: 0.0, writing: null },
     ];
     const weights = CATEGORY_WEIGHTS["coding"];
     expect(scoreModels(metrics, weights, "quality")[0]?.model_id).toBe("generalist");
@@ -319,9 +386,16 @@ function mkBenchRow(overrides: Partial<BenchModelRow> & { modelId: string }): Be
 
 describe("deriveOrchestratorGate", () => {
   const eligible: ModelMetrics[] = [
-    { model_id: "model-strong", quality: 0.9, coding: 0.9, cost: 0.1, speed: 0.5 },
-    { model_id: "model-weak", quality: 0.2, coding: 0.2, cost: 0.9, speed: 0.9 },
-    { model_id: "model-unbenched", quality: 0.95, coding: 0.95, cost: 0.2, speed: 0.4 },
+    { model_id: "model-strong", quality: 0.9, coding: 0.9, cost: 0.1, speed: 0.5, writing: null },
+    { model_id: "model-weak", quality: 0.2, coding: 0.2, cost: 0.9, speed: 0.9, writing: null },
+    {
+      model_id: "model-unbenched",
+      quality: 0.95,
+      coding: 0.95,
+      cost: 0.2,
+      speed: 0.4,
+      writing: null,
+    },
   ];
 
   it("returns null when the harness failed nobody, leaving the leaderboard untouched", () => {

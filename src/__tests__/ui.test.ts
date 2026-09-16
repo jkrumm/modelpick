@@ -49,10 +49,10 @@ function getTopModels(
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
 const metrics: ModelMetrics[] = [
-  { model_id: "model-a", quality: 0.9, coding: 0.9, cost: 0.2, speed: 0.5 },
-  { model_id: "model-b", quality: 0.5, coding: 0.5, cost: 0.9, speed: 0.8 },
-  { model_id: "model-c", quality: 0.7, coding: 0.7, cost: 0.6, speed: 0.6 },
-  { model_id: "tts-1", quality: 0.8, coding: 0.8, cost: 0.5, speed: 0.7 },
+  { model_id: "model-a", quality: 0.9, coding: 0.9, cost: 0.2, speed: 0.5, writing: null },
+  { model_id: "model-b", quality: 0.5, coding: 0.5, cost: 0.9, speed: 0.8, writing: null },
+  { model_id: "model-c", quality: 0.7, coding: 0.7, cost: 0.6, speed: 0.6, writing: null },
+  { model_id: "tts-1", quality: 0.8, coding: 0.8, cost: 0.5, speed: 0.7, writing: null },
 ];
 
 const probes: Record<string, ProbeInfo> = {

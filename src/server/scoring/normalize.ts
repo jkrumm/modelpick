@@ -6,6 +6,11 @@ export interface MetricInput {
   metric: string;
   value: number;
   confidence: number | null;
+  /**
+   * The reasoning configuration a `live` measurement was taken under. Null on
+   * leaderboard rows, which never disclose it.
+   */
+  conditions?: string | null;
 }
 
 export interface ModelMetrics {
@@ -14,6 +19,7 @@ export interface ModelMetrics {
   coding: number | null; // 0-1, higher = better (coding index, falls back to quality)
   cost: number | null; // 0-1, higher = cheaper
   speed: number | null; // 0-1, higher = faster
+  writing: number | null; // 0-1, higher = better (prose quality; no fallback to quality)
 }
 
 function weightedAverage(values: { value: number; confidence: number }[]): number | null {
@@ -64,10 +70,18 @@ export function normalizeMetrics(rawMetrics: MetricInput[]): ModelMetrics[] {
   // or has 0s time-to-first-token) — drop it so it isn't read as best-in-class.
   const POSITIVE_ONLY = new Set(["price_in", "price_out", "throughput", "latency_p50", "ttft_ms"]);
 
+  // Latency and decode rate measured with thinking suppressed describe a
+  // configuration nothing runs. Ranking them against default-effort numbers is
+  // what once made gpt-5.6-luna look categorically faster than it is, so those
+  // rows are dropped rather than averaged in — the model keeps whatever
+  // default-effort or leaderboard measurement it has, or none at all.
+  const SPEED_METRICS = new Set(["ttft_ms", "ttfb_ms", "throughput", "latency_p50"]);
+
   // Group by model_id → metric → [(value, confidence)]
   const grouped = new Map<string, Map<string, { value: number; confidence: number }[]>>();
   for (const m of rawMetrics) {
     if (POSITIVE_ONLY.has(m.metric) && m.value <= 0) continue;
+    if (m.conditions === "off" && SPEED_METRICS.has(m.metric)) continue;
     let byMetric = grouped.get(m.model_id);
     if (byMetric === undefined) {
       byMetric = new Map();
@@ -105,6 +119,12 @@ export function normalizeMetrics(rawMetrics: MetricInput[]): ModelMetrics[] {
     if (live !== null) return live / 1000;
     return weightedAverage(grouped.get(id)?.get("latency_p50") ?? []);
   });
+  const rawArenaCreativeWriting = modelIds.map((id) =>
+    weightedAverage(grouped.get(id)?.get("arena_creative_writing") ?? []),
+  );
+  const rawCreativeWritingElo = modelIds.map((id) =>
+    weightedAverage(grouped.get(id)?.get("creative_writing_elo") ?? []),
+  );
 
   // Min-max normalize across models
   const normQuality = minmax(rawQuality);
@@ -115,6 +135,8 @@ export function normalizeMetrics(rawMetrics: MetricInput[]): ModelMetrics[] {
   const normLatency = minmax(
     rawLatency.map((v) => (v === null ? null : Math.min(v, LATENCY_CLIP_S))),
   );
+  const normArenaCreativeWriting = minmax(rawArenaCreativeWriting);
+  const normCreativeWritingElo = minmax(rawCreativeWritingElo);
 
   return modelIds.map((model_id, i) => {
     // Quality: higher = better (direct)
@@ -138,6 +160,19 @@ export function normalizeMetrics(rawMetrics: MetricInput[]): ModelMetrics[] {
       speed = invLat ?? normTp;
     }
 
-    return { model_id, quality, coding, cost, speed };
+    // Writing: prefer LMArena's human pairwise-preference Elo over EQ-Bench's
+    // LLM-judged rubric, the same "prefer the live/human measurement" shape as
+    // the latency derivation above. EQ-Bench's judge is Claude Sonnet judging
+    // Claude models — a same-family judge — and its slop_score (avoidance of
+    // cliché LLM phrasing) rewards prose that merely reads as different, not
+    // better: it ranks claude-opus-5 near the top on rubric and lowest on
+    // slop, while LMArena's 12k+ human votes rank claude-opus-4-6 above it and
+    // independent user reports call Opus 5's prose confusing and strange.
+    // Human preference wins the disagreement; EQ-Bench is used only as a
+    // fallback for a model Arena has no creative-writing row for. Never falls
+    // back to `quality` — a model with neither measurement stays null.
+    const writing = normArenaCreativeWriting[i] ?? normCreativeWritingElo[i] ?? null;
+
+    return { model_id, quality, coding, cost, speed, writing };
   });
 }

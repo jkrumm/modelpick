@@ -66,6 +66,7 @@ export function propagateMetrics(
     let coding: number | null = null;
     let cost: number | null = null;
     let speed: number | null = null;
+    let writing: number | null = null;
     for (const id of ids) {
       const e = byId.get(id);
       if (e === undefined) continue;
@@ -73,18 +74,28 @@ export function propagateMetrics(
       coding ??= e.coding;
       cost ??= e.cost;
       speed ??= e.speed;
+      writing ??= e.writing;
     }
-    if (quality === null && coding === null && cost === null && speed === null) continue;
+    if (
+      quality === null &&
+      coding === null &&
+      cost === null &&
+      speed === null &&
+      writing === null
+    ) {
+      continue;
+    }
     for (const id of ids) {
       let e = out.get(id);
       if (e === undefined) {
-        e = { model_id: id, quality: null, coding: null, cost: null, speed: null };
+        e = { model_id: id, quality: null, coding: null, cost: null, speed: null, writing: null };
         out.set(id, e);
       }
       e.quality ??= quality;
       e.coding ??= coding;
       e.cost ??= cost;
       e.speed ??= speed;
+      e.writing ??= writing;
     }
   }
   return [...out.values()];
@@ -138,7 +149,9 @@ function computeSupersededBy(
       const bestVersion = versionOf(best.id).version;
       const curVersion = versionOf(cur.id).version;
       // Non-null by construction of `contenders` above.
-      return bestVersion !== null && curVersion !== null && compareVersions(curVersion, bestVersion) > 0
+      return bestVersion !== null &&
+        curVersion !== null &&
+        compareVersions(curVersion, bestVersion) > 0
         ? cur
         : best;
     });

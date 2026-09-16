@@ -23,7 +23,14 @@ describe("propagateMetrics", () => {
       { id: "claude-sonnet-4-5-eu", modality: "llm" },
     ];
     const metrics: ModelMetrics[] = [
-      { model_id: "claude-sonnet-4-5-20250929", quality: 0.8, coding: 0.8, cost: 0.5, speed: 0.6 },
+      {
+        model_id: "claude-sonnet-4-5-20250929",
+        quality: 0.8,
+        coding: 0.8,
+        cost: 0.5,
+        speed: 0.6,
+        writing: null,
+      },
     ];
     const out = propagateMetrics(models, metrics);
     const eu = out.find((m) => m.model_id === "claude-sonnet-4-5-eu");
@@ -39,8 +46,15 @@ describe("propagateMetrics", () => {
       { id: "gpt-5-2025-08-07", modality: "llm" },
     ];
     const metrics: ModelMetrics[] = [
-      { model_id: "gpt-5", quality: 0.9, coding: 0.9, cost: null, speed: null },
-      { model_id: "gpt-5-2025-08-07", quality: 0.1, coding: 0.1, cost: 0.4, speed: null },
+      { model_id: "gpt-5", quality: 0.9, coding: 0.9, cost: null, speed: null, writing: null },
+      {
+        model_id: "gpt-5-2025-08-07",
+        quality: 0.1,
+        coding: 0.1,
+        cost: 0.4,
+        speed: null,
+        writing: null,
+      },
     ];
     const out = propagateMetrics(models, metrics);
     const pin = out.find((m) => m.model_id === "gpt-5-2025-08-07");
@@ -65,7 +79,14 @@ describe("curate", () => {
       { id: "gpt-3.5-turbo", modality: "llm" },
     ];
     const metrics: ModelMetrics[] = [
-      { model_id: "gemini-3.5-flash", quality: 0.9, coding: 0.9, cost: 0.5, speed: 0.8 },
+      {
+        model_id: "gemini-3.5-flash",
+        quality: 0.9,
+        coding: 0.9,
+        cost: 0.5,
+        speed: 0.8,
+        writing: null,
+      },
     ];
     const { currentIds } = curate(models, metrics, accessibleAll);
     expect(currentIds.has("gemini-3.5-flash")).toBe(true);
@@ -79,7 +100,14 @@ describe("curate", () => {
       { id: "gpt-4o-2024-11-20", modality: "llm" },
     ];
     const metrics: ModelMetrics[] = [
-      { model_id: "gpt-4o-2024-08-06", quality: 0.5, coding: 0.5, cost: 0.5, speed: 0.5 },
+      {
+        model_id: "gpt-4o-2024-08-06",
+        quality: 0.5,
+        coding: 0.5,
+        cost: 0.5,
+        speed: 0.5,
+        writing: null,
+      },
     ];
     const { currentIds } = curate(models, metrics, accessibleAll);
     expect([...currentIds]).toEqual(["gpt-4o"]); // only the clean alias survives
@@ -91,7 +119,14 @@ describe("curate", () => {
       { id: "claude-sonnet-4-5-eu", modality: "llm" },
     ];
     const metrics: ModelMetrics[] = [
-      { model_id: "claude-sonnet-4-5-20250929", quality: 0.8, coding: 0.8, cost: 0.5, speed: 0.6 },
+      {
+        model_id: "claude-sonnet-4-5-20250929",
+        quality: 0.8,
+        coding: 0.8,
+        cost: 0.5,
+        speed: 0.6,
+        writing: null,
+      },
     ];
     const { currentIds } = curate(models, metrics, accessibleAll);
     expect(currentIds.has("claude-sonnet-4-5-eu")).toBe(true);
@@ -120,9 +155,30 @@ describe("curate — version supersession", () => {
         { id: "gemini-3.5-flash-eu", modality: "llm" },
       ];
       const metrics: ModelMetrics[] = [
-        { model_id: "gemini-3.5-flash", quality: 0.6, coding: null, cost: 0.5, speed: 0.5 },
-        { model_id: "gemini-3.8-flash", quality: 0.8, coding: null, cost: 0.5, speed: 0.5 },
-        { model_id: "gemini-3.5-flash-eu", quality: 0.6, coding: null, cost: 0.5, speed: 0.5 },
+        {
+          model_id: "gemini-3.5-flash",
+          quality: 0.6,
+          coding: null,
+          cost: 0.5,
+          speed: 0.5,
+          writing: null,
+        },
+        {
+          model_id: "gemini-3.8-flash",
+          quality: 0.8,
+          coding: null,
+          cost: 0.5,
+          speed: 0.5,
+          writing: null,
+        },
+        {
+          model_id: "gemini-3.5-flash-eu",
+          quality: 0.6,
+          coding: null,
+          cost: 0.5,
+          speed: 0.5,
+          writing: null,
+        },
       ];
       const { currentIds, supersededBy } = curate(models, metrics, accessibleAll);
 
@@ -142,8 +198,8 @@ describe("curate — version supersession", () => {
       { id: "glm-5.3", modality: "llm" },
     ];
     const metrics: ModelMetrics[] = [
-      { model_id: "GLM-4.5", quality: 0.2, coding: null, cost: 0.5, speed: 0.5 },
-      { model_id: "glm-5.3", quality: 0.6, coding: null, cost: 0.5, speed: 0.5 },
+      { model_id: "GLM-4.5", quality: 0.2, coding: null, cost: 0.5, speed: 0.5, writing: null },
+      { model_id: "glm-5.3", quality: 0.6, coding: null, cost: 0.5, speed: 0.5, writing: null },
     ];
     const { currentIds, supersededBy } = curate(models, metrics, accessibleAll);
 
@@ -158,8 +214,22 @@ describe("curate — version supersession", () => {
       { id: "widget-3.10-pro", modality: "llm" },
     ];
     const metrics: ModelMetrics[] = [
-      { model_id: "widget-3.9-pro", quality: 0.5, coding: null, cost: 0.5, speed: 0.5 },
-      { model_id: "widget-3.10-pro", quality: 0.5, coding: null, cost: 0.5, speed: 0.5 },
+      {
+        model_id: "widget-3.9-pro",
+        quality: 0.5,
+        coding: null,
+        cost: 0.5,
+        speed: 0.5,
+        writing: null,
+      },
+      {
+        model_id: "widget-3.10-pro",
+        quality: 0.5,
+        coding: null,
+        cost: 0.5,
+        speed: 0.5,
+        writing: null,
+      },
     ];
     const { supersededBy } = curate(models, metrics, accessibleAll);
 
@@ -172,8 +242,8 @@ describe("curate — version supersession", () => {
       { id: "gpt-4o-mini", modality: "llm" },
     ];
     const metrics: ModelMetrics[] = [
-      { model_id: "gpt-4o", quality: 0.5, coding: null, cost: 0.5, speed: 0.5 },
-      { model_id: "gpt-4o-mini", quality: 0.3, coding: null, cost: 0.5, speed: 0.5 },
+      { model_id: "gpt-4o", quality: 0.5, coding: null, cost: 0.5, speed: 0.5, writing: null },
+      { model_id: "gpt-4o-mini", quality: 0.3, coding: null, cost: 0.5, speed: 0.5, writing: null },
     ];
     const { currentIds, supersededBy } = curate(models, metrics, accessibleAll);
 
@@ -185,7 +255,14 @@ describe("curate — version supersession", () => {
   it("leaves a family with only one version untouched", () => {
     const models = [{ id: "gemini-3.5-flash", modality: "llm" }];
     const metrics: ModelMetrics[] = [
-      { model_id: "gemini-3.5-flash", quality: 0.6, coding: null, cost: 0.5, speed: 0.5 },
+      {
+        model_id: "gemini-3.5-flash",
+        quality: 0.6,
+        coding: null,
+        cost: 0.5,
+        speed: 0.5,
+        writing: null,
+      },
     ];
     const { currentIds, supersededBy } = curate(models, metrics, accessibleAll);
 
@@ -199,7 +276,14 @@ describe("curate — version supersession", () => {
       { id: "gemini-3.8-flash", modality: "llm" },
     ];
     const metrics: ModelMetrics[] = [
-      { model_id: "gemini-3.5-flash", quality: 0.6, coding: null, cost: 0.5, speed: 0.5 },
+      {
+        model_id: "gemini-3.5-flash",
+        quality: 0.6,
+        coding: null,
+        cost: 0.5,
+        speed: 0.5,
+        writing: null,
+      },
       // gemini-3.8-flash has no quality index yet — not a leaderboard-tracked contender.
     ];
     const { currentIds, supersededBy } = curate(models, metrics, accessibleAll);

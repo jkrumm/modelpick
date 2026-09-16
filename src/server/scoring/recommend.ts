@@ -13,6 +13,7 @@ import { CATEGORY_MIN_QUALITY, CATEGORY_WEIGHTS, scoreModels } from "./score.js"
 const CATEGORY_MODALITY: Record<RecommendationCategory, Modality> = {
   fast: "llm",
   coding: "llm",
+  writing: "llm",
   orchestrator: "llm",
   tts: "tts",
   stt: "stt",
@@ -72,9 +73,6 @@ async function generateRationale(
 // itself is untouched, so the 0.88/0.04/0.08 split still decides how much each
 // dimension matters — only the numbers plugged into it change.
 
-
-
-
 /**
  * Turns measured ccbench rows into the same `ModelMetrics` shape the
  * leaderboard path produces, scoped to exactly the rows passed in.
@@ -130,9 +128,7 @@ export function deriveOrchestratorGate(
   if (metrics.length === 0) return null;
   return {
     metrics,
-    excluded: [...failing].sort(
-      (a, b) => a.qualityExcludingTimeouts - b.qualityExcludingTimeouts,
-    ),
+    excluded: [...failing].sort((a, b) => a.qualityExcludingTimeouts - b.qualityExcludingTimeouts),
   };
 }
 
@@ -225,7 +221,14 @@ export async function runRecommender(snapshotDate?: string): Promise<void> {
         set: { model_id: modelId, score, rationale },
       });
 
-  const categories: RecommendationCategory[] = ["fast", "coding", "orchestrator", "tts", "stt"];
+  const categories: RecommendationCategory[] = [
+    "fast",
+    "coding",
+    "writing",
+    "orchestrator",
+    "tts",
+    "stt",
+  ];
   for (const category of categories) {
     const targetModality = CATEGORY_MODALITY[category];
 
@@ -281,7 +284,7 @@ export async function runRecommender(snapshotDate?: string): Promise<void> {
     const scored = scoreModels(
       metricsToScore,
       weights,
-      category === "coding" ? "coding" : "quality",
+      category === "coding" ? "coding" : category === "writing" ? "writing" : "quality",
     );
     const top = scored[0];
     if (!top) continue;
