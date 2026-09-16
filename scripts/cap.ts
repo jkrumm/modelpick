@@ -70,14 +70,39 @@ function say(line: string = ""): void {
 
 // ── rendering ────────────────────────────────────────────────────────────────
 
-/** Minimum-separator markdown table (dotfiles/rules/formatting.md) — never pad
- *  the separator row, never draw a box. */
-function mdTable(headers: string[], rows: string[][]): string {
-  return [
-    `| ${headers.join(" | ")} |`,
-    `|${headers.map(() => "-").join("|")}|`,
-    ...rows.map((row) => `| ${row.join(" | ")} |`),
-  ].join("\n");
+/** Color only when stderr is a terminal and NO_COLOR isn't set — the same
+ *  stderr the picklist prompt goes to, so a piped `cap --list` stays clean. */
+const useColor = (process.stderr.isTTY ?? false) && !process.env.NO_COLOR;
+
+/**
+ * Terminal-native table: aligned columns over a plain dash rule. The markdown
+ * renderer this replaced printed `**bold**` and `|-|` separator rows verbatim
+ * in the terminal — markdown belongs to the web page (`/bench`), not to a
+ * launcher's stderr. `right` columns padStart so the numbers read down; pick
+ * rows bold as a whole line (after padding, so ANSI escapes never skew width).
+ */
+function plainTable(
+  cols: { header: string; right?: boolean }[],
+  rows: string[][],
+  boldRows: Set<number> = new Set(),
+): string {
+  const widths = cols.map((col, i) =>
+    Math.max(col.header.length, ...rows.map((row) => row[i]?.length ?? 0)),
+  );
+  const line = (cells: string[]) =>
+    cells
+      .map((cell, i) => {
+        const width = widths[i] ?? 0;
+        return cols[i]?.right ? cell.padStart(width) : cell.padEnd(width);
+      })
+      .join("  ")
+      .trimEnd();
+  const out = [line(cols.map((c) => c.header)), widths.map((w) => "-".repeat(w)).join("  ")];
+  rows.forEach((row, i) => {
+    const text = line(row);
+    out.push(boldRows.has(i) && useColor ? `\x1b[1m${text}\x1b[22m` : text);
+  });
+  return out.join("\n");
 }
 
 /** Column-width labels for the per-row cost basis. */
@@ -94,12 +119,12 @@ const PICK_LABELS: Record<BenchPick["role"], string> = {
   eu: "EU-pinned",
 };
 
-function recommendationBlock(summary: BenchSummary): string[] {
+function recommendationBlock(summary: BenchSummary): { label: string; text: string }[] {
   return (["interactive", "worker", "eu"] as const).map((role) => {
     const pick = summary.picks[role];
-    const label = PICK_LABELS[role].padEnd(17);
-    if (pick === null) return `  ${label} ${MISSING} — no candidate in this suite`;
-    return `  ${label} ${pick.modelId.padEnd(20)} — ${pick.why}`;
+    if (pick === null)
+      return { label: PICK_LABELS[role], text: `${MISSING} — no candidate in this suite` };
+    return { label: PICK_LABELS[role], text: `${pick.modelId} — ${pick.why}` };
   });
 }
 
@@ -131,23 +156,23 @@ function comparisonTable(
   const picked = new Set(
     [picks.interactive, picks.worker, picks.eu].filter((p) => p !== null).map((p) => p.modelId),
   );
-  return mdTable(
+  return plainTable(
     [
-      "model",
-      "AA int",
-      "AA code",
-      "quality",
-      "cost",
-      "wall",
-      "turns",
-      "tool err",
-      "$/MTok in",
-      "out",
-      "context",
-      "residency",
+      { header: "model" },
+      { header: "AA int", right: true },
+      { header: "AA code", right: true },
+      { header: "quality", right: true },
+      { header: "cost", right: true },
+      { header: "wall", right: true },
+      { header: "turns", right: true },
+      { header: "tool err", right: true },
+      { header: "$/MTok in", right: true },
+      { header: "out", right: true },
+      { header: "context", right: true },
+      { header: "residency" },
     ],
     rows.map((row) => [
-      `${picked.has(row.modelId) ? "**" : ""}${row.modelId}${picked.has(row.modelId) ? "**" : ""}${flagsFor(row)}`,
+      row.modelId + flagsFor(row),
       aaIntelligenceOf(row) === null
         ? MISSING
         : `${(aaIntelligenceOf(row) ?? 0).toFixed(1)}${row.aa?.approximate === true ? "~" : ""}`,
@@ -162,22 +187,37 @@ function comparisonTable(
       formatContext(row.rate),
       row.residency,
     ]),
+    new Set(rows.map((row, i) => (picked.has(row.modelId) ? i : -1)).filter((i) => i >= 0)),
   );
 }
 
 // ── picklist ─────────────────────────────────────────────────────────────────
 
 /**
- * Same shape as `scripts/pick.ts`: numbered options, the recommendation marked
+ * Same shape as `scripts/pick.ts`: numbered options, the Enter default marked
  * with `*`, Enter takes it. Returns the chosen id, or null when there is
  * nothing to choose from.
  */
-async function picklist(rows: BenchModelRow[], recommended: string | null): Promise<string | null> {
+async function picklist(
+  rows: BenchModelRow[],
+  workerPick: string | null,
+  recommended: string | null,
+): Promise<string | null> {
   if (rows.length === 0) return null;
 
+  // Enter takes the WORKER pick (glm-class), not the interactive one. The
+  // estate's standing default for unattended-ish work is the cheap perfect
+  // scorer — agent-dispatch and sideclaw dispatch both run glm-5.3-flash — and
+  // a launcher that answers Enter with the premium id bills the IU key on the
+  // worst combination: interactive pricing, nobody watching the meter. A human
+  // who wants the interactive pick is exactly the person still awake enough to
+  // type its number; the default belongs to the model nobody has to defend.
+  const defaultId = [workerPick, recommended].find(
+    (id) => id !== null && rows.some((row) => row.modelId === id),
+  );
   const defaultIndex = Math.max(
     0,
-    rows.findIndex((row) => row.modelId === recommended),
+    rows.findIndex((row) => row.modelId === defaultId),
   );
 
   say();
@@ -233,7 +273,9 @@ async function main(): Promise<void> {
   );
   say();
   say("Recommendation");
-  for (const line of recommendationBlock(summary)) say(line);
+  const recs = recommendationBlock(summary);
+  const labelWidth = Math.max(...recs.map((r) => r.label.length));
+  for (const { label, text } of recs) say(`  ${label.padEnd(labelWidth)}  ${text}`);
   say();
   say(comparisonTable(shown, summary.picks, summary.caveats.costBasis === "mixed"));
   say();
@@ -247,7 +289,11 @@ async function main(): Promise<void> {
     return;
   }
 
-  const chosen = await picklist(eligible, summary.picks.interactive?.modelId ?? null);
+  const chosen = await picklist(
+    eligible,
+    summary.picks.worker?.modelId ?? null,
+    summary.picks.interactive?.modelId ?? null,
+  );
   await client.end();
   // The one line stdout ever carries in this mode — the shell wrapper reads it.
   if (chosen !== null) process.stdout.write(`${chosen}\n`);
