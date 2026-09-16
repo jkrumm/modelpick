@@ -6,6 +6,38 @@ import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-or
 // are exported so tests and callers can assert against them.
 export const MODALITY = ["llm", "tts", "stt", "image", "embedding"] as const;
 export const RESIDENCY = ["eu", "us", "unknown"] as const;
+// Services that actually consume a model. `deployment` has one row per real
+// slot inside one of these — the layer the abstract CATEGORY model cannot
+// express, because a single category (e.g. `coding`) is wired into several
+// slots that legitimately run different models.
+export const SERVICE = [
+  "claude-code",
+  "sideclaw",
+  "warden",
+  "hermes",
+  "research",
+  "audio",
+  "argo",
+  "image-gen",
+  "rb",
+  "homelab",
+] as const;
+// How much reasoning a slot is configured for. `default` = the model's own
+// adaptive behaviour (nothing pinned); `off` = explicitly suppressed; `n/a` =
+// the model has no reasoning control. Recorded because a latency measured with
+// thinking off is NOT comparable to one measured at default effort — reading
+// the two off one column is what made `gpt-5.6-luna` look categorically faster
+// than it is (docs/decisions/hermes-brain.md, 2026-09-11).
+export const THINKING = [
+  "default",
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "max",
+  "n/a",
+] as const;
 // Gateway route a model is served through. 'iu' = the IU-native per-provider
 // routes (OpenAI/Anthropic/Gemini dialects, see client.ts); 'replicate' = the
 // IU gateway's Replicate proxy (see replicate.ts).
@@ -21,7 +53,7 @@ export const PROBE_STATUS = [
   "unknown", // unclassified non-2xx
 ] as const;
 // Scored categories — driven by the recommender against leaderboard metrics.
-export const CATEGORY = ["fast", "coding", "orchestrator", "tts", "stt"] as const;
+export const CATEGORY = ["fast", "coding", "writing", "orchestrator", "tts", "stt"] as const;
 // Manual stack-only categories: real model choices I track, but with no public
 // leaderboard to score them — so they live in My Stack with a researched rationale
 // and never get an algorithmic recommendation (hence no drift flag). Refresh the
@@ -33,6 +65,7 @@ export const STACK_CATEGORY = [...CATEGORY, ...MANUAL_CATEGORY] as const;
 export const BENCH_FAILURE = [
   "none",
   "timeout",
+  "idle_stall",
   "max_turns",
   "api_error",
   "incompatible",
@@ -46,7 +79,15 @@ export const COST_BASIS = ["measured", "list", "unpriced"] as const;
 export const LANG = ["de", "en"] as const;
 // 'live' = measured directly against the IU endpoint (scripts/benchmark-throughput.ts),
 // as opposed to the external leaderboard collectors.
-export const METRIC_SOURCE = ["iu", "openrouter", "artificialanalysis", "live", "epoch"] as const;
+export const METRIC_SOURCE = [
+  "iu",
+  "openrouter",
+  "artificialanalysis",
+  "live",
+  "epoch",
+  "eqbench",
+  "lmarena",
+] as const;
 
 // Text timestamp default — SQLite stores ISO-ish strings that sort lexically.
 const now = sql`(CURRENT_TIMESTAMP)`;
@@ -107,6 +148,12 @@ export const metricSnapshot = sqliteTable(
     metric: text("metric").notNull(),
     value: real("value").notNull(),
     confidence: real("confidence"),
+    // The reasoning configuration the measurement was taken under, for the
+    // `live` source (null for leaderboard rows, which never disclose it).
+    // A `ttft_ms` recorded at `off` and one recorded at `default` differ by an
+    // order of magnitude on the same model, so they must never be averaged or
+    // ranked against each other unlabelled.
+    conditions: text("conditions", { enum: THINKING }),
     captured_at: text("captured_at").notNull().default(now),
   },
   (t) => [
@@ -159,6 +206,69 @@ export const stackChoice = sqliteTable(
     decided_at: text("decided_at").notNull(), // yyyy-mm-dd
   },
   (t) => [uniqueIndex("uq_stack_choice_category").on(t.category)],
+);
+
+// ── Deployments (what each service actually runs, per slot) ──────────────────
+// The truth layer. `stack_choice` answers "which model did I pick for the
+// *coding* idea"; this answers "which model does sideclaw's JUDGE tier call
+// today, with what reasoning budget, wired in which file". One row per real
+// slot, because one category maps to several slots that legitimately differ —
+// Claude Code's interactive session and its unattended worker are both
+// `coding` and are deliberately not the same model.
+//
+// `model_id` is deliberately NOT a foreign key onto `models`, for the same
+// reason `pick_probe.model_id` isn't: a service can be pointed at an id the
+// committed portal snapshot has not caught up with, and a stale catalog must
+// not be able to make the truth unrecordable.
+
+export const deployment = sqliteTable(
+  "deployment",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    service: text("service", { enum: SERVICE }).notNull(),
+    // Machine-ish slot key, unique within the service: "brain", "JUDGE",
+    // "interactive", "worker", "tts-chat".
+    slot: text("slot").notNull(),
+    label: text("label").notNull(),
+    model_id: text("model_id").notNull(),
+    // Which scored profile this slot should be judged against, when one
+    // applies. Null for slots no category scores (an adversary tier, a
+    // structural pick) — those get no drift flag, exactly like the manual
+    // stack categories.
+    category: text("category", { enum: CATEGORY }),
+    thinking: text("thinking", { enum: THINKING }).notNull().default("n/a"),
+    // Remaining non-default request params worth knowing about, free text:
+    // "MAX_THINKING_TOKENS=2000", "temperature 0.2", "Mark voice".
+    params: text("params"),
+    // Repo-relative path (optionally :line) of the file that actually wires
+    // this slot, so a claim here is checkable against the config in one hop.
+    config_ref: text("config_ref").notNull(),
+    // False when `config_ref` does not literally contain `model_id` — a tier
+    // alias ("sonnet"), an inherited value, or a deliberate unset that falls
+    // through to another service's routing. scripts/verify-deployments.ts skips
+    // these rather than reporting a false mismatch, and says so in its output.
+    literal_id: integer("literal_id", { mode: "boolean" }).notNull().default(true),
+    // False when the slot uses its category for grouping but deliberately does
+    // NOT follow that category's recommendation — a Max-plan slot where the
+    // cost term is meaningless, a residency-gated slot, or a tier chosen to be
+    // cheaper than the category winner on purpose. Without this, `drift` fires
+    // on well-understood divergence and 28 of 54 slots light up, which is
+    // indistinguishable from no signal at all.
+    follows_recommendation: integer("follows_recommendation", { mode: "boolean" })
+      .notNull()
+      .default(true),
+    rationale: text("rationale"),
+    // docs/decisions/*.md backing this slot, when one exists.
+    decision_doc: text("decision_doc"),
+    decided_at: text("decided_at").notNull(), // yyyy-mm-dd
+    // Last date `config_ref` was actually read and found to still say this.
+    // A deployment row is a claim about another repo; this is its expiry date.
+    verified_at: text("verified_at"),
+  },
+  (t) => [
+    uniqueIndex("uq_deployment_service_slot").on(t.service, t.slot),
+    index("idx_deployment_category").on(t.category),
+  ],
 );
 
 // ── Pick probes (Claude Code model-pick CLI, scripts/pick.ts) ────────────────
@@ -285,6 +395,8 @@ export type MetricSnapshot = typeof metricSnapshot.$inferSelect;
 export type Recommendation = typeof recommendation.$inferSelect;
 export type StackChoice = typeof stackChoice.$inferSelect;
 export type StackChoiceInsert = typeof stackChoice.$inferInsert;
+export type Deployment = typeof deployment.$inferSelect;
+export type DeploymentInsert = typeof deployment.$inferInsert;
 export type Demo = typeof demo.$inferSelect;
 export type BenchRun = typeof benchRun.$inferSelect;
 export type BenchRunInsert = typeof benchRun.$inferInsert;
@@ -294,6 +406,8 @@ export type Residency = (typeof RESIDENCY)[number];
 export type ProbeStatus = (typeof PROBE_STATUS)[number];
 export type RecommendationCategory = (typeof CATEGORY)[number];
 export type StackCategory = (typeof STACK_CATEGORY)[number];
+export type Service = (typeof SERVICE)[number];
+export type Thinking = (typeof THINKING)[number];
 export type Lang = (typeof LANG)[number];
 export type MetricSource = (typeof METRIC_SOURCE)[number];
 export type Transport = (typeof TRANSPORT)[number];

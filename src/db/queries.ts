@@ -3,6 +3,7 @@ import { db } from "./index.js";
 import {
   capabilityProbe,
   demo,
+  deployment,
   models,
   recommendation,
   stackChoice,
@@ -16,12 +17,23 @@ import type {
   CapabilityProbe,
   MetricSnapshot,
   MetricSource,
+  ProbeStatus,
   Recommendation,
+  Residency,
   StackChoice,
+  Deployment,
   Demo,
 } from "./schema.js";
 
-export type { Model, CapabilityProbe, MetricSnapshot, Recommendation, StackChoice, Demo };
+export type {
+  Model,
+  CapabilityProbe,
+  MetricSnapshot,
+  Recommendation,
+  StackChoice,
+  Deployment,
+  Demo,
+};
 
 // ── Models ────────────────────────────────────────────────────────────────────
 
@@ -170,6 +182,54 @@ export async function getRecommendationByCategory(
 /** My deliberate model picks, one per category. */
 export async function getStackChoices(): Promise<StackChoice[]> {
   return db.select().from(stackChoice);
+}
+
+// ── Deployments ───────────────────────────────────────────────────────────────
+
+/** Every recorded slot, ordered for display: service, then slot. */
+export async function getDeployments(): Promise<Deployment[]> {
+  return db.select().from(deployment).orderBy(deployment.service, deployment.slot);
+}
+
+// ── Capability probes (shared latest-per-model lookup) ────────────────────────
+
+export interface ProbeSummary {
+  accessible: boolean;
+  probe_status: ProbeStatus;
+  error: string | null;
+  latency_ms: number | null;
+  residency: Residency;
+}
+
+/** Latest capability_probe row per model, newest `checked_at` first — the one
+ *  lookup both the Decider and the deployment truth table read access/residency
+ *  from, so a probe's shape only gets deduplicated in one place. */
+export async function getLatestProbes(): Promise<Record<string, ProbeSummary>> {
+  const rows = await db
+    .select({
+      model_id: capabilityProbe.model_id,
+      accessible: capabilityProbe.accessible,
+      probe_status: capabilityProbe.probe_status,
+      error: capabilityProbe.error,
+      latency_ms: capabilityProbe.latency_ms,
+      residency: capabilityProbe.residency,
+      checked_at: capabilityProbe.checked_at,
+    })
+    .from(capabilityProbe)
+    .orderBy(desc(capabilityProbe.checked_at));
+
+  const map = new Map<string, ProbeSummary>();
+  for (const row of rows) {
+    if (map.has(row.model_id)) continue;
+    map.set(row.model_id, {
+      accessible: row.accessible,
+      probe_status: row.probe_status,
+      error: row.error,
+      latency_ms: row.latency_ms,
+      residency: row.residency,
+    });
+  }
+  return Object.fromEntries(map);
 }
 
 // ── Demo operations ────────────────────────────────────────────────────────────

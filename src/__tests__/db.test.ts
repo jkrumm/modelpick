@@ -23,7 +23,7 @@ describe("schema enum values", () => {
   });
 
   it("category has correct values", () => {
-    expect(CATEGORY).toEqual(["fast", "coding", "orchestrator", "tts", "stt"]);
+    expect(CATEGORY).toEqual(["fast", "coding", "writing", "orchestrator", "tts", "stt"]);
   });
 
   it("lang has correct values", () => {
@@ -31,7 +31,15 @@ describe("schema enum values", () => {
   });
 
   it("metric source has correct values", () => {
-    expect(METRIC_SOURCE).toEqual(["iu", "openrouter", "artificialanalysis", "live", "epoch"]);
+    expect(METRIC_SOURCE).toEqual([
+      "iu",
+      "openrouter",
+      "artificialanalysis",
+      "live",
+      "epoch",
+      "eqbench",
+      "lmarena",
+    ]);
   });
 });
 
