@@ -643,3 +643,201 @@ throughput-led. ccbench's worker verdict governs them, not the category score.
 Re-open if ccbench ever runs `glm-5.3` and it beats Flash on graded tasks, or if Flash's
 forced-thinking (it cannot be disabled on either model) starts costing more in latency than
 the price gap is worth.
+
+## 2026-09-20: `glm-5.3-flash` is slow because of the wrong context window, not just turn overhead — re-bench of the cheap tier with the corrected env
+
+Motivation: `glm-5.3-flash` measures **13.3 tok/s effective in-loop** despite ~42 tok/s raw
+decode (§ *Why `glm-5.3-flash` is slow*, above) — the owner wants a faster unattended default.
+`DeepSeek-V4-Pro` was first choice. This re-bench answers whether the earlier rows for the
+cheap tier (`DeepSeek-V4-Pro/Flash`, `kimi-k2.7-code`, `minimax-m3`) were measuring the model or
+measuring Claude Code's flawed 200K default context assumption — every one of these tasks
+routes to a non-`api.anthropic.com` base URL, so absent `CLAUDE_CODE_MAX_CONTEXT_TOKENS` the CLI
+assumes 200K and compacts early, which busts the prefix cache and re-pays full price.
+
+**Context windows, measured fresh (`bun run pick --model <id> --yes`):**
+
+| id | result | note |
+|-|-|-|
+| `DeepSeek-V4-Pro` | accepted at the 1.1M probe ceiling | previously read as `null`/"inconclusive: TimeoutError" — the probe's 60s timeout was too short for a near-ceiling call on this model (measured 128s to accept 1.1M tokens); `src/server/pick/context-window.ts`'s per-probe timeout is now 180s |
+| `DeepSeek-V4-Flash` | accepted at the 1.1M probe ceiling | unchanged from the 08-28 measurement |
+| `minimax-m3` | accepted at the 1.1M probe ceiling | unchanged from the 08-31 measurement |
+| `kimi-k2.7-code` | **262,144, exact** — the gateway names this limit on rejection | unchanged |
+| `glm-5.2` | accepted at the 1.1M probe ceiling | never probed before; separately, still 503s on every real Claude Code request (below) |
+
+No model in this round produced a length rejection at any tested size — every one of the four
+target ids fits the whole 10-task ccbench suite (peak per-task cumulative input: 258K for
+`kimi-k2.7-code`/`multi-bug`, 867K for `DeepSeek-V4-Flash`/`parser-spec`) well inside its real
+window, so there is no "prompt is too long"-style wording to report for them here; that failure
+mode is `GLM-5.1`'s (non-English `"Prompt 超长"`, which the probe's English-only regex misses
+entirely — a separate, still-open gap in `context-window.ts`).
+
+**Anthropic-leg tool-use conformance** (3 sequential tool calls + a final answer that combines
+all three, extended thinking on and off): all four target ids plus `glm-5.2` complete the full
+4-round loop, correctly, with thinking/redacted_thinking blocks round-tripped unmodified and no
+400s at turn 3+ — the DeepSeek-V4 "must replay reasoning content" trap reported elsewhere does
+not bite as long as the whole content array is echoed back verbatim, which is exactly what
+Claude Code does. `MAX_THINKING_TOKENS` (512 vs 8192) produced no `glm-5.3-flash`-style effort
+lever on any of the four — thinking length and latency stayed flat/noisy across budgets, so
+there is no starvation risk and no reason to cap it tightly; 8192 is a headroom value, not a
+tuned one.
+
+**Re-bench, full 10-task suite, `CLAUDE_CODE_MAX_CONTEXT_TOKENS`/`CLAUDE_CODE_AUTO_COMPACT_WINDOW`
+set to the measured value, `MAX_THINKING_TOKENS=8192`, `API_TIMEOUT_MS=3000000`:**
+
+| model | composite | quality | pass | cost | old cost | wall (sum) | mean turns | tool err | eff. tok/s |
+|-|-|-|-|-|-|-|-|-|-|
+| `DeepSeek-V4-Flash` | 1.00 | 1.00 | 100% | **$0.090** | $0.666 | 6m 20s | 14.8 | 4% | **190** |
+| `minimax-m3` | 0.96 | 0.93 | 90% | $0.198 | $0.194 | 6m 08s | 13.7 | 2% | 114 |
+| `kimi-k2.7-code` | 0.95 | 0.91 | 90% | $0.303 | $0.307 | 5m 59s | 10.4 | 3% | 58 |
+| `DeepSeek-V4-Pro` | 1.00 | 1.00 | 100% | $0.669 | $0.664 | 19m 11s | 12.8 | 3% | 37 (80 excl. one stall) |
+| `glm-5.3-flash` (reference, unfixed context) | 0.81 | 0.97 | 80%\* | $0.035 | — | 38m 24s | 10.1 | 0% | 13.3 |
+
+\*`glm-5.3-flash`'s row predates this fix and is quoted as-is for reference (see the 2026-09-11
+re-bench above for its corrected 10/10 under a lighter clock). Zero compactions occurred in any
+of the 40 new runs (grepped every transcript for a compaction boundary) — every task's real
+context fit inside the corrected window, which is the whole fix working as intended.
+
+**The headline: `DeepSeek-V4-Flash` is the actual find, not `DeepSeek-V4-Pro`.** Same 10/10
+quality as Pro, **7.4x cheaper than its own pre-fix row**, and **~190 tok/s effective** — 14x
+`glm-5.3-flash`'s 13.3 and 2.4-5x the other three fixed-context ids. `DeepSeek-V4-Pro` did not
+get materially cheaper from the fix (its per-task contexts rarely approached the old 200K
+ceiling except at `multi-bug`/`house-rules`) and lost 6 minutes of suite wall to one idle stall
+on `perf-refactor` (5-minute idle watchdog fired mid-thinking; the sandbox state was already
+correct and still scored 1.00 — the same "clock, not capability" pattern `glm-5.3-flash` showed
+in the 2026-09-11 re-bench). `minimax-m3` and `kimi-k2.7-code` were already inside their real
+windows before this fix, so their rows are within noise of their old ones, as expected.
+
+**`glm-5.2` is confirmed still dead for Claude Code**, and now for a diagnosed reason rather
+than a screening note: every request 503s after 10 retries (~190s), and the transcript's error
+body is `"Extra inputs are not permitted, field: 'verbosity', value: 'high'"` — Claude Code
+2.1.278 sends a `verbosity` field this backend rejects, and the gateway again surfaces a 400 as
+a retryable 503 (the same masking pattern documented for the `-eu` aliases above). A plain
+`/messages` call succeeds fine, which is why a reachability probe alone would have missed this.
+
+**Recommended env per model** (mirrors `dotfiles/config/zsh/iu-models.sh`'s `_ca_ctx`/
+`_ca_thinking` shape — not edited here, that table is the owner's to update):
+
+| model | `CLAUDE_CODE_MAX_CONTEXT_TOKENS` / `AUTO_COMPACT_WINDOW` | `MAX_THINKING_TOKENS` | other |
+|-|-|-|-|
+| `DeepSeek-V4-Flash` | 1,000,000 | 8192 | `API_TIMEOUT_MS=3000000` |
+| `DeepSeek-V4-Pro` | 1,000,000 | 8192 | `API_TIMEOUT_MS=3000000`; expect an occasional idle stall on heavy-reasoning tasks — budget on idle, not wall clock |
+| `kimi-k2.7-code` | 262,144 (exact, no margin needed) | 8192 | `API_TIMEOUT_MS=3000000` |
+| `minimax-m3` | 1,000,000 | 8192 | `API_TIMEOUT_MS=3000000` |
+| `glm-5.2` | — | — | do not deploy: Claude Code-incompatible regardless of context config |
+
+**### 2026-09-20 addendum: Pro vs Flash on refreshed external data — the owner's "Flash is too unintelligent" objection does not hold up
+
+Re-collected AA/LMArena/Epoch same day. `DeepSeek-V4-Pro` and `DeepSeek-V4-Flash` are
+near-identical on every external axis, not a capability tier apart: AA quality 36.0 vs 34.3, AA
+coding_index 68.8 vs 69.1 (**Flash ahead**), `tau_banking` (agentic tool-use) 0.396 vs 0.394,
+`terminalbench_v2_1` **identical at 0.787**. Pro leads only on LMArena `arena_coding` (1470 vs
+1456, ~1%) and is the only one of the two Epoch has a `swe_bench_verified` score for (0.776, no
+Flash comparison exists). The real gap in this family is elsewhere: `deepseek-v4.1-flash`
+(quality 39.5) and `kimi-k3` (quality 43.6, coding_index 76.2) are both meaningfully smarter than
+either V4 id — and both are **OpenAI-route only, confirmed 404 on `/anthropic/v1`**, so neither
+can drive Claude Code regardless. Both V4 ids also sit below `glm-5.3-flash` (41.8/71.5) and
+`glm-5.3` (44.8/74.8) on quality and coding_index alike.
+
+Read on the two hardest ccbench tasks directly (scores saturate at 1.00 for both, so this is a
+manual read of the actual diffs, not the grader): on `perf-refactor`, `DeepSeek-V4-Flash`'s
+solution is the more rigorous one — it built a 30k-case differential fuzzer covering
+`NaN`/`±Infinity`/`-0`/magnitude-absorption edge cases and an algorithm (two binary searches over
+sorted sum-keys) that is correct-by-construction against float precision, plus an N=1,000,000
+empirical timing comparison. `DeepSeek-V4-Pro`'s solution is a plain hashmap-on-`target - v`
+with a runtime re-check — functionally fine, but exactly the shape of bug its own abandoned
+background search ("float counterexample where a+b===target but b !== target-a") was trying to
+rule out when it ran out of time. **Flash showed the deeper engagement with this task's actual
+hard part, not the shallower one.** `deep-search` was an identical exact match for both — a pure
+lookup task, not a discriminator.
+
+**The Pro idle stall, read from the raw transcript.** `perf-refactor` had already passed its
+hidden tests before the stall — the model spawned a Bash verification search that exceeded
+Claude Code's own 120s foreground-command timeout and was auto-moved to background by the CLI
+(`moved to the background (ID: bx9yz9iea)`); the next assistant turn was empty
+(`{"type":"thinking","thinking":"","signature":""}`, zero tokens), and then **nothing** arrived
+for the following 300s until ccbench's idle watchdog fired and killed the whole session,
+background job included. This is not a thinking-budget problem — no thinking or generation was
+happening during the silence, the process was genuinely blocked waiting on its own backgrounded
+shell command's completion notification, which never arrived before the external 5-minute
+no-stdout kill. `MAX_THINKING_TOKENS` and thinking-delta streaming do not touch this failure
+mode at all. ccbench's grader gave this run a free pass because it re-reads the sandbox's final
+file state regardless of how the process exited; **warden/sideclaw's real dispatch lane does
+not** — an episode killed before it reports is folded to `needs_human` with no verdict
+(`warden/CLAUDE.md` § *A dispatch that ends terminal with no verdict is not a verdict*), so the
+identical stall in production would very likely discard already-correct work rather than credit
+it. The one lever worth checking (not verified this session — flag for `/research` before
+relying on it) is Claude Code's own Bash-tool foreground-timeout envs
+(`BASH_DEFAULT_TIMEOUT_MS`/`BASH_MAX_TIMEOUT_MS`): raising them would keep this class of
+exploratory command in the foreground, producing real stdout instead of handing it to an
+invisible background slot the idle watchdog can't see into. Widening the dispatch lane's own
+idle timeout is the blunter alternative and needs no verification.
+
+**Verdict stands, on different grounds than intended: `DeepSeek-V4-Flash` over
+`DeepSeek-V4-Pro`.** Not because Pro is unintelligent — the external data says they're tied and
+Pro even leads on human-preference coding elo — but because Flash matches or beats Pro on every
+agentic-relevant number available (identical `terminalbench_v2_1`, slightly better
+`coding_index`, no observed stall, 7.4x cheaper, ~2.4-5x the effective throughput) while
+producing the more careful of the two solutions on the one task hard enough to separate them.
+Pro's structural risk — self-scheduled background verification colliding with an idle-based
+kill — is a real, evidenced concern for a 5-minute-no-stdout dispatch lane, independent of the
+intelligence question. `glm-5.3` and `kimi-k3` outscore both V4 ids on every external metric and
+are worth a bake-off of their own if the coding-agent default is reopened again; `kimi-k3` is
+currently unreachable on this leg.
+
+Pick for the unattended-dispatch default: `DeepSeek-V4-Flash` over `glm-5.3-flash`, pending the
+owner's sign-off to flip `_ca_ctx`/`AUTO_DISPATCH_MODEL`.** It matches `glm-5.3-flash`'s 10/10
+reliability at 14x the effective throughput, for $0.09/suite against $0.035 — cheap enough that
+throughput, not price, should decide the default worker. This section does not change the
+`_ca_ctx`/`_ca_thinking` tables or sideclaw's `GATEWAY_CONTEXT_TOKENS`; both are the owner's
+files by request. Full evidence, raw transcripts and per-task cost breakdown:
+`docs/experiments/ccbench/{deepseek-v4-pro,deepseek-v4-flash,kimi-k2-7-code,minimax-m3}-ctxfix-2026-09-20/`
+and `docs/experiments/ccbench/glm-5-2-screen-2026-09-20/`.
+
+### 2026-09-22 addendum: why `DeepSeek-V4-Pro` barely reuses the prompt cache (9%/26% in production) when `DeepSeek-V4-Flash` and `glm-5.3-flash` hit 94-97% on the same route
+
+Direct streamed `/v1/messages` calls (`scripts/adhoc-cache-probe.ts`, bypassing Claude Code
+entirely): a fixed ~36-38k-token system prefix with Claude-style `cache_control:{type:
+"ephemeral"}` on the last system block, 8 calls ~2s apart, then 8 more with no `cache_control`
+at all, then a 6-turn growing conversation. All 72 calls across all three models landed on the
+same backend — `x-middleware-forwarded-server: Requesty Global Anthropic API` — **the
+Azure-hosted DeepSeek backend never showed up once**, so this run cannot confirm or rule out
+backend alternation directly; treat that as unresolved, not ruled out.
+
+| model | call 1 (write) | calls 2-8, cache_control | calls 1-8, no cache_control | 6-turn cache_read |
+|-|-|-|-|-|
+| glm-5.3-flash | in=37888, read=0 | read=35712 then 37824 (94-100%) | read=37824 (implicit — works with no marker at all) | **grows**: 37824→37888→37952 |
+| DeepSeek-V4-Flash | in=36059, read=0 | read=35840 (99.4%) | read=35840 (implicit, identical) | grows once (35840→35968), then flat |
+| DeepSeek-V4-Pro | in=36112, read=0 | read=36096 (**99.96%**) | read=36096 (implicit, identical) | **flat at 36096 for all 6 turns**, despite input_tokens climbing 17→147 |
+
+**Diagnosis: (c), not (a) or (b).** On the one backend this probe reached, `DeepSeek-V4-Pro`
+caches the system block just as well as the other two (99.96%, with or without an explicit
+`cache_control` marker — all three models cache implicitly here, contradicting nothing about
+Pro specifically). The real, reproduced difference is what happens **past** that block: over 6
+growing turns, `glm-5.3-flash`'s cache advances into the conversation tail twice, `Flash`'s
+advances once, and **Pro's never advances at all** — every one of its 6 turns reads back
+exactly the 36096-token system prefix and pays full fresh price for the growing conversation
+history on top, with no incremental reuse. Flash/glm behave as if the backend caches the whole
+literal prefix generously (matching their working-with-no-marker result); Pro behaves as if
+only the exact, single marked block is ever eligible, never anything appended after it. That
+single mechanism is sufficient to explain the production numbers without invoking backend
+flakiness: in a real Claude Code session, the system prompt is a shrinking fraction of total
+input as the conversation grows across dozens of turns, so `cache_read / total_input` decays
+toward roughly *(fixed system tokens) / (system + accumulated history)* — landing in the
+9-26% range by mid-session is exactly the shape this predicts, headless (longer, more turns)
+being lower than interactive (shorter sessions, compaction resets it sooner).
+
+**Fix.** Nothing on our side controls this — `cache_control` placement is Claude Code's own
+SDK behavior (it already marks the growing tail, not just the system block), and the gap is in
+whether the backend *honors* a shifting marked boundary, not whether one is sent. There is no
+env var or config here that changes it. Two real options: (1) treat `DeepSeek-V4-Pro` as
+right-sized for **short, bounded episodes** (investigate-tier, few turns) where the
+uncached-tail penalty never accumulates, rather than long implement-tier loops; (2) ask the
+gateway team directly — *does `DeepSeek-V4-Pro`'s Anthropic-leg traffic ever route anywhere
+other than the Requesty-proxied `deepseek/deepseek-v4-pro` backend (an Azure-hosted DeepSeek
+endpoint was mentioned as existing), and separately: does whichever backend serves it extend
+prompt-cache reuse to content appended after an already-cached `cache_control` block, or only
+to an exact repeat of the originally marked block?* If the answer is "only the exact marked
+block, ever" as measured here, ask for either a caching backend that extends past it (matching
+Flash/glm's behavior) or a way to pin `DeepSeek-V4-Pro` to whichever backend does. Script and
+raw per-call output: `scripts/adhoc-cache-probe.ts`, run logs not committed (regenerate with
+`secrets-run run --env-file=.env.tpl -- bun run scripts/adhoc-cache-probe.ts <model-id>`).
