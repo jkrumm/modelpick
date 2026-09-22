@@ -9,37 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TtsRouteImport } from './routes/tts'
-import { Route as SttRouteImport } from './routes/stt'
-import { Route as StackRouteImport } from './routes/stack'
-import { Route as CatalogRouteImport } from './routes/catalog'
-import { Route as BenchmarksRouteImport } from './routes/benchmarks'
-import { Route as BenchRouteImport } from './routes/bench'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BenchRouteImport } from './routes/bench'
+import { Route as BenchmarksRouteImport } from './routes/benchmarks'
+import { Route as CatalogRouteImport } from './routes/catalog'
+import { Route as StackRouteImport } from './routes/stack'
+import { Route as SttRouteImport } from './routes/stt'
+import { Route as TtsRouteImport } from './routes/tts'
 
-const TtsRoute = TtsRouteImport.update({
-  id: '/tts',
-  path: '/tts',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SttRoute = SttRouteImport.update({
-  id: '/stt',
-  path: '/stt',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const StackRoute = StackRouteImport.update({
-  id: '/stack',
-  path: '/stack',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CatalogRoute = CatalogRouteImport.update({
-  id: '/catalog',
-  path: '/catalog',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BenchmarksRoute = BenchmarksRouteImport.update({
-  id: '/benchmarks',
-  path: '/benchmarks',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BenchRoute = BenchRouteImport.update({
@@ -47,9 +27,29 @@ const BenchRoute = BenchRouteImport.update({
   path: '/bench',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const BenchmarksRoute = BenchmarksRouteImport.update({
+  id: '/benchmarks',
+  path: '/benchmarks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CatalogRoute = CatalogRouteImport.update({
+  id: '/catalog',
+  path: '/catalog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StackRoute = StackRouteImport.update({
+  id: '/stack',
+  path: '/stack',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SttRoute = SttRouteImport.update({
+  id: '/stt',
+  path: '/stt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TtsRoute = TtsRouteImport.update({
+  id: '/tts',
+  path: '/tts',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -84,13 +84,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
-    | '/bench'
-    | '/benchmarks'
-    | '/catalog'
-    | '/stack'
-    | '/stt'
-    | '/tts'
+    '/' | '/bench' | '/benchmarks' | '/catalog' | '/stack' | '/stt' | '/tts'
   fileRoutesByTo: FileRoutesByTo
   to: '/' | '/bench' | '/benchmarks' | '/catalog' | '/stack' | '/stt' | '/tts'
   id:
@@ -116,39 +110,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/tts': {
-      id: '/tts'
-      path: '/tts'
-      fullPath: '/tts'
-      preLoaderRoute: typeof TtsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/stt': {
-      id: '/stt'
-      path: '/stt'
-      fullPath: '/stt'
-      preLoaderRoute: typeof SttRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/stack': {
-      id: '/stack'
-      path: '/stack'
-      fullPath: '/stack'
-      preLoaderRoute: typeof StackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/catalog': {
-      id: '/catalog'
-      path: '/catalog'
-      fullPath: '/catalog'
-      preLoaderRoute: typeof CatalogRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/benchmarks': {
-      id: '/benchmarks'
-      path: '/benchmarks'
-      fullPath: '/benchmarks'
-      preLoaderRoute: typeof BenchmarksRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/bench': {
@@ -158,11 +124,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BenchRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/benchmarks': {
+      id: '/benchmarks'
+      path: '/benchmarks'
+      fullPath: '/benchmarks'
+      preLoaderRoute: typeof BenchmarksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog': {
+      id: '/catalog'
+      path: '/catalog'
+      fullPath: '/catalog'
+      preLoaderRoute: typeof CatalogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stack': {
+      id: '/stack'
+      path: '/stack'
+      fullPath: '/stack'
+      preLoaderRoute: typeof StackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stt': {
+      id: '/stt'
+      path: '/stt'
+      fullPath: '/stt'
+      preLoaderRoute: typeof SttRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tts': {
+      id: '/tts'
+      path: '/tts'
+      fullPath: '/tts'
+      preLoaderRoute: typeof TtsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
