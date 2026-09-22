@@ -793,7 +793,7 @@ files by request. Full evidence, raw transcripts and per-task cost breakdown:
 `docs/experiments/ccbench/{deepseek-v4-pro,deepseek-v4-flash,kimi-k2-7-code,minimax-m3}-ctxfix-2026-09-20/`
 and `docs/experiments/ccbench/glm-5-2-screen-2026-09-20/`.
 
-### 2026-09-22 addendum: why `DeepSeek-V4-Pro` barely reuses the prompt cache (9%/26% in production) when `DeepSeek-V4-Flash` and `glm-5.3-flash` hit 94-97% on the same route
+### 2026-09-22 addendum (superseded below, same day): why `DeepSeek-V4-Pro` barely reuses the prompt cache (9%/26% in production) when `DeepSeek-V4-Flash` and `glm-5.3-flash` hit 94-97% on the same route
 
 Direct streamed `/v1/messages` calls (`scripts/adhoc-cache-probe.ts`, bypassing Claude Code
 entirely): a fixed ~36-38k-token system prefix with Claude-style `cache_control:{type:
@@ -841,3 +841,55 @@ block, ever" as measured here, ask for either a caching backend that extends pas
 Flash/glm's behavior) or a way to pin `DeepSeek-V4-Pro` to whichever backend does. Script and
 raw per-call output: `scripts/adhoc-cache-probe.ts`, run logs not committed (regenerate with
 `secrets-run run --env-file=.env.tpl -- bun run scripts/adhoc-cache-probe.ts <model-id>`).
+
+**This diagnosis was wrong — corrected below.** The 6-turn probe above grew the tail by only
+17-147 tokens/turn: below DeepSeek's ~64-token cache-chunk granularity and Anthropic's
+~1024-token minimum cacheable block, so it could not have shown real advancement either way.
+"Pro never advances" was reading chunk-size noise as a mechanism.
+
+### 2026-09-22 correction: Pro's cache *does* advance as fast as Flash's on a realistic tail — the production gap is real but unexplained by cache mechanics
+
+`scripts/adhoc-cache-probe-realistic.ts`: same ~36-38k system prefix, but each of 6 turns now
+appends a 2-4k-token tool-result-shaped blob (varied per turn, not a repeat) with
+`cache_control` on the *latest* user block only, sliding forward each turn exactly as Claude
+Code places it — 3 full runs per model.
+
+| model | turn 1 ratio | turn 2-6 ratio (all 3 runs) | cache_read growth |
+|-|-|-|-|
+| glm-5.3-flash | 0.00-0.90 (warm-cache dependent) | **0.89-0.90**, every turn, every run | tracks input almost 1:1 |
+| DeepSeek-V4-Flash | 0.90 | **0.90**, every turn, every run | tracks input almost 1:1 |
+| DeepSeek-V4-Pro | 0.90 | **0.90**, every turn, every run | tracks input almost 1:1 |
+
+**Pro's cache advances exactly like Flash's and glm's — indistinguishable, 18/18 turns at
+~0.90.** The §85-ish "cache pinned to the system block" mechanism is refuted outright: given a
+correctly-sized, correctly-marked growing tail, Pro reuses ~90% of the prior turn on every
+single call, same as the other two. `(b)` (backend ignores `cache_control`) and `(c)` (cache
+can't advance) are both now ruled out by direct measurement, not just this repo's guess.
+
+**So the production 9%/26% needs a different explanation, and it is not settled by this
+probe.** Pulled real turn-by-turn usage from two of yesterday's six Pro sideclaw-worktree
+dispatch sessions (`~/.claude/projects/-Users-jkrumm--local-state-sideclaw-worktrees-*/`,
+2026-09-20 18:07-18:16, `message.model:"deepseek-v4-pro"`):
+
+| session | turn timestamps (gap to prev) | input tokens | cache_read | ratio |
+|-|-|-|-|-|
+| `58145a66` | — / 14s / 20s / 38s / 47s | 35388→37082→34021→40736→44549 | 0→768→5120→5120→5248 | 0.00→0.02→0.13→0.11→0.11 |
+| `0cb7fb36` | — / 7s / 21s / 20s / 73s / 49s / 135s / 24s / 11s / 13s | 36422→38913→56989→60595→64194→73879→77873→88265→**40683**→68940 | 768→768→5120→5120→5248→5248→5248→5248→**32768**→5376 | 0.02→0.02→0.08→0.08→0.08→0.07→0.06→0.06→**0.45**→0.07 |
+
+Two things this rules out and one it points at: every gap is 7-135s, far under Anthropic's
+~5-minute ephemeral-cache TTL, so **cache expiry between slow turns is not the cause either**.
+And `cache_read` in both real sessions sits **nearly flat around 5-6k tokens while `input_tokens`
+keeps climbing to 60-88k** — the opposite of the clean ~90%-of-prior-turn growth this probe just
+measured for the same model on plain text. The `40683`/`32768` row (ratio 0.45) lines up with an
+apparent compaction (`input_tokens` drops sharply right after) — a fresh, smaller prefix getting
+cached and briefly reused, then decaying again. **Diagnosis, honestly: unresolved.** The backend
+can clearly do incremental caching (this probe proves it); real Pro tool-loop sessions don't get
+it, and the difference must be something this synthetic probe doesn't reproduce — real
+`tool_use`/`tool_result` content blocks, `thinking` blocks Pro emits every turn sitting between
+the cache boundary and the new content, or Claude Code placing/renewing the breakpoint
+differently around those block types for this model specifically. That is the next thing to
+measure, not something this session has evidence for either way — **do not repeat the earlier
+mistake of naming a mechanism this data doesn't actually show.** No config change is recommended
+here until that gap is closed. Scripts: `scripts/adhoc-cache-probe-realistic.ts` (regenerate
+per model the same way as above); the real-session pull was ad hoc `python3` against the two
+`.jsonl` paths named above, not committed as a script.
