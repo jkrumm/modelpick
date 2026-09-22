@@ -53,6 +53,6 @@ Inline skill — orchestrate in the main session, keep output tight.
 ## Notes
 
 - Schema changes sync with `bun run db:push` (`drizzle-kit push`) — there is no migration
-  folder. See CLAUDE.md → Database / schema changes.
+  folder. See AGENTS.md → Database / schema changes.
 - If new flagship models appeared, suggest running `/investigate-models` to check whether any
   My Stack pick is now outdated.

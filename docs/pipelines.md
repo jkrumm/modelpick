@@ -1,6 +1,6 @@
 # modelpick — collector and benchmark internals
 
-*Moved out of `CLAUDE.md` to keep it dense. The one-line rules stay there; this is
+*Moved out of `AGENTS.md` to keep it dense. The one-line rules stay there; this is
 the how and why behind the Epoch AI collector and the ccbench harness.*
 
 ## Epoch AI benchmark collector
