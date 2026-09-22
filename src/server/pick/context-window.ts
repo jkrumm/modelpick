@@ -43,12 +43,22 @@ interface ProbeAtResult {
   message: string | null;
 }
 
+// A near-ceiling probe against a "Pro"-tier model can take well over the
+// default 60s (measured: DeepSeek-V4-Pro took 128s to accept a 1.1M-token
+// filler) — the model has to read the whole prompt before it can even reject
+// it. Too short a timeout here doesn't fail closed, it fails to a false
+// "inconclusive", which reads as a rejection it never made.
+const PROBE_TIMEOUT_MS = 180_000;
+
 async function probeAt(modelId: string, approxTokens: number): Promise<ProbeAtResult> {
-  const res = await anthropicMessage({
-    model: modelId,
-    max_tokens: 1,
-    messages: [{ role: "user", content: buildFiller(approxTokens) }],
-  });
+  const res = await anthropicMessage(
+    {
+      model: modelId,
+      max_tokens: 1,
+      messages: [{ role: "user", content: buildFiller(approxTokens) }],
+    },
+    { timeoutMs: PROBE_TIMEOUT_MS },
+  );
   if (res.ok) return { fits: true, message: null };
   const message = res.errorText ?? "";
   if (OVERFLOW_WORDING_RE.test(message)) return { fits: false, message };
