@@ -152,12 +152,12 @@ const MY_STACK: StackChoiceInsert[] = [
   },
   {
     category: "image",
-    model_id: "gpt-image-2",
+    model_id: "gpt-image-2.5-flare",
     env_note:
-      "Quality tiers: Low $0.005 (prompt iteration), Medium ~$0.05 (production), High $0.21 (hero/4K). For photorealism or 4-6x faster generation, use gemini-3.1-flash-image instead.",
+      "Paired with gpt-image-2.5-sunburst (same price and tokens, slower, better edit precision) for edits and high+ finals. Per 1024x1024: low $0.006, medium $0.013, high $0.053, xhigh $0.094, max $0.211. Real alpha transparency on png/webp.",
     rationale:
-      "Outright image-generation leader: sweeps LMArena Image Arena (+242 ELO in text-to-image, 1512 vs 1270), #1 on single/multi-image edit, near-perfect in-image text. dall-e-3 and gpt-image-1 are deprecated.",
-    decided_at: "2026-06-17",
+      "Successor to gpt-image-2 (the June arena leader): the 2.5 pair was live-probed on the IU OpenAI leg 2026-09-23. It makes high about 4x cheaper than gpt-image-2 high and adds the transparency gpt-image-2 never had. Flare is the default because it is the faster of two otherwise identically priced models; image-gen routes edits and finals to sunburst.",
+    decided_at: "2026-09-23",
   },
 ];
 

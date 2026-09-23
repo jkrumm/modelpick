@@ -160,3 +160,21 @@ exactly this reason: nothing the recommender scores can rank it.
 
 Re-open when Google publishes a 3.8-vs-3.5 vision comparison, or by running our own dense-diagram
 bake-off — the method that decided this record in the first place.
+
+## 2026-09-23: generation moves to the gpt-image-2.5 pair
+
+IU listed `gpt-image-2.5-flare` and `gpt-image-2.5-sunburst` (plus `-2026-09-08` snapshots). Both
+were live-probed on the IU OpenAI leg, and image-gen now generates on them; `gpt-image-2` is retired
+from the generate path. The full probe record is in `image-gen/docs/research/endpoint-verification.md`.
+
+| Finding | Consequence |
+|-|-|
+| Same price, same token counts; flare is faster (high: 20 s vs 32 s) | flare is the default; sunburst serves edits and `high`/`xhigh`/`max` finals (`model: auto` routing in `shared/src/rules.ts`) |
+| `high` = 1756 tokens, about $0.053: ~4x cheaper than gpt-image-2 `high` | drafting at `low` and finalizing at `high` stays the default; `max` now costs what gpt-image-2 `high` did |
+| `background: transparent` + png/webp returns real RGBA on both | transparency is re-enabled end to end; jpeg with transparent is rejected |
+| `xhigh`/`max` accepted, although the upstream error text lists only low–high | exposed as explicit tiers |
+| `input_fidelity` returns a hard 400 | never sent |
+| flare streams no partial frames; sunburst emits partials (~77 tokens each) | no streaming overhead on the draft path |
+
+The model is not re-ranked against Arena here: no public leaderboard scores the 2.5 pair yet. The
+pick rests on the measured cost, latency and capability deltas above.
