@@ -750,6 +750,51 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "score_ceiling": 1,
     "release_date": "2025-11-18",
     "superseded_by": null
+  },
+  {
+    "benchmark": "TextQuests",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2025-07-31",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "SWE-bench Pro",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2025-09-21",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "GraphWalks",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2025-04-14",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "Berkeley Function Calling Leaderboard",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2024-02-27",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "HealthBench Professional",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2026-04-30",
+    "superseded_by": null
   }
 ];
 
