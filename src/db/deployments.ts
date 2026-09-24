@@ -188,68 +188,60 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
   {
     service: "sideclaw",
     slot: "check",
-    // ccbench governs this role, not the leaderboard-scored `coding` profile.
-    // glm-5.3-flash is not a smaller glm-5.3 — it is a separately trained
-    // 320B-A18B base that Z.ai positions for agentic/tool-calling coding, at
-    // 9x less in and 8.8x less out with 2x the decode rate. 0.966 over 46
-    // graded ccbench runs; glm-5.3 has never been run at all.
-    // See docs/decisions/claude-code-model.md.
+    // CLASSIFY moved off glm-5.3-flash 2026-09-23 (GLM retired from this
+    // server entirely) onto DeepSeek-V4-Flash — the same in-loop-speed
+    // complaint that moved dispatch off glm applies here too, plus glm
+    // stalling an 84-minute dispatch episode on 2026-09-15. No separate
+    // CLASSIFY-tier measurement was run: this is the id dispatch's old AGENT
+    // tier already carried, at a lower thinking budget, on easier work.
     follows_recommendation: false,
     label: "check — format · lint · tsc · test (CLASSIFY tier)",
-    model_id: "glm-5.3-flash",
+    model_id: "DeepSeek-V4-Flash",
     category: "coding",
     thinking: "default",
     params:
       "backend iu; fallback claude-haiku-4-5 on max; transport session; thinkingTokens 2048 (MAX_THINKING_TOKENS, the only effort control on this leg); override SIDECLAW_THINKING_TOKENS_CHECK",
-    config_ref: "sideclaw/server/lib/routing.ts:136-142,170",
+    config_ref: "sideclaw/server/lib/routing.ts:281-288,312",
     rationale:
-      "Reading tool output and deciding pass/fail — the cheapest tier that holds an agent loop. 2026-09-13: thinkingTokens capped at 2048 so a classify-shaped call can't default to GLM's uncapped `max` reasoning.",
+      "Reading tool output and deciding pass/fail — the cheapest tier that holds an agent loop. 2026-09-23: moved off glm-5.3-flash (GLM retired) onto DeepSeek-V4-Flash; thinkingTokens stays capped at 2048 so a classify-shaped call can't default to a gateway model's uncapped `max` reasoning.",
     decision_doc: "docs/decisions/sideclaw-tiers.md",
-    decided_at: "2026-09-11",
+    decided_at: "2026-09-23",
     verified_at: VERIFIED,
   },
   {
     service: "sideclaw",
     slot: "overview",
-    // ccbench governs this role, not the leaderboard-scored `coding` profile.
-    // glm-5.3-flash is not a smaller glm-5.3 — it is a separately trained
-    // 320B-A18B base that Z.ai positions for agentic/tool-calling coding, at
-    // 9x less in and 8.8x less out with 2x the decode rate. 0.966 over 46
-    // graded ccbench runs; glm-5.3 has never been run at all.
-    // See docs/decisions/claude-code-model.md.
+    // CLASSIFY moved off glm-5.3-flash 2026-09-23 (GLM retired) onto
+    // DeepSeek-V4-Flash — see the check row's comment for the evidence.
     follows_recommendation: false,
     label: "overview (CLASSIFY tier)",
-    model_id: "glm-5.3-flash",
+    model_id: "DeepSeek-V4-Flash",
     category: "coding",
     thinking: "default",
     params:
       "backend iu; fallback claude-haiku-4-5 on max; thinkingTokens 2048; override SIDECLAW_THINKING_TOKENS_OVERVIEW",
-    config_ref: "sideclaw/server/lib/routing.ts:136-142,171",
+    config_ref: "sideclaw/server/lib/routing.ts:281-288,313",
     rationale: "Same CLASSIFY tier as check.",
     decision_doc: "docs/decisions/sideclaw-tiers.md",
-    decided_at: "2026-09-11",
+    decided_at: "2026-09-23",
     verified_at: VERIFIED,
   },
   {
     service: "sideclaw",
     slot: "review_router",
-    // ccbench governs this role, not the leaderboard-scored `coding` profile.
-    // glm-5.3-flash is not a smaller glm-5.3 — it is a separately trained
-    // 320B-A18B base that Z.ai positions for agentic/tool-calling coding, at
-    // 9x less in and 8.8x less out with 2x the decode rate. 0.966 over 46
-    // graded ccbench runs; glm-5.3 has never been run at all.
-    // See docs/decisions/claude-code-model.md.
+    // CLASSIFY moved off glm-5.3-flash 2026-09-23 (GLM retired) onto
+    // DeepSeek-V4-Flash — see the check row's comment for the evidence.
     follows_recommendation: false,
     label: "review_router (CLASSIFY tier)",
-    model_id: "glm-5.3-flash",
+    model_id: "DeepSeek-V4-Flash",
     category: "coding",
     thinking: "default",
     params:
       "backend iu; fallback claude-haiku-4-5 on max; thinkingTokens 2048; override SIDECLAW_THINKING_TOKENS_REVIEW_ROUTER",
-    config_ref: "sideclaw/server/lib/routing.ts:136-142,172",
+    config_ref: "sideclaw/server/lib/routing.ts:281-288,314",
     rationale: "Same CLASSIFY tier as check.",
     decision_doc: "docs/decisions/sideclaw-tiers.md",
-    decided_at: "2026-09-11",
+    decided_at: "2026-09-23",
     verified_at: VERIFIED,
   },
   {
@@ -262,7 +254,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "default",
     params: "backend max (fallback: same model on iu); [1m] context",
-    config_ref: "sideclaw/server/lib/routing.ts:150-155,174",
+    config_ref: "sideclaw/server/lib/routing.ts:289-295,316",
     rationale:
       "Judging a diff is the one sideclaw job where a miss is expensive and the Max plan charges nothing — so it does not follow the cheap CLASSIFY tier.",
     decision_doc: "docs/decisions/sideclaw-tiers.md",
@@ -279,7 +271,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "writing",
     thinking: "default",
     params: "backend max; fallback same model on iu",
-    config_ref: "sideclaw/server/lib/routing.ts:156-161,173",
+    config_ref: "sideclaw/server/lib/routing.ts:296-302,315",
     rationale:
       "Prose tier. Note the writing stack pick is claude-opus-4-6 — this slot deliberately runs a cheaper model because the output is a summary, not authored prose.",
     decision_doc: "docs/decisions/sideclaw-tiers.md",
@@ -294,7 +286,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: null,
     thinking: "default",
     params: "backend iu; NO fallback; transport iu-openai (direct fetch, never runSession)",
-    config_ref: "sideclaw/server/lib/routing.ts:175",
+    config_ref: "sideclaw/server/lib/routing.ts:329-335",
     rationale:
       "Structural, not scored: the value is that it is a different family from the model that produced the finding. No category recommendation can express 'not the same vendor'.",
     decision_doc: "docs/decisions/sideclaw-tiers.md",
@@ -304,24 +296,39 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
   {
     service: "sideclaw",
     slot: "dispatch",
-    // ccbench governs this role, not the leaderboard-scored `coding` profile.
-    // glm-5.3-flash is not a smaller glm-5.3 — it is a separately trained
-    // 320B-A18B base that Z.ai positions for agentic/tool-calling coding, at
-    // 9x less in and 8.8x less out with 2x the decode rate. 0.966 over 46
-    // graded ccbench runs; glm-5.3 has never been run at all.
-    // See docs/decisions/claude-code-model.md.
+    // Investigate/author tier only — implement runs the same route at a
+    // higher reasoning_effort variant, see the dispatch_implement row below.
     follows_recommendation: false,
-    label: "dispatch — bounded episode in a named repo (AGENT tier)",
-    model_id: "glm-5.3-flash",
+    label: "dispatch — investigate/author episode in a named repo (AGENT_OC tier)",
+    model_id: "deepseek-v4.1-flash",
     category: "coding",
-    thinking: "default",
+    thinking: "high",
     params:
-      "backend iu; fallback claude-sonnet-5[1m] on max; thinkingTokens 8192 (MAX_THINKING_TOKENS); override SIDECLAW_THINKING_TOKENS_DISPATCH",
-    config_ref: "sideclaw/server/lib/routing.ts:143-149,176",
+      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode (opencode run, NOT claude -p — this id has no code path through claude -p at all); variant high (opencode's reasoning-effort knob; MAX_THINKING_TOKENS has no effect on this harness); override SIDECLAW_MODEL_DISPATCH / SIDECLAW_HARNESS_DISPATCH / SIDECLAW_VARIANT_DISPATCH",
+    config_ref: "sideclaw/server/lib/routing.ts:237-244,336",
     rationale:
-      "Moved off claude-sonnet-5[1m]/max on 2026-09-11 following ccbench. thinkingTokens raised to 8192 (vs CLASSIFY's 2048) — an agentic episode needs more room than a classify-shaped call but must not default to GLM's unbounded `max`. warden/docs/history/state-log.md:322,628 still record the old value — history, not config.",
-    decision_doc: "docs/decisions/claude-code-model.md",
-    decided_at: "2026-09-11",
+      "2026-09-24: moved off DeepSeek-V4-Flash on claude -p (the retired AGENT tier) onto OpenCode running deepseek-v4.1-flash over the IU OpenAI-compatible route — a different id and transport claude -p cannot reach at all. Evidence: three implement briefs re-run from DeepSeek-V4-Pro's base commits favored OpenCode on cost by 1-2 orders of magnitude (vps $0.06/5min vs $2.46/10min; research-gateway #21 $0.10/5min vs $11.01/28min; weatherorb $0.06/5min vs $5.39/21min), and a blind diff review preferred OpenCode's output on 2 of 3 (lost vps: inverted volume-floor logic in a HyperDX config — not a clean sweep, recorded honestly). Cache hits 95-98% on this route vs 8% for V4-Pro on the Anthropic route.",
+    decision_doc: "docs/decisions/sideclaw-tiers.md",
+    decided_at: "2026-09-24",
+    verified_at: VERIFIED,
+  },
+  {
+    service: "sideclaw",
+    slot: "dispatch_implement",
+    // Shares AGENT_OC's model/route/evidence with dispatch above; only the
+    // reasoning_effort variant differs for the higher-stakes write tier.
+    follows_recommendation: false,
+    label: "dispatch_implement — write episode in a named repo (AGENT_OC_IMPLEMENT tier)",
+    model_id: "deepseek-v4.1-flash",
+    category: "coding",
+    thinking: "max",
+    params:
+      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode (opencode run, NOT claude -p); variant max (opencode's reasoning-effort knob, one step above dispatch's 'high'); override SIDECLAW_MODEL_DISPATCH_IMPLEMENT / SIDECLAW_HARNESS_DISPATCH_IMPLEMENT / SIDECLAW_VARIANT_DISPATCH_IMPLEMENT",
+    config_ref: "sideclaw/server/lib/routing.ts:245-252,337",
+    rationale:
+      "2026-09-24: split off dispatch's AGENT_OC tier onto its own AGENT_OC_IMPLEMENT tier for the higher-stakes write path, mirroring the old AGENT_IMPLEMENT split — same model and route as dispatch, variant raised from 'high' to 'max'. See the dispatch row above for the underlying cost/quality evidence; this tier shares it rather than repeating a separate measurement.",
+    decision_doc: "docs/decisions/sideclaw-tiers.md",
+    decided_at: "2026-09-24",
     verified_at: VERIFIED,
   },
   {
@@ -335,7 +342,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend max; runs inline via runSession, never queued — the one tool exempt from the job contract",
-    config_ref: "sideclaw/server/lib/routing.ts:150-155,177",
+    config_ref: "sideclaw/server/lib/routing.ts:289-295,338",
     rationale: "Interactive debugging: a jobId round-trip would cost more than the query.",
     decision_doc: "docs/decisions/sideclaw-tiers.md",
     decided_at: "2026-09-11",
@@ -349,7 +356,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: null,
     thinking: "default",
     params: "backend max; fallback same model on iu",
-    config_ref: "sideclaw/server/lib/routing.ts:156-161,178",
+    config_ref: "sideclaw/server/lib/routing.ts:296-302,339",
     rationale:
       "Structural: generating valid Excalidraw JSON is a format-fidelity job no category scores.",
     decision_doc: "docs/decisions/sideclaw-tiers.md",
@@ -364,7 +371,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: null,
     thinking: "n/a",
     params: "backend iu; NO fallback; transport iu-openai",
-    config_ref: "sideclaw/server/lib/routing.ts:162-167,179",
+    config_ref: "sideclaw/server/lib/routing.ts:303-309,340",
     rationale:
       "Vision is a manual stack category — no leaderboard scores document/diagram reading, so there is no algorithmic recommendation to drift against.",
     decision_doc: "docs/decisions/vision-and-image.md",
@@ -379,7 +386,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: null,
     thinking: "n/a",
     params: "backend iu; NO fallback; transport iu-openai",
-    config_ref: "sideclaw/server/lib/routing.ts:162-167,180",
+    config_ref: "sideclaw/server/lib/routing.ts:303-309,341",
     rationale: "Same VISION tier as read_image.",
     decision_doc: "docs/decisions/vision-and-image.md",
     decided_at: "2026-06-17",
@@ -481,7 +488,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
       "agent.reasoning_effort=high (config.yaml:77); api_mode chat_completions (not /responses — 404s 'No suitable backend' despite /models listing it); the load-bearing key is providers.custom.api_mode (config.yaml:28), NOT the top-level model.api_mode (:9) — resolve_runtime_provider() reads api_mode from the named-provider block only, so without :28 it falls through to codex_responses, DeepSeek 404s, and the brain silently fails over to gpt-5.6-luna every turn (confirmed live 2026-09-13); tool_use_enforcement true; context_length 850000; max_turns 90",
     config_ref: "hermes-agent/config.yaml:3,9,28,77",
     rationale:
-      "2026-09-13 owner decision: capability over cost (docs/decisions/hermes-brain.md §2026-09-13), overriding the recommender's Luna pick. V4.1 tops Luna's ceiling (39.5 vs 37.5 AA intelligence at max effort) and consolidates one model across every mid-size lane in the estate, at the accepted cost of no prompt caching on this route (~$0.85 vs Luna's ~$0.06 per 90-turn conversation, measured 2026-09-12). Live-probed the same day: function tools + reasoning_effort:high survive together on chat_completions.",
+      "2026-09-13 owner decision: capability over cost (docs/decisions/hermes-brain.md §2026-09-13), overriding the recommender's Luna pick. V4.1 tops Luna's ceiling (39.5 vs 37.5 AA intelligence at max effort) and consolidates one model across every mid-size lane in the estate, at the accepted cost of — as understood at the time — no prompt caching on this route (~$0.85 vs Luna's ~$0.06 per 90-turn conversation, measured 2026-09-12). Live-probed the same day: function tools + reasoning_effort:high survive together on chat_completions. CORRECTION 2026-09-24: caching does in fact work on this IU OpenAI-compatible route — a direct probe re-sending a 7780-token prefix got cached_tokens 7552, cost per call falling from $0.0011682 to $0.000058 (gateway rates $0.15/MTok in, $0.60 out, ~$0.003 cache read). The 2026-09-12 measurement was wrong, not the decision it fed into: V4.1 was still the pick on capability grounds regardless of the cache figure.",
     decision_doc: "docs/decisions/hermes-brain.md",
     decided_at: "2026-09-13",
     verified_at: VERIFIED,

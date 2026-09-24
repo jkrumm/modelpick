@@ -35,3 +35,36 @@ real and repeatable, just not benchmarked.
 
 Full picture, including the two Max-billing lanes and the warden/Hermes callers: brain
 `wiki/engineering/model-routing.md`.
+
+## 2026-09-24 — dispatch/dispatch_implement move off `claude -p` onto OpenCode
+
+`dispatch` (investigate/author) and `dispatch_implement` no longer run the AGENT tier
+(`DeepSeek-V4-Flash` via `claude -p` over the IU native Anthropic transport). Both now run a
+new harness, OpenCode (`opencode run --format json`), on `deepseek-v4.1-flash` over the IU
+endpoint's OpenAI-compatible route — a different id and a different transport `claude -p`
+cannot reach at all. New tiers `AGENT_OC` (dispatch, `variant: "high"`) and
+`AGENT_OC_IMPLEMENT` (dispatch_implement, `variant: "max"`) replace AGENT and the short-lived
+AGENT_IMPLEMENT (DeepSeek-V4-Pro, retired the same day it was measured). Fallback stays
+`claude-sonnet-5[1m]` on Max, always via the `claude` harness — a fallback attempt can never
+run OpenCode.
+
+Evidence: three implement briefs re-run from AGENT_IMPLEMENT's (DeepSeek-V4-Pro's) base
+commits — vps $2.46/10min (Pro) vs $0.06/5min (OpenCode); research-gateway #21 $11.01/28min
+vs $0.10/5min (max effort $0.11); weatherorb $5.39/21min vs $0.06/5min. A blind diff review
+preferred OpenCode on 2 of 3 (research-gateway: the max-effort variant closed a gap Pro's
+diff left open, 479/0 tests; weatherorb: tied on logic plus a doc update Pro skipped) and lost
+one (vps: inverted volume-floor logic in a HyperDX config — recorded honestly, not a clean
+sweep). Cache hits 95-98% on the OpenCode/OpenAI-route path vs 8% for Pro on the Anthropic
+route (2026-09-23 spend: $69.69, 97% uncached input).
+
+Also corrects a standing claim: prompt caching **does** work on the IU OpenAI-compatible
+route for `deepseek-v4.1-flash` as of this date — a direct probe re-sending a 7780-token
+prefix got `cached_tokens: 7552`, cost per call falling from $0.0011682 to $0.000058
+(gateway-measured rates: $0.15/MTok input, $0.60 output, ~$0.003 cache read). The
+`fast`-category no-caching claim in `seed.ts` and the hermes/brain row in `deployments.ts`
+(both measured 2026-09-12) are corrected in place, dated, not deleted — the capability-over-
+cost verdicts they fed stand unchanged; only the caching reading was wrong.
+
+CLASSIFY (`check`/`overview`/`review_router`) is unaffected by this move but was itself
+re-pointed 2026-09-23 from `glm-5.3-flash` to `DeepSeek-V4-Flash` when GLM retired from this
+server entirely — recorded here since the table above still names the old model.
