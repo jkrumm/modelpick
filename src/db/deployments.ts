@@ -295,6 +295,28 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
   },
   {
     service: "sideclaw",
+    slot: "review_ocr",
+    // Picked by a same-range OCR bake-off 2026-09-24 (sideclaw 819bcc7..4898afb,
+    // 1.8k lines): gpt-5.6-luna 3x at 1m39s-1m53s / 0.7-0.9M tokens, 4-6 findings
+    // all verified real; DeepSeek-V4-Flash 8m13s / 5.8M (6 real); deepseek-v4.1-flash
+    // 6m30s / 5.7M (6 real, 2 false); gemini-3.8-flash 7m01s (1); minimax-m3 7m13s
+    // (16, mostly noise); gpt-6-luna 1m28s (2).
+    follows_recommendation: false,
+    label: "review_ocr — alibaba/open-code-review input to review",
+    model_id: "gpt-5.6-luna",
+    category: null,
+    thinking: "default",
+    params:
+      "backend iu; NO fallback; transport external-iu (the `ocr` CLI, OpenAI Responses protocol via ocrProtocolFor); override SIDECLAW_MODEL_REVIEW_OCR",
+    config_ref: "sideclaw/server/lib/routing.ts:319-334",
+    rationale:
+      "Structural: a measured bake-off inside ocr's own tool loop, which no leaderboard scores. Luna finishes inside the angle phase (~2 min), so OCR leaves the review's critical path (6 min → ~1.5 min) at ~1/7 the tokens, with zero false positives across 3 runs.",
+    decision_doc: "docs/decisions/sideclaw-tiers.md",
+    decided_at: "2026-09-24",
+    verified_at: VERIFIED,
+  },
+  {
+    service: "sideclaw",
     slot: "dispatch",
     // Investigate/author tier only — implement runs the same route at a
     // higher reasoning_effort variant, see the dispatch_implement row below.
