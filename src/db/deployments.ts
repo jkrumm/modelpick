@@ -296,23 +296,25 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
   {
     service: "sideclaw",
     slot: "review_ocr",
-    // Picked by a same-range OCR bake-off 2026-09-24 (sideclaw 819bcc7..4898afb,
-    // 1.8k lines): gpt-5.6-luna 3x at 1m39s-1m53s / 0.7-0.9M tokens, 4-6 findings
-    // all verified real; DeepSeek-V4-Flash 8m13s / 5.8M (6 real); deepseek-v4.1-flash
-    // 6m30s / 5.7M (6 real, 2 false); gemini-3.8-flash 7m01s (1); minimax-m3 7m13s
-    // (16, mostly noise); gpt-6-luna 1m28s (2).
+    // Second, larger bake-off 2026-09-25 on the same range (sideclaw 819bcc7..4898afb,
+    // every finding checked by hand). ocr wall time = LLM rounds x ~5 s per round, equal
+    // across models, so tok/s barely matters. At ocr's default effort (2 review passes)
+    // v4.1-flash explored 117 rounds / 6m30s; with `--effort low` 3 runs took 2m31s-3m09s
+    // with 4-7 findings, nearly all real, and the most cross-file/config catches.
+    // gpt-5.6-luna 3x 1m39s-1m53s (4-6 real, overlaps the angle reviewers); gpt-6-luna 3x
+    // ~1m30s (2-3 real); gemini-3.8-flash 2x ~7m (84 rounds at a 3.3 s IU TTFT).
     follows_recommendation: false,
     label: "review_ocr — alibaba/open-code-review input to review",
-    model_id: "gpt-5.6-luna",
+    model_id: "deepseek-v4.1-flash",
     category: null,
     thinking: "default",
     params:
-      "backend iu; NO fallback; transport external-iu (the `ocr` CLI, OpenAI Responses protocol via ocrProtocolFor); override SIDECLAW_MODEL_REVIEW_OCR",
-    config_ref: "sideclaw/server/lib/routing.ts:319-334",
+      "backend iu; NO fallback; transport external-iu (the `ocr` CLI over IU's OpenAI chat route, ocrProtocolFor); ocr --effort low; override SIDECLAW_MODEL_REVIEW_OCR",
+    config_ref: "sideclaw/server/lib/routing.ts:317-335",
     rationale:
-      "Structural: a measured bake-off inside ocr's own tool loop, which no leaderboard scores. Luna finishes inside the angle phase (~2 min), so OCR leaves the review's critical path (6 min → ~1.5 min) at ~1/7 the tokens, with zero false positives across 3 runs.",
+      "Structural: measured inside ocr's own tool loop, which no leaderboard scores. v4.1-flash at --effort low finds the cross-file and config drift the Sonnet angle reviewers miss, in ~2.5-3 min, parallel to the angle phase.",
     decision_doc: "docs/decisions/sideclaw-tiers.md",
-    decided_at: "2026-09-24",
+    decided_at: "2026-09-25",
     verified_at: VERIFIED,
   },
   {
