@@ -1,5 +1,6 @@
 .PHONY: dev build db-push db-seed refresh-setup refresh-check refresh-teardown \
-	web-setup web-check web-teardown web-restart
+	web-setup web-check web-teardown web-restart \
+	help check deploy verify logs
 
 # Local-only app: a single SQLite file (modelpick.db, gitignored). No docker.
 
@@ -91,3 +92,27 @@ web-teardown: ## Unload + remove the dashboard LaunchAgent (logs kept)
 	@launchctl bootout "gui/$$(id -u)/$(WEB_LABEL)" 2>/dev/null || true
 	@rm -f "$(WEB_PLIST)"
 	@echo "✓ $(WEB_LABEL) removed"
+
+check: ## Local gate: typecheck + lint + test, non-zero if any fails
+	@status=0; \
+	bun run typecheck || status=1; \
+	bun run lint || status=1; \
+	bun run test || status=1; \
+	exit $$status
+
+deploy: ## Ship the merged default branch: build + (re)install both LaunchAgents
+	@$(MAKE) --no-print-directory web-setup
+	@$(MAKE) --no-print-directory refresh-setup
+
+verify: ## Probe the running dashboard on :7727; exit 0 = healthy
+	@$(MAKE) --no-print-directory web-check
+
+logs: ## Tail the last 30 lines of each modelpick log, then exit (no -f)
+	@for f in modelpick-web.log modelpick-web.err modelpick-refresh.log modelpick-refresh.err; do \
+		echo "=== $$f ==="; \
+		if [ -f "$(HOME)/Library/Logs/$$f" ]; then tail -n 30 "$(HOME)/Library/Logs/$$f"; else echo "(no $(HOME)/Library/Logs/$$f)"; fi; \
+	done
+
+help: ## List available targets
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'

@@ -27,6 +27,7 @@ single SQLite file (`modelpick.db`, gitignored).
   interactively signed in there. IU key in `op://common/anthropic`, leaderboard keys in
   `op://vps/modelpick`.
 - **Makefile targets**: `make dev`, `make build`, `make db-push`, `make db-seed`,
+  `make check`, `make deploy`, `make verify`, `make logs`,
   `make refresh-setup|refresh-check|refresh-teardown` (the 06:00 LaunchAgent). The
   picking commands that matter day to day are bun scripts, not Makefile targets:
   `bun run bench` (ccbench), `bun run route-map`, and the `cap`/`cap --list` shell
@@ -121,20 +122,57 @@ costs nothing. Give every candidate >=16,000 tokens — two retracted verdicts i
 from budget starvation being scored as failure.
 
 
-## Running it always-on (mini)
+## Validate
 
-`make web-setup` builds and installs the `com.jkrumm.modelpick-web` LaunchAgent on :7727,
-behind the Caddy entry that already exists (`modelpick.test` → `modelpick.mini.jkrumm.com`).
-`make web-check` polls `/stack` — a DB-backed page, so a 200 proves server, secrets and
-SQLite together. `make web-restart` rebuilds and kickstarts.
+`make check` is the local gate — typecheck, lint and test, non-zero if any fails, no side
+effects. Individually: `bun run typecheck` (tsr generate + tsc), `bun run lint` (oxlint),
+`bun run test` (vitest), `bun run build` (SSR build). Validate via `/check` before claiming
+done.
 
-**Deliberately a LaunchAgent, not a Docker container** like rb and linewatch. Those own
-their SQLite file exclusively; modelpick's is shared with host-side writers that cannot be
-containerised — `bun run bench` spawns the `claude` CLI and reads the macOS Keychain, and
-the 06:00 refresh agent writes the same file. A Docker volume gives two divergent databases;
-a bind mount gives the fcntl/virtiofs corruption already measured twice in this house
-(linewatch 2026-07-30, work dashboard 2026-07-21/26). Same-host processes get real SQLite
-locking; a VM boundary does not.
+## Deploy
+
+`make deploy` ships the merged default branch on the mini by wrapping the two install flows.
+Both are dev-host only: they assert `~/.config/secrets/backend` is `cache` and refuse to run
+elsewhere.
+
+- `make web-setup` builds, then installs/loads the `com.jkrumm.modelpick-web` LaunchAgent on
+  :7727, behind the existing Caddy entry (`modelpick.test` → `modelpick.mini.jkrumm.com`).
+- `make refresh-setup` installs/loads the 06:00 `com.jkrumm.modelpick-refresh` agent.
+- `make web-restart` rebuilds and kickstarts the dashboard without re-rendering the plist;
+  `make web-teardown` / `make refresh-teardown` unload and remove the respective agent.
+
+## Verify & Monitor
+
+- **Health URL** `http://localhost:7727/stack` (loopback). `/stack` reads SQLite, so a 200
+  proves server + secrets + DB path together. `make verify` wraps `make web-check`, which
+  polls it and matches the rendered body — a stray `vite dev` on 7727 also answers 200, so a
+  status check alone is not enough.
+- **Kuma monitor** `none` — no Uptime Kuma monitor is defined in this repo, and the monitor
+  list lives outside it; nothing is claimed here.
+- **OTel `service.name`** `none` — modelpick has no OpenTelemetry instrumentation (the `otel`
+  entry in `src/db/deployments.ts` is a sideclaw tool slot, not a tracer).
+- **Logs** `~/Library/Logs/modelpick-web.{log,err}` and `modelpick-refresh.{log,err}`.
+  `make logs` tails the last lines of each and exits (bounded, no `-f`); `make refresh-check`
+  reports the refresh agent's last exit.
+
+## Gotchas
+
+- **LaunchAgent, not a Docker container** — deliberate, unlike rb and linewatch. Those own
+  their SQLite file exclusively; modelpick's is shared with host-side writers that cannot be
+  containerised (`bun run bench` spawns the `claude` CLI and reads the macOS Keychain; the
+  06:00 refresh agent writes the same file). A Docker volume gives two divergent databases; a
+  bind mount gives the fcntl/virtiofs corruption already measured twice here (linewatch
+  2026-07-30, work dashboard 2026-07-21/26). Same-host processes get real SQLite locking; a
+  VM boundary does not.
+- **No plaintext `.env`** — `secrets-run run --env-file=.env.tpl` resolves keys; a raw
+  `op run` hangs on the headless mini (cache backend there, `op` on the MacBook).
+- **`bun run bench` spends real money** and needs its isolated `CLAUDE_CONFIG_DIR`; never
+  remove it or the sandbox measures the global dotfiles instead of the model (`--dry-run`
+  costs nothing).
+- **`db:push` refuses data-loss statements interactively** — dropping a column needs
+  `bunx drizzle-kit push --force` (safe for `deployment`, delete-then-insert each run).
+- **Don't start long-lived servers** — the owner runs dev servers manually; use `make verify`
+  against the running instance.
 
 ## Database / schema changes
 
@@ -248,4 +286,3 @@ them** when the situation matches — I rarely remember to invoke them by name:
 
 - TypeScript strict, no `any`. Throw/propagate errors. Typed object args.
 - Fix errors only in files you change; don't refactor untouched code.
-- Validate via `/check`; I run dev servers manually (don't start long-lived servers for me).
