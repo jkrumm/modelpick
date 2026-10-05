@@ -104,8 +104,10 @@ reference: exact settings per model per wire, plus the gateway traps.
 The four facts that decide most questions before they are asked:
 
 - **`gpt-5.6-luna`, `deepseek-v4.1-flash` and `gemini-3.8-flash` 404 on the Anthropic leg.**
-  Claude Code, every sideclaw `session` tool, `agent-dispatch` and every warden episode can only
-  run `claude-*`, `glm-5.3-flash` or `minimax-m3`.
+  Claude Code (and so every sideclaw job on the `claude` harness) can only run Anthropic-leg
+  ids. sideclaw `dispatch` and warden episodes run **OpenCode**, which reaches the OpenAI leg, so
+  `deepseek-v4.1-flash` and the other OpenAI-route ids are reachable there. Which model each
+  route uses: sideclaw `GET /api/routing`. GLM is retired from routing (2026-09-23).
 - **Thinking is the quality lever, not overhead.** Luna runs 16.8 at `none` to 37.5 at `max`.
   Set the effort explicitly — `glm-5.3-flash` defaults to `max`, which is its worst setting.
 - **When a call returns empty, raise the budget before lowering the effort.** Unused budget is

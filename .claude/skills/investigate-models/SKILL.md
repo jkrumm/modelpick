@@ -19,9 +19,10 @@ can act on it (e.g. update My Stack).
 Four facts that resolve a large share of "which model for X":
 
 1. **`gpt-5.6-luna`, `deepseek-v4.1-flash` and `gemini-3.8-flash` 404 on the Anthropic leg.**
-   If the slot is Claude Code, sideclaw `session`, `agent-dispatch` or a warden episode, the
-   candidate set is only `claude-*`, `glm-5.3-flash`, `minimax-m3`. Check this before comparing
-   anything.
+   If the slot is Claude Code or a sideclaw route on the `claude` harness, the candidate set is
+   only Anthropic-leg ids. A sideclaw `dispatch` route or warden episode runs OpenCode, which
+   reaches the OpenAI leg too. Check the slot's harness (sideclaw `GET /api/routing`) before
+   comparing anything.
 2. **The question is often the effort, not the model.** `glm-5.3-flash` defaults to `max`, which
    spends 56x the reasoning of `high` for no better output. Ask what effort the slot runs at
    before proposing a different model.

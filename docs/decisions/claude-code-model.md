@@ -1,14 +1,13 @@
 # Claude Code over the IU Anthropic Route — `claude-sonnet-5` interactive, `glm-5.3-flash` for workers
 
-> **Current verdict (2026-09-13):** `claude-sonnet-5` interactive, `glm-5.3-flash` unattended
-> worker, `claude-opus-5` EU-pinned. Only `claude-*`, `glm-5.3-flash` and `minimax-m3` are
-> reachable on the Anthropic leg at all, so the candidate set is structurally closed.
-> `MAX_THINKING_TOKENS` is the only reasoning-effort control that reaches `glm-5.3-flash` on
-> this leg (unset defaults to its worst setting, uncapped `max`): worker/agentic lanes
-> (agent-dispatch, sideclaw's AGENT tier, warden auto-dispatch) run **8192**; classify-shaped
-> lanes (sideclaw's CLASSIFY tier — check/overview/review_router) run **2048**, the value
-> measured on ccbench.
-> **Status of this record:** current
+> **Current verdict (2026-10-05):** `claude-sonnet-5` interactive, `claude-opus-5` EU-pinned.
+> The **`glm-5.3-flash` unattended-worker verdict below is superseded**: GLM was retired from
+> routing 2026-09-23 after the DeepSeek-V4 re-bench (see the 2026-09-20 section). Workers are
+> whatever sideclaw serves, mostly IU models on OpenCode — read `GET /api/routing`, not this
+> record. `MAX_THINKING_TOKENS` is still the only reasoning-effort control on the Anthropic leg
+> for non-Claude ids; the `8192` agentic / `2048` classify values were measured on ccbench.
+> **Status of this record:** interactive and EU-pinned picks current; the GLM-worker verdict is
+> history, kept for its evidence.
 > Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
 
 **Decision (2026-08-31):** two picks, because interactive and unattended are different jobs and
@@ -16,7 +15,7 @@ one number does not cover both.
 
 - **Interactive Claude Code** — `claude-sonnet-5`. Fastest in the field by a wide margin,
   perfect score, fewest turns. When a human is waiting, wall clock *is* the product.
-- **Unattended workers** (sideclaw, `rd bg`, batch jobs) — `glm-5.3-flash`. Perfect score on all
+- **Unattended workers** (sideclaw, batch jobs) — `glm-5.3-flash` *(superseded, see above)*. Perfect score on all
   ten tasks, **32x cheaper** than `claude-sonnet-5`, and by ArtificialAnalysis's index the
   smarter of the two. The price is latency: 6.5x slower on ordinary work, up to 38x on heavy
   reasoning. Nobody is watching, so that is free money.
@@ -26,10 +25,9 @@ one number does not cover both.
   code alike — recorded so the trade is visible, not to fence it off.
 
 Note the split matches the mechanism: native subagents inherit their parent session's endpoint,
-so a Max session cannot delegate to an IU model. Handing work to `glm-5.3-flash` from a Max
-orchestrator only happens through the subprocess lanes (`rd bg`/`agent-dispatch`, `ca`/`cap`),
-which run on IU credentials directly — never through sideclaw's `mcp__sideclaw__dispatch`,
-which is pinned to Sonnet on Max (fallback IU) regardless of any worker-backend env var; see
+so a Max session cannot delegate to an IU model. Handing work to an IU model from a Max
+orchestrator only happens through a subprocess lane — sideclaw's `dispatch` (OpenCode on IU
+credentials) or `ca`/`cap`; see
 `sideclaw/server/lib/routing.ts` for the live per-tool table, and
 [sideclaw-tiers.md](./sideclaw-tiers.md) for why the other four tiers are routed the way
 they are.

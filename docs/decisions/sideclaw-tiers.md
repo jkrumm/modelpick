@@ -1,9 +1,10 @@
 # sideclaw's Five Tiers — Structural Picks, Not All Scored Ones
 
-> **Current verdict (2026-09-13):** six tiers now: `dispatch` split off CLASSIFY into its own
-> **AGENT** tier (`glm-5.3-flash`, `thinkingTokens: 8192`) — an agentic episode needs more room
-> than a classify-shaped call but must not default to GLM's unbounded `max`. CLASSIFY
-> (`check`/`overview`/`review_router`) stays `glm-5.3-flash` at `thinkingTokens: 2048`. JUDGE
+> **Current verdict (2026-10-05):** the tier structure holds; the GLM ids named below are
+> history — GLM retired from routing 2026-09-23. `dispatch` has its own **AGENT** tier (an
+> agentic episode needs more room than a classify-shaped call) and runs OpenCode; CLASSIFY
+> (`check`/`overview`/`review_router`) was re-pointed to `DeepSeek-V4-Flash` (see the note at the
+> end). Current ids: sideclaw `GET /api/routing`. JUDGE
 > (`review`, `otel`) and PROSE (`narrative`, `excalidraw`) both still run `claude-sonnet-5` on
 > opposite billing lanes; VISION is `gemini-3.5-flash`; the adversary still runs `gpt-5.6-terra`.
 > `SIDECLAW_THINKING_TOKENS_<TOOL>` overrides any tier's budget per tool.
@@ -20,7 +21,7 @@ disagreeing on purpose", so their rationale lives here instead of in a scored ca
 
 | Tier | Model | Backend | Routes | Why |
 |-|-|-|-|-|
-| CLASSIFY | `glm-5.3-flash` (fallback `claude-haiku-4-5` on max) | iu | `check`, `overview`, `review_router` | This repo's `coding` pick — see [claude-code-model.md](./claude-code-model.md). Cheap, mechanical, unattended. |
+| CLASSIFY | `glm-5.3-flash` *(re-pointed to `DeepSeek-V4-Flash` 2026-09-23)* (fallback `claude-haiku-4-5` on max) | iu | `check`, `overview`, `review_router` | This repo's `coding` pick — see [claude-code-model.md](./claude-code-model.md). Cheap, mechanical, unattended. |
 | JUDGE | `claude-sonnet-5[1m]` (fallback iu) | max | `review`, `dispatch`, `otel` | Judgment work stays on the interactive-grade model, paid in Max quota rather than tokens, because a wrong verdict here (a merged PR, a dispatched episode) costs more than the quota it spends. |
 | PROSE | `claude-sonnet-5[1m]` (fallback max) | iu | `narrative`, `excalidraw` | Editorial/generative output, but unattended volume — same model as JUDGE, opposite billing lane, because nobody is waiting on it and it should not spend Max quota to write prose. |
 | VISION | `gemini-3.5-flash` | iu | `read_image`, `read_drawing` | This repo's `vision` pick — see [vision-and-image.md](./vision-and-image.md). |

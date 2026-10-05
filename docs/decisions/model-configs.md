@@ -12,8 +12,8 @@ place we lower a setting, we lower it because the higher setting demonstrably bu
 ## Which leg serves what (live-probed)
 
 The gateway has two legs and they do not serve the same models. **Claude Code — and therefore
-every sideclaw `session` tool, `agent-dispatch`, and every warden episode — can only use a
-model served on the Anthropic leg.**
+every sideclaw job on the `claude` harness — can only use a model served on the Anthropic
+leg. sideclaw `dispatch` and warden episodes run OpenCode, which also reaches the OpenAI leg.**
 
 | model | `/openai/v1` | `/anthropic/v1` (= Claude Code) |
 |-|-|-|
@@ -97,7 +97,7 @@ thinking: {type:"enabled", budget_tokens:1024} → works. 3 output tokens vs 49.
 
 Claude Code's `MAX_THINKING_TOKENS` maps to `budget_tokens` and is therefore **the only working
 thinking control on that leg**. Run values: **8192** on agentic lanes (sideclaw `dispatch`,
-`agent-dispatch`, `ca glm-5.3-flash`), **2048** on classify lanes (sideclaw `check`, `overview`,
+`ca glm-5.3-flash`), **2048** on classify lanes (sideclaw `check`, `overview`,
 `review_router`) — 2048 is the ccbench-measured cap, 8192 gives implementation work headroom
 now that no wall clock punishes a longer think. Pair it with `CLAUDE_CODE_MAX_CONTEXT_TOKENS=1000000` and all
 four `ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU,FABLE}_MODEL` pinned to the same id, plus

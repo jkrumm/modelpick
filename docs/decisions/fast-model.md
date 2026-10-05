@@ -120,9 +120,8 @@ on IU at the time.
 This record held `DeepSeek-V4-Flash` against a GLM-5.2 recommendation. The deployment table
 built on 2026-09-12 settled it a different way: a sweep of every consuming repo found
 **`DeepSeek-V4-Flash` wired into zero jobs**. It survives only in context-window lookup tables
-(`dotfiles/config/zsh/claude.zsh`, `dotfiles/scripts/agent-dispatch.sh`,
-`sideclaw/server/mcp/session-runner.ts`) and in this repo's own benchmark scripts. Every actual
-fast-tier slot — research lead and worker, argo `/ai/v1`, warden `propose_mappings`,
+(`dotfiles/config/zsh/claude.zsh`, `sideclaw/server/mcp/session-runner.ts`) and in this repo's own benchmark scripts. Every actual
+fast-tier slot — research lead and worker, argo `/ai/v1`,
 audio-gateway's prep/outline/editorial/metadata passes, the Hermes brain and its aux lanes —
 had already moved to `gpt-5.6-luna`, twelve slots in total. The recommender had said Luna since
 2026-09-04. The category row was the last thing still claiming otherwise.

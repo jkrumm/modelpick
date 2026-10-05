@@ -28,7 +28,7 @@ operating point**, and **operational fitness**. None dominates universally.
   read zero for `deepseek-v4.1-flash` put it at 14.9× Luna; its real sessions, 92–96% cached,
   came out ~2×.
 - **Operational fitness** — which gateway leg serves it (Claude Code can only reach
-  `claude-*`, `glm-5.3-flash`, `minimax-m3`), whether it starves under the slot's token budget,
+  Anthropic-leg ids; OpenCode, as sideclaw `dispatch` runs it, reaches the OpenAI leg), whether it starves under the slot's token budget,
   whether its thinking spend is predictable, whether it can hold a tool loop. This is where most
   picks are actually decided, and none of it appears on a leaderboard.
 
@@ -58,8 +58,9 @@ current verdict clause:
 - [fast-model.md](./fast-model.md) — the `fast` category pick → `deepseek-v4.1-flash` (owner
   decision, 2026-09-13); the recommender still names `gpt-5.6-luna`.
 - [claude-code-model.md](./claude-code-model.md) — which model drives Claude Code on the IU
-  Anthropic route → `claude-sonnet-5` interactive, `glm-5.3-flash` unattended, `claude-opus-5`
-  EU-pinned.
+  Anthropic route → `claude-sonnet-5` interactive, `claude-opus-5` EU-pinned (the
+  `glm-5.3-flash` worker verdict is superseded; GLM retired 2026-09-23, workers per sideclaw
+  `GET /api/routing`).
 - [coding-model.md](./coding-model.md) — stub, superseded by claude-code-model.md; kept for the
   DeepSeek Pro→Flash coding-index history.
 - [vision-and-image.md](./vision-and-image.md) — diagram/screenshot reading + image generation →
