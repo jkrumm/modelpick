@@ -54,6 +54,7 @@ const THINKING_COLOR: Record<Thinking, string> = {
   low: "teal",
   medium: "teal",
   high: "teal",
+  xhigh: "teal",
   max: "teal",
 };
 

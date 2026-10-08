@@ -7,8 +7,12 @@
  * drives real HTTP calls and hands their results to `summarizeCell`.
  */
 
-export type EffortLevel = "default" | "none" | "low" | "medium" | "high";
+export type EffortLevel = "default" | "none" | "low" | "medium" | "high" | "xhigh" | "max";
+/** The default ladder — every route here understands these five. */
 export const ALL_EFFORTS: readonly EffortLevel[] = ["default", "none", "low", "medium", "high"];
+/** Opt-in via `--efforts`: only the Anthropic leg's `output_config.effort`
+ *  goes past `high`. Also the display order. */
+export const KNOWN_EFFORTS: readonly EffortLevel[] = [...ALL_EFFORTS, "xhigh", "max"];
 
 // ── usage-token inference ────────────────────────────────────────────────────
 

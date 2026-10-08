@@ -4,7 +4,7 @@
  *
  *   bun run scripts/bench-fast.ts [--models a,b] [--efforts default,low]
  *                                 [--tasks extract,reason] [--repeat N]
- *                                 [--concurrency N] [--dry-run]
+ *                                 [--concurrency N] [--budget N] [--openai-wire] [--dry-run]
  *
  * The existing fast-model evidence (docs/decisions/fast-model.md) is TTFT-led,
  * single-effort and unrepeated — it cannot tell "starts late, decodes fast" from
@@ -59,6 +59,7 @@ import type { Thinking } from "../src/db/schema.js";
 import { getFastTasks, type FastTask } from "../src/server/bench/fast-tasks.js";
 import {
   ALL_EFFORTS,
+  KNOWN_EFFORTS,
   classifyOutcome,
   inferUsage,
   reasoningLooksConstant,
@@ -90,6 +91,7 @@ const CANDIDATE_MODELS: readonly string[] = [
   "gemini-3.8-flash",
   "glm-5.3-flash",
   "minimax-m3",
+  "claude-haiku-5-5",
 ];
 
 /** `default` sends no reasoning parameter at all; every other level is sent
@@ -343,6 +345,123 @@ async function runCall(model: string, effort: EffortLevel, task: FastTask): Prom
   };
 }
 
+/** Claude models run on the IU **Anthropic** leg — the native wire, not the
+ *  OpenAI-compat shim — because that is the leg Claude Code and the sideclaw
+ *  `claude` harness actually call. Effort maps onto the Messages API: `default`
+ *  sends nothing (Haiku 5.5 then runs adaptive at `medium`), `none` disables
+ *  thinking, the rest go in `output_config.effort`. `--openai-wire` forces the
+ *  OpenAI-compat leg instead — the door Hermes uses, and the one that lands
+ *  `claude-haiku-5-5` in EU rather than us-east-1. */
+function isAnthropicWire(model: string): boolean {
+  return model.startsWith("claude-") && !process.argv.includes("--openai-wire");
+}
+
+function anthropicEffortExtra(effort: EffortLevel): Record<string, unknown> | undefined {
+  if (effort === "default") return undefined;
+  if (effort === "none") return { thinking: { type: "disabled" } };
+  return { thinking: { type: "adaptive" }, output_config: { effort } };
+}
+
+async function runAnthropicCall(model: string, effort: EffortLevel, task: FastTask): Promise<CallOutcome> {
+  const start = performance.now();
+  let resp: Response;
+  try {
+    resp = await fetch(`${env("IU_ANTHROPIC_BASE_URL")}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": env("IU_API_KEY"),
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: task.prompt }],
+        max_tokens: task.maxTokens,
+        stream: true,
+        ...anthropicEffortExtra(effort),
+      }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (err) {
+    return {
+      kind: "error",
+      message: isTimeout(err) ? "timeout" : err instanceof Error ? err.message : String(err),
+      wallMs: isTimeout(err) ? TIMEOUT_MS : performance.now() - start,
+    };
+  }
+
+  if (!resp.ok) {
+    const bodyText = await resp.text().catch(() => "");
+    const unsupported = effort !== "default" && /thinking|effort/i.test(bodyText);
+    if (unsupported) return { kind: "unsupported", message: bodyText.slice(0, 200) };
+    return { kind: "error", message: `HTTP ${resp.status}: ${bodyText.slice(0, 200)}`, wallMs: performance.now() - start };
+  }
+
+  let firstFrameAt: number | null = null;
+  let firstTokenAt: number | null = null;
+  let text = "";
+  let promptTokens = 0;
+  let outputTokens = 0;
+  let reportedReasoningTokens = 0;
+  let stopReason: string | null = null;
+  let hasUsage = false;
+
+  try {
+    await readSse(resp, (event) => {
+      const parsed = event as {
+        type?: string;
+        message?: { usage?: { input_tokens?: number } };
+        delta?: { type?: string; text?: string; stop_reason?: string | null };
+        usage?: { output_tokens?: number; output_tokens_details?: { thinking_tokens?: number } };
+      };
+      firstFrameAt ??= performance.now();
+      if (parsed.type === "message_start") promptTokens = parsed.message?.usage?.input_tokens ?? 0;
+      if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta" && parsed.delta.text) {
+        firstTokenAt ??= performance.now();
+        text += parsed.delta.text;
+      }
+      if (parsed.type === "message_delta") {
+        stopReason = parsed.delta?.stop_reason ?? stopReason;
+        if (parsed.usage) {
+          outputTokens = parsed.usage.output_tokens ?? outputTokens;
+          reportedReasoningTokens = parsed.usage.output_tokens_details?.thinking_tokens ?? reportedReasoningTokens;
+          hasUsage = true;
+        }
+      }
+    });
+  } catch (err) {
+    return {
+      kind: "error",
+      message: isTimeout(err) ? "timeout mid-stream" : err instanceof Error ? err.message : String(err),
+      wallMs: isTimeout(err) ? TIMEOUT_MS : performance.now() - start,
+    };
+  }
+
+  // Anthropic bills thinking inside output_tokens; the same inference the
+  // OpenAI path uses splits it back out when the route omits thinking_tokens.
+  const inferred = inferUsage({
+    promptTokens,
+    completionTokens: outputTokens,
+    totalTokens: promptTokens + outputTokens,
+    reportedReasoningTokens,
+    streamedText: text,
+  });
+  return {
+    kind: "ok",
+    ttfbMs: firstFrameAt === null ? null : firstFrameAt - start,
+    ttftMs: firstTokenAt === null ? null : firstTokenAt - start,
+    wallMs: performance.now() - start,
+    visibleTokens: inferred.visibleTokens > 0 ? inferred.visibleTokens : Math.round(text.length / 4),
+    reasoningTokens: inferred.reasoningTokens,
+    reportedReasoningTokens: inferred.reportedReasoningTokens,
+    promptTokens,
+    // classifyOutcome speaks the OpenAI vocabulary.
+    finishReason: stopReason === "max_tokens" ? "length" : stopReason,
+    hasUsage,
+    text,
+  };
+}
+
 // ── per-call row & cell aggregation ──────────────────────────────────────────
 
 function costOf(rate: Rate | undefined, promptTokens: number, visible: number, reasoning: number): number | null {
@@ -409,7 +528,9 @@ async function runCell(
   const rows: CallRow[] = [];
   for (const task of tasks) {
     for (let repeat = 1; repeat <= repeats; repeat++) {
-      const outcome = await runCall(model, effort, task);
+      const outcome = isAnthropicWire(model)
+        ? await runAnthropicCall(model, effort, task)
+        : await runCall(model, effort, task);
       if (outcome.kind === "unsupported") {
         console.log(`  ${model} / ${effort}: unsupported — ${outcome.message}`);
         return { model, effort, supported: false, rows: [] };
@@ -450,7 +571,7 @@ type Verdict = "honoured" | "accepted-but-ignored" | "unsupported" | "unreliable
 function modelVerdict(cells: CellSummary[]): Verdict {
   const byEffort = new Map(cells.map((c) => [c.effort, c]));
   const defaultCell = byEffort.get("default");
-  const nonDefault = (["none", "low", "medium", "high"] as const)
+  const nonDefault = (["none", "low", "medium", "high", "xhigh", "max"] as const)
     .map((e) => byEffort.get(e))
     .filter((c): c is CellSummary => c !== undefined);
   const supported = nonDefault.filter((c) => c.supported);
@@ -699,7 +820,7 @@ function effortCurveSection(models: string[], cells: CellSummary[], unreliableMo
   return models
     .map((model) => {
       const modelCells = (byModel.get(model) ?? []).toSorted(
-        (a, b) => ALL_EFFORTS.indexOf(a.effort) - ALL_EFFORTS.indexOf(b.effort),
+        (a, b) => KNOWN_EFFORTS.indexOf(a.effort) - KNOWN_EFFORTS.indexOf(b.effort),
       );
       const unreliable = unreliableModels.has(model);
       const rows = modelCells.map(
@@ -817,8 +938,8 @@ function parseEfforts(): EffortLevel[] {
   const raw = listValue("efforts");
   if (raw.length === 0) return [...ALL_EFFORTS];
   return raw.map((e) => {
-    if (!ALL_EFFORTS.includes(e as EffortLevel)) {
-      throw new Error(`unknown effort "${e}" — known: ${ALL_EFFORTS.join(", ")}`);
+    if (!KNOWN_EFFORTS.includes(e as EffortLevel)) {
+      throw new Error(`unknown effort "${e}" — known: ${KNOWN_EFFORTS.join(", ")}`);
     }
     return e as EffortLevel;
   });
@@ -846,7 +967,12 @@ function repoRoot(): string {
 async function main(): Promise<void> {
   const models = parseModels();
   const efforts = parseEfforts();
-  const tasks = getFastTasks(listValue("tasks").length > 0 ? listValue("tasks") : undefined);
+  // `--budget N` lifts every task's token cap — xhigh/max spend the default
+  // 4000/8000 entirely on thinking, which reads as starvation, not a verdict.
+  const budget = flagValue("budget");
+  const tasks = getFastTasks(listValue("tasks").length > 0 ? listValue("tasks") : undefined).map((t) =>
+    budget === null ? t : { ...t, maxTokens: Number(budget) },
+  );
 
   const totalCalls = models.length * efforts.length * tasks.length * repeats;
   console.log(

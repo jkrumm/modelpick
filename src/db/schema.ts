@@ -35,6 +35,7 @@ export const THINKING = [
   "low",
   "medium",
   "high",
+  "xhigh",
   "max",
   "n/a",
 ] as const;
