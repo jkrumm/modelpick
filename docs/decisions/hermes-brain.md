@@ -978,3 +978,49 @@ usage, and `reasoning_content` is replayed on each tool round (3- and 9-round to
 `stop`). `reasoning_effort` is accepted but produced no measurable change in thinking length
 between `low`, `high` and `max` on a hard arithmetic task (1,800–2,850 completion tokens across all
 three). Thinking is always on.
+
+## 2026-10-08: the brain moves to `claude-haiku-5-5-eu` on the Anthropic leg, effort `high`
+
+**Verdict:** Haiku 5.5 EU at `high` on the IU Anthropic Messages route. It ties `gpt-6-luna` on
+the fast bench at the same price, and it is the only cheap candidate that keeps thinking on inside
+a tool loop. DeepSeek V4.1 loses on price; quality is level.
+
+Measured with `bun run bench:fast` (5 graded tasks × 3 repeats, Anthropic leg for `claude-*`):
+
+| model · wire | effort | pass | median wall | notes |
+|-|-|-|-|-|
+| `claude-haiku-5-5-eu` · Anthropic | `high` (32k budget) | 15/15 | 1551ms | Bedrock eu-west-1 |
+| `claude-haiku-5-5-eu` · Anthropic | `medium` | 14/15 | 1574ms | the API default when no effort is sent |
+| `claude-haiku-5-5-eu` · Anthropic | `xhigh` (32k budget) | 15/15 | — | longform thinks 50–108s |
+| `claude-haiku-5-5-eu` · Anthropic | `max` (32k budget) | 12/15 | — | 3 longform runs past the 120s bench timeout |
+| `claude-haiku-5-5` · Anthropic | `high` | 13/15 | 1893ms | Bedrock us-east-1 |
+| `claude-haiku-5-5` · OpenAI leg | best (`low`) | 4/5 | 3205ms | ~3× the TTFT; ignores `none` |
+| `gpt-6-luna` · OpenAI | every effort | 15/15 | 1111–1827ms | streaming is buffered: longform TTFT 18–29s |
+| `deepseek-v4.1-flash` · OpenAI | — | 5/5 | 1318ms | ~9× Haiku's $/run |
+
+`xhigh` and `max` starve below a 16k budget (HTTP 200, empty text, `stop_reason: max_tokens`).
+ArtificialAnalysis: Haiku 5.5 High 38, Max 43.4; `gpt-6-luna` 38.1; DeepSeek V4.1 Flash 39.5.
+
+Why Haiku over `gpt-6-luna`, which ties it on the bench:
+
+- **Tools + thinking.** `gpt-6-luna` 503s on any request carrying tools and an effort key, so as
+  the brain it would run at `none` on every tool turn. Haiku holds `high` through the loop.
+- **Caching.** Hermes' native Anthropic transport sets `cache_control` itself; the live tool loop
+  read 25,728 of 25,807 input tokens from cache on call 2.
+- **Streaming.** The IU route delivers `gpt-6-luna` output in one burst.
+
+Wiring needed one local patch: Hermes' `_thinking_kwargs()` returned nothing for any model named
+"haiku", so Haiku 5.5 silently ran at `medium`. `hermes-agent/patches/anthropic-adapter-haiku-5.patch`
+narrows the guard to legacy Haikus. Live proof (session `20261008_122217_14a838`): model
+`claude-haiku-5-5-eu`, `thinking: adaptive`, `output_config.effort: high`, a 3-call / 2-tool loop,
+no fallback. `gpt-6-luna` stays the fallback on the OpenAI leg.
+
+**Open — the price cliff.** Haiku 5.5 input bills $0.50/MTok above 100k tokens (5×), and Hermes
+compacts at 240k. Pre-switch sessions ran 46k→124k, so long threads already cross it. Lowering
+the compaction trigger to ~100k is the owner's call; it is not changed.
+
+Same day, `image-gen` enhance moved from `deepseek-v4.1-flash` to `gpt-6-luna` at `high`: short
+single-shot JSON planning, `response_format: json_object` probed live at high/medium/none. The
+other DeepSeek and Luna slots stay — writing slots lack Arena data for either challenger, argo is
+on AI SDK v5 (its Anthropic provider predates Haiku 5.5), and research-gateway moves only after
+a research-quality eval.

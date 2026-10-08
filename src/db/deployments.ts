@@ -501,21 +501,21 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
   {
     service: "hermes",
     slot: "brain",
-    // The `fast` recommender still names gpt-5.6-luna (see fast-model.md) — this
-    // is an explicit owner override, not an unnoticed drift.
+    // The `fast` recommender scores on leaderboards; this pick rests on bench-fast plus
+    // the tools+thinking constraint below — an explicit owner override, not unnoticed drift.
     follows_recommendation: false,
     label: "brain — the agent loop",
-    model_id: "deepseek-v4.1-flash",
+    model_id: "claude-haiku-5-5-eu",
     category: "fast",
     thinking: "high",
     params:
-      "agent.reasoning_effort=high (config.yaml:77); api_mode chat_completions (not /responses — 404s 'No suitable backend' despite /models listing it); the load-bearing key is providers.custom.api_mode (config.yaml:28), NOT the top-level model.api_mode (:9) — resolve_runtime_provider() reads api_mode from the named-provider block only, so without :28 it falls through to codex_responses, DeepSeek 404s, and the brain silently fails over to gpt-5.6-luna every turn (confirmed live 2026-09-13); tool_use_enforcement true; context_length 850000; max_turns 90",
-    config_ref: "hermes-agent/config.yaml:3,9,28,77",
+      "native Anthropic leg: provider custom, api_mode anthropic_messages in BOTH model (:6) and providers.custom (:18) — resolve_runtime_provider() reads the named-provider block; base_url/api_key ${ANTHROPIC_BASE_URL}/${ANTHROPIC_API_KEY}; agent.reasoning_effort high (:69) reaches the wire as output_config.effort ONLY via patches/anthropic-adapter-haiku-5.patch (upstream sends nothing for any 'haiku' id → silent medium); context_length 1000000; tool_use_enforcement true. -eu = Bedrock eu-west-1; the bare claude-haiku-5-5 is us-east-1. Input price jumps 5x above 100k tokens while compaction triggers at 240k (owner decision pending, hermes-agent docs/model-context-reasoning.md)",
+    config_ref: "hermes-agent/config.yaml:3,6,18,69",
     rationale:
-      "2026-09-13 owner decision: capability over cost (docs/decisions/hermes-brain.md §2026-09-13), overriding the recommender's Luna pick. V4.1 tops Luna's ceiling (39.5 vs 37.5 AA intelligence at max effort) and consolidates one model across every mid-size lane in the estate, at the accepted cost of — as understood at the time — no prompt caching on this route (~$0.85 vs Luna's ~$0.06 per 90-turn conversation, measured 2026-09-12). Live-probed the same day: function tools + reasoning_effort:high survive together on chat_completions. CORRECTION 2026-09-24: caching does in fact work on this IU OpenAI-compatible route — a direct probe re-sending a 7780-token prefix got cached_tokens 7552, cost per call falling from $0.0011682 to $0.000058 (gateway rates $0.15/MTok in, $0.60 out, ~$0.003 cache read). The 2026-09-12 measurement was wrong, not the decision it fed into: V4.1 was still the pick on capability grounds regardless of the cache figure.",
+      "2026-10-08: bench-fast on the native Anthropic leg — high effort 15/15 at ~1.6s median, EU equal or faster than US; medium dropped a task, xhigh/max think 50-100s+ on long outputs. The OpenAI-compat leg is ~3x slower to first token and ignores effort. gpt-6-luna is level on bench-fast (15/15 at every effort) but 503s on tools with any effort key, so as a brain it runs tool turns at effort none; Haiku keeps high-effort thinking inside the tool loop and gets native cache_control (100% cache read on call 2, live). Replaces deepseek-v4.1-flash (3x the per-token price, effort accepted-but-ignored on its route). Live-verified in session 20261008_122217_14a838: effort high on the wire, 2-turn tool loop, no fallback.",
     decision_doc: "docs/decisions/hermes-brain.md",
-    decided_at: "2026-09-13",
-    verified_at: VERIFIED,
+    decided_at: "2026-10-08",
+    verified_at: "2026-10-08",
   },
   {
     service: "hermes",
@@ -622,12 +622,12 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     follows_recommendation: false,
     literal_id: false,
     label: "delegated children",
-    model_id: "deepseek-v4.1-flash",
+    model_id: "claude-haiku-5-5-eu",
     category: "fast",
     thinking: "default",
     params:
-      "model '' and reasoning_effort '' — both inherit the brain; child_timeout_seconds 0; max_iterations unlimited (sys.maxsize); max_concurrent_children 10; max_spawn_depth 1",
-    config_ref: "hermes-agent/config.yaml:419-438",
+      "delegation toolset is DISABLED (agent.disabled_toolsets) — dormant; model '' and reasoning_effort '' — both inherit the brain; child_timeout_seconds 0; max_iterations unlimited (sys.maxsize); max_concurrent_children 10; max_spawn_depth 1",
+    config_ref: "hermes-agent/config.yaml:399-417",
     rationale: "Inherits the brain by design, so a brain change propagates without a second edit.",
     decision_doc: "docs/decisions/hermes-brain.md",
     decided_at: "2026-09-13",
@@ -911,20 +911,18 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
   {
     service: "image-gen",
     slot: "enhance",
-    // 2026-09-13 owner override — the `fast` recommender still names gpt-5.6-luna.
-    follows_recommendation: false,
     label: "/enhance prompt-plan brain",
-    model_id: "deepseek-v4.1-flash",
+    model_id: "gpt-6-luna",
     category: "fast",
     thinking: "high",
     params:
-      "ENHANCE_MODEL + ENHANCE_REASONING_EFFORT=high; max_completion_tokens 16000 (lib/enhance.ts:314). Was the bare `gpt-5.6` alias, pinned to a concrete id 2026-09-12 so the tier cannot change server-side; moved sol -> luna -> deepseek-v4.1-flash as the estate default settled.",
-    config_ref: "image-gen/gateway/src/env.ts:23,25",
+      "ENHANCE_MODEL + ENHANCE_REASONING_EFFORT=high (enum none|low|medium|high, luna's probed ladder); max_completion_tokens 16000 (lib/enhance.ts:314); response_format json_object probed live at high/medium/none. No VPS override — the env.ts default is what ships.",
+    config_ref: "image-gen/gateway/src/env.ts:24,26",
     rationale:
-      "2026-09-13: moved onto the estate default per the owner's capability-over-cost decision (hermes-brain.md §2026-09-13) — expanding a brief into a structured JSON plan is mid-size, multi-field, single-shot work, the settled DeepSeek lane rather than the small/latency-critical lane luna covers.",
+      "2026-10-08: moved off deepseek-v4.1-flash — expanding a brief into a JSON plan is short single-shot work; gpt-6-luna passed bench-fast 15/15 at every effort at a third of DeepSeek's token price. No tools, so luna's tools+effort 503 does not apply. Deployed 147b98c, live /enhance smoke green.",
     decision_doc: "docs/decisions/hermes-brain.md",
-    decided_at: "2026-09-13",
-    verified_at: VERIFIED,
+    decided_at: "2026-10-08",
+    verified_at: "2026-10-08",
   },
   {
     service: "image-gen",
