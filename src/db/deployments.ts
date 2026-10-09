@@ -987,4 +987,88 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     decided_at: "2026-06-17",
     verified_at: VERIFIED,
   },
+  // ── email-gateway (VPS container; one LLM_MODEL env feeds four lanes) ──────
+  {
+    service: "email-gateway",
+    slot: "decision-lane",
+    label: "shadow decision lane (Jev, historical name)",
+    model_id: "clef-eu",
+    category: "decision",
+    thinking: "n/a",
+    params:
+      "DECISION_PROVIDER=ue; chat/completions with response_format type questions, header api-key, no sampling params. Shadow mode: recorded beside the LLM classifier's verdict, never authoritative. DECISION_MODEL defaults to clef-eu in src/env.ts too.",
+    config_ref: "vps/apps/email-gateway/compose.yml:32",
+    rationale:
+      "Owner decision 2026-10-09: moved Vercel AI Gateway Jev (403 free tier, 2026-09-21) -> OpenRouter Clef (2026-10-05) -> UE clef-eu. Fastest of six on the live contact-form question (165 ms, 14/14) and EU-hosted; OpenRouter Clef also hit Workers AI per-minute 429s.",
+    decision_doc: "docs/decisions/decision-model.md",
+    decided_at: "2026-10-09",
+    verified_at: "2026-10-09",
+  },
+  {
+    service: "email-gateway",
+    slot: "spam-classifier",
+    // One LLM_MODEL env feeds all four lanes; Luna is the estate's
+    // latency-critical small-call tier, not the algorithm's fast pick.
+    follows_recommendation: false,
+    label: "contact-form spam classifier (8 s deadline)",
+    model_id: "gpt-6-luna",
+    category: "fast",
+    thinking: "default",
+    params:
+      "LLM_MODEL via the AI SDK openai-compatible provider, structured output; src/spam/classify.ts",
+    config_ref: "vps/apps/email-gateway/compose.yml:29",
+    rationale:
+      "Sits on the submission path of three live callers (7 s / 10 s / 30 s aborts) behind an 8 s gate deadline, so latency decides it. One env var, LLM_MODEL, serves this lane and the three below.",
+    decision_doc: "docs/decisions/fast-model.md",
+    decided_at: "2026-10-09",
+    verified_at: "2026-10-09",
+  },
+  {
+    service: "email-gateway",
+    slot: "enrichment",
+    follows_recommendation: false,
+    label: "inbound email enrichment",
+    model_id: "gpt-6-luna",
+    category: "fast",
+    thinking: "default",
+    params: "LLM_MODEL; src/enrich/enrich-email.ts, 30-min hang guard, no budget",
+    config_ref: "vps/apps/email-gateway/compose.yml:29",
+    rationale: "Same LLM_MODEL env as the classifier — one id, four lanes.",
+    decision_doc: "docs/decisions/fast-model.md",
+    decided_at: "2026-10-09",
+    verified_at: "2026-10-09",
+  },
+  {
+    service: "email-gateway",
+    slot: "thread-summary",
+    follows_recommendation: false,
+    label: "agent-API thread summary",
+    model_id: "gpt-6-luna",
+    category: "fast",
+    thinking: "default",
+    params: "LLM_MODEL; src/llm/thread-summary.ts, cached in thread_summaries",
+    config_ref: "vps/apps/email-gateway/compose.yml:29",
+    rationale: "Same LLM_MODEL env as the classifier — one id, four lanes.",
+    decision_doc: "docs/decisions/fast-model.md",
+    decided_at: "2026-10-09",
+    verified_at: "2026-10-09",
+  },
+  {
+    service: "email-gateway",
+    slot: "draft-reply",
+    // Prose for the owner to edit, but on the shared LLM_MODEL env: the writing
+    // pick (claude-opus-4-6) is not reachable through this service's UE key setup.
+    follows_recommendation: false,
+    label: "agent-API draft reply",
+    model_id: "gpt-6-luna",
+    category: "writing",
+    thinking: "default",
+    params: "LLM_MODEL; src/llm/draft-reply.ts — drafts only, never sends",
+    config_ref: "vps/apps/email-gateway/compose.yml:29",
+    rationale:
+      "Grouped under writing for what it produces, but wired to the shared LLM_MODEL env, so it follows the other three lanes by construction. Splitting it onto a writing model needs its own env var in email-gateway first.",
+    decision_doc: null,
+    decided_at: "2026-10-09",
+    verified_at: "2026-10-09",
+  },
 ];
