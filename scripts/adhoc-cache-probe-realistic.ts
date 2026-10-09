@@ -161,7 +161,7 @@ async function runOnce(model: string, runIdx: number): Promise<void> {
     // Strip this turn's cache_control before it goes into history — only the
     // LATEST user block should ever carry the breakpoint, exactly as Claude
     // Code slides it forward one turn at a time.
-    (messages.at(-1) as Msg & { content: Block[] }).content[0]!.cache_control = undefined;
+    delete (messages.at(-1) as Msg & { content: Block[] }).content[0]!.cache_control;
     messages.push({ role: "assistant", content: r.text || "(no text)" });
     if (turn < TURNS) await sleep(SLEEP_MS);
   }
