@@ -5,6 +5,7 @@ import type { ModelInsert, StackChoiceInsert } from "./schema.js";
 import { IU_CATALOG } from "./iu-catalog.js";
 import { REPLICATE_CATALOG } from "./replicate-catalog.js";
 import { DEPLOYMENTS } from "./deployments.js";
+import { DECISION_CATALOG } from "./decision-models.js";
 
 // The model catalog is the IU self-service portal export, parsed into
 // src/db/iu-catalog.ts by scripts/import-portal.ts. The live /v1/models aliases
@@ -74,6 +75,25 @@ export async function seedExternalModels(): Promise<void> {
     .onConflictDoUpdate({
       target: models.id,
       set: { display_name: sql`excluded.display_name`, iu_listed: sql`excluded.iu_listed` },
+    });
+}
+
+// Decision models (src/db/decision-models.ts). The upsert flips `clef` & co. from
+// the `llm` the discovery of older probes gave them to `decision`, and adds the
+// two ids /models never lists (jev-*, and Luna's Decisions route as its own entry
+// so the gpt-6-luna chat row stays untouched).
+export async function seedDecisionModels(): Promise<void> {
+  await db
+    .insert(models)
+    .values(DECISION_CATALOG)
+    .onConflictDoUpdate({
+      target: models.id,
+      set: {
+        provider: sql`excluded.provider`,
+        family: sql`excluded.family`,
+        modality: sql`excluded.modality`,
+        display_name: sql`excluded.display_name`,
+      },
     });
 }
 
@@ -158,6 +178,15 @@ const MY_STACK: StackChoiceInsert[] = [
     rationale:
       "Successor to gpt-image-2 (the June arena leader): the 2.5 pair was live-probed on the IU OpenAI leg 2026-09-23. It makes high about 4x cheaper than gpt-image-2 high and adds the transparency gpt-image-2 never had. Flare is the default because it is the faster of two otherwise identically priced models; image-gen routes edits and finals to sunburst.",
     decided_at: "2026-09-23",
+  },
+  {
+    category: "decision",
+    model_id: "clef-eu",
+    env_note:
+      "email-gateway's decision lane (DECISION_PROVIDER ue, DECISION_MODEL clef-eu): typed yes/no and choice answers with probabilities, no text generation. EU-hosted only. gpt-6-luna stays the chat model for everything else in that service.",
+    rationale:
+      "Owner decision, 2026-10-09 (docs/decisions/decision-model.md): EU-only hosting and the fastest call (162 ms median on the graded bench, 165 ms in email-gateway's own run), not the top accuracy. On `bun run bench:decision` it scores 98.7% against 100% for pplx-decider-v1-27b, jev-latest and gpt-6-luna:decisions; its one miss is a reseller pitch dressed as a partnership. No external leaderboard scores decision models, so the recommender never picks here.",
+    decided_at: "2026-10-09",
   },
 ];
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deriveProvider } from "../server/iu/discover.js";
+import { classifyModality, deriveProvider } from "../server/iu/discover.js";
 
 // ── deriveProvider — previously-unclassified ("other") ids ─────────────────────────
 
@@ -63,6 +63,10 @@ const NOW_CLASSIFIED: [string, string][] = [
   ["sonar-pro", "perplexity"],
   ["sonar-reasoning", "perplexity"],
   ["sonar-reasoning-pro", "perplexity"],
+  ["clef", "cloudflare"],
+  ["clef-eu", "cloudflare"],
+  ["clef-flash", "cloudflare"],
+  ["pplx-decider-v1-27b", "perplexity"],
   ["omni-moderation-2024-09-26", "openai"],
   ["omni-moderation-latest", "openai"],
 ];
@@ -103,5 +107,27 @@ describe("deriveProvider — fallback behaviour", () => {
   // is IU's own alias for GPT-4.1. Evidence, not inference — keep it that way.
   it("maps premium-4.1 to openai on the strength of its forwarded-model header", () => {
     expect(deriveProvider("premium-4.1")).toBe("openai");
+  });
+});
+
+// ── classifyModality — decision models ──────────────────────────────────────────────
+
+describe("classifyModality — decision models", () => {
+  // These look like ordinary chat models on /models; the id is the only signal.
+  // Classified as llm they are probed with a plain "hi" and scored against chat
+  // leaderboards.
+  it.each(["clef", "clef-eu", "clef-flash", "pplx-decider-v1-27b", "jev-latest", "jev-1.13.0"])(
+    "classifies %s as decision",
+    (id) => {
+      expect(classifyModality(id)).toBe("decision");
+    },
+  );
+
+  it("leaves the chat model Luna alone", () => {
+    expect(classifyModality("gpt-6-luna")).toBe("llm");
+  });
+
+  it("classifies Luna's decisions-route catalog entry as decision", () => {
+    expect(classifyModality("gpt-6-luna:decisions")).toBe("decision");
   });
 });

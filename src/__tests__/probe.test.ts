@@ -332,6 +332,64 @@ describe("probeModel — LLM", () => {
   });
 });
 
+describe("probeModel — decision", () => {
+  // The daily probe used to send these a plain "hi" chat and store the 400
+  // (`response_format of type "questions" is required`) as probe_status unknown.
+  it("probes with a minimal questions request and marks a 200 available", async () => {
+    fetchMock.mockResolvedValueOnce(
+      makeFetchResponse(200, {
+        choices: [{ message: { content: '{"greeting":{"noul":0.99,"type":"noul"}}' } }],
+      }),
+    );
+
+    const result = await probeModel({
+      model_id: "clef-eu",
+      modality: "decision",
+      provider: "cloudflare",
+    });
+
+    expect(result.accessible).toBe(true);
+    expect(result.probe_status).toBe("available");
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe("https://iu-test.example/openai/v1/chat/completions");
+    const body = JSON.parse(String((init as RequestInit).body)) as {
+      response_format: { type: string };
+    };
+    expect(body.response_format.type).toBe("questions");
+  });
+
+  it("probes Luna's decisions entry on the /decisions route", async () => {
+    fetchMock.mockResolvedValueOnce(
+      makeFetchResponse(200, {
+        answers: [{ type: "predicate", name: "greeting", probability: 0.9 }],
+      }),
+    );
+
+    const result = await probeModel({
+      model_id: "gpt-6-luna:decisions",
+      modality: "decision",
+      provider: "openai",
+    });
+
+    expect(result.probe_status).toBe("available");
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://iu-test.example/openai/v1/decisions");
+  });
+
+  it("still reports a real failure for a decision model", async () => {
+    fetchMock.mockResolvedValueOnce(
+      makeFetchResponse(429, { error: { message: "Too many requests" } }),
+    );
+
+    const result = await probeModel({
+      model_id: "clef",
+      modality: "decision",
+      provider: "cloudflare",
+    });
+
+    expect(result.probe_status).toBe("throttled");
+  });
+});
+
 describe("probeModel — TTS", () => {
   it("marks available on 200 audio response", async () => {
     fetchMock.mockResolvedValueOnce(makeFetchResponse(200, new ArrayBuffer(512), {}, true));

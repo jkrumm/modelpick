@@ -4,7 +4,11 @@ import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-or
 // SQLite has no native enum type — Drizzle emits a CHECK constraint from the
 // `enum` option and surfaces the union on the inferred type. The value tuples
 // are exported so tests and callers can assert against them.
-export const MODALITY = ["llm", "tts", "stt", "image", "embedding"] as const;
+// `decision` = typed-answer classifiers (Clef, Jev, PPLX Decider, Luna's Decisions
+// route): they answer yes/no, choice and score questions with probabilities and
+// cannot generate text, so a plain chat probe or a chat-leaderboard score is
+// meaningless for them (docs/decisions/decision-model.md).
+export const MODALITY = ["llm", "tts", "stt", "image", "embedding", "decision"] as const;
 export const RESIDENCY = ["eu", "us", "unknown"] as const;
 // Services that actually consume a model. `deployment` has one row per real
 // slot inside one of these — the layer the abstract CATEGORY model cannot
@@ -21,6 +25,7 @@ export const SERVICE = [
   "image-gen",
   "rb",
   "homelab",
+  "email-gateway",
 ] as const;
 // How much reasoning a slot is configured for. `default` = the model's own
 // adaptive behaviour (nothing pinned); `off` = explicitly suppressed; `n/a` =
@@ -59,7 +64,10 @@ export const CATEGORY = ["fast", "coding", "writing", "orchestrator", "tts", "st
 // leaderboard to score them — so they live in My Stack with a researched rationale
 // and never get an algorithmic recommendation (hence no drift flag). Refresh the
 // rationale via /research + /investigate-models when revisiting the pick.
-export const MANUAL_CATEGORY = ["embedding", "vision", "image"] as const;
+// `decision` is manual for the recommender (no external leaderboard scores
+// decision models) but has its own live eval, `bun run bench:decision`, which
+// drives the /decision tab's ranking.
+export const MANUAL_CATEGORY = ["embedding", "vision", "image", "decision"] as const;
 export const STACK_CATEGORY = [...CATEGORY, ...MANUAL_CATEGORY] as const;
 // Why a ccbench run produced no usable grade. Mirrors BENCH_FAILURE in
 // src/server/bench/types.ts — the tuple lives here because the column needs it.
@@ -235,8 +243,9 @@ export const deployment = sqliteTable(
     // Which scored profile this slot should be judged against, when one
     // applies. Null for slots no category scores (an adversary tier, a
     // structural pick) — those get no drift flag, exactly like the manual
-    // stack categories.
-    category: text("category", { enum: CATEGORY }),
+    // stack categories. A manual category (`decision`) may be named for
+    // grouping; it never has a recommendation, so it never drifts.
+    category: text("category", { enum: STACK_CATEGORY }),
     thinking: text("thinking", { enum: THINKING }).notNull().default("n/a"),
     // Remaining non-default request params worth knowing about, free text:
     // "MAX_THINKING_TOKENS=2000", "temperature 0.2", "Mark voice".

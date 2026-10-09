@@ -41,6 +41,7 @@ const MODALITY_COLORS: Record<Modality, string> = {
   stt: "green",
   image: "grape",
   embedding: "cyan",
+  decision: "pink",
 };
 
 // Per probe outcome: badge color, short label, and a fixed explanation for the
@@ -950,6 +951,7 @@ function CatalogPage() {
                 { label: "STT", value: "stt" },
                 { label: "Image", value: "image" },
                 { label: "Embedding", value: "embedding" },
+                { label: "Decision", value: "decision" },
               ]}
               size="xs"
             />

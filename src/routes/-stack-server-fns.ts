@@ -7,13 +7,7 @@ import {
   getStackChoices,
 } from "~/db/queries";
 import { SERVICE } from "~/db/schema";
-import type {
-  Recommendation,
-  RecommendationCategory,
-  Service,
-  StackCategory,
-  Thinking,
-} from "~/db/schema";
+import type { Recommendation, Service, StackCategory, Thinking } from "~/db/schema";
 import { loadBenchSummary, type BenchPicks } from "~/server/bench/summary";
 
 // A deployment row is stale once its config claim hasn't been re-checked in a
@@ -36,6 +30,7 @@ const CATEGORY_ORDER: StackCategory[] = [
   "embedding",
   "vision",
   "image",
+  "decision",
 ];
 
 export interface StackPick {
@@ -82,7 +77,7 @@ export interface DeploymentEntry {
   model_id: string;
   display_name: string; // from `models`, falling back to model_id
   provider: string | null; // null when the model has no catalog row
-  category: RecommendationCategory | null;
+  category: StackCategory | null;
   /** False when the category is shown for grouping but is deliberately not followed. */
   follows_recommendation: boolean;
   thinking: Thinking;
@@ -108,7 +103,7 @@ export interface DeriveFlagsInput {
   hasModel: boolean;
   /** Null when the model was never probed — distinct from a probe that says inaccessible. */
   probeAccessible: boolean | null;
-  category: RecommendationCategory | null;
+  category: StackCategory | null;
   /**
    * False when the slot uses its category for grouping but deliberately does
    * not follow that category's recommendation. Without it `drift` fires on

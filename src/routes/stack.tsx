@@ -17,6 +17,7 @@ import {
   IconBrain,
   IconCode,
   IconEye,
+  IconGavel,
   IconMicrophone,
   IconPencil,
   IconPhoto,
@@ -42,6 +43,7 @@ const CATEGORY_LABELS: Record<StackCategory, string> = {
   embedding: "Embedding",
   vision: "Vision",
   image: "Image Gen",
+  decision: "Decision",
 };
 
 // off is the one setting worth flagging at a glance — everything else is a
@@ -86,6 +88,7 @@ function CategoryIcon({ category }: { category: StackCategory }) {
   if (category === "stt") return <IconMicrophone size={size} />;
   if (category === "embedding") return <IconVector size={size} />;
   if (category === "vision") return <IconEye size={size} />;
+  if (category === "decision") return <IconGavel size={size} />;
   return <IconPhoto size={size} />; // image
 }
 

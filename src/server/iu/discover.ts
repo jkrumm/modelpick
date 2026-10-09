@@ -1,5 +1,6 @@
 import { iuFetch } from "./client.js";
 import type { ModelInsert, Modality } from "../../db/schema.js";
+import { isDecisionModel } from "../../db/decision-models.js";
 
 // Raw shape from the IU /models endpoint (OpenAI-compatible list).
 interface IuModelRaw {
@@ -11,6 +12,10 @@ interface IuModelRaw {
 /** Classifies an IU model id into a catalog modality by id heuristics.
  *  Order matters: more specific audio/vision patterns win before the llm default. */
 export function classifyModality(id: string): Modality {
+  // First, and by exact id: decision models look like ordinary chat models to
+  // every pattern below, and treating one as an llm is the bug — it is probed
+  // with a plain "hi" it can only reject, and scored against chat leaderboards.
+  if (isDecisionModel(id)) return "decision";
   const s = id.toLowerCase();
   if (/embedding|embed|ada-002/.test(s)) return "embedding";
   if (/transcribe|whisper|(^|[-/])stt(-|$)/.test(s)) return "stt";
@@ -54,7 +59,8 @@ export function deriveProvider(id: string): string {
   if (s.startsWith("hermes-4")) return "nousresearch";
   // Hy3 is Tencent's Hunyuan model line.
   if (s.startsWith("hy3")) return "tencent";
-  if (s.startsWith("sonar")) return "perplexity";
+  if (s.startsWith("sonar") || s.startsWith("pplx-")) return "perplexity";
+  if (s.startsWith("clef")) return "cloudflare";
   // Not a guess: `premium-4.1` answers with `x-middleware-forwarded-model: gpt-4.1`
   // off the West Europe OAI server. It is IU's own alias, not a third-party model.
   if (s === "premium-4.1") return "openai";

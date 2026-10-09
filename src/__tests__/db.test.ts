@@ -3,6 +3,9 @@ import {
   MODALITY,
   RESIDENCY,
   CATEGORY,
+  MANUAL_CATEGORY,
+  STACK_CATEGORY,
+  SERVICE,
   LANG,
   METRIC_SOURCE,
   models,
@@ -15,7 +18,7 @@ import { IU_CATALOG } from "../db/iu-catalog.js";
 
 describe("schema enum values", () => {
   it("modality has correct values", () => {
-    expect(MODALITY).toEqual(["llm", "tts", "stt", "image", "embedding"]);
+    expect(MODALITY).toEqual(["llm", "tts", "stt", "image", "embedding", "decision"]);
   });
 
   it("residency has correct values", () => {
@@ -24,6 +27,18 @@ describe("schema enum values", () => {
 
   it("category has correct values", () => {
     expect(CATEGORY).toEqual(["fast", "coding", "writing", "orchestrator", "tts", "stt"]);
+  });
+
+  // Decision models have no external leaderboard, so the recommender never
+  // scores them: the category is manual, and CATEGORY (scored) stays as it was.
+  it("decision is a manual stack category, not a scored one", () => {
+    expect(MANUAL_CATEGORY).toEqual(["embedding", "vision", "image", "decision"]);
+    expect(CATEGORY).not.toContain("decision");
+    expect(STACK_CATEGORY).toContain("decision");
+  });
+
+  it("email-gateway is a deployment service", () => {
+    expect(SERVICE).toContain("email-gateway");
   });
 
   it("lang has correct values", () => {

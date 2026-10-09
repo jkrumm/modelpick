@@ -84,6 +84,18 @@ describe("deriveFlags", () => {
     expect(flags).not.toContain("drift");
   });
 
+  // A manual category (decision) names a slot for grouping; with no recommendation
+  // row it has nothing to disagree with.
+  it("does not flag drift for a manual category slot", () => {
+    const flags = deriveFlags({
+      ...BASE,
+      category: "decision",
+      algoModelId: null,
+      modelId: "clef-eu",
+    });
+    expect(flags).not.toContain("drift");
+  });
+
   it("flags stale when verified_at is null", () => {
     expect(deriveFlags({ ...BASE, verifiedAt: null })).toContain("stale");
   });

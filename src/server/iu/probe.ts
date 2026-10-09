@@ -1,7 +1,9 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { dialectForProvider, gatewayChat, parseResidency, rawFetch } from "./client.js";
 import { classifyProbe, isAccessible } from "./classify.js";
 import { probeReplicate } from "./replicate.js";
+import { buildDecisionRequest, type DecisionQuestion } from "./decision-client.js";
+import { DECISION_CATALOG } from "../../db/decision-models.js";
 import type {
   Modality,
   ModelInsert,
@@ -36,6 +38,13 @@ const PROBE_TIMEOUT_MS = 30_000;
 
 const openaiBase = (): string => process.env["IU_OPENAI_BASE_URL"] ?? "";
 const geminiBase = (): string => process.env["IU_GEMINI_BASE_URL"] ?? "";
+
+/** The smallest valid decision request: one yes/no question. A decision model
+ *  rejects a plain chat prompt (`response_format of type "questions" is
+ *  required`), so "hi" says nothing about whether it is reachable. */
+const DECISION_PROBE_QUESTIONS: Record<string, DecisionQuestion> = {
+  greeting: { type: "boolean", instructions: "Is this text a greeting?" },
+};
 
 /** Synthesizes a short spoken clip via a known-good tts alias, reused as the STT
  *  probe fixture. A silent frame yields false negatives — STT needs real audio. */
@@ -104,6 +113,20 @@ export async function probeModel(opts: ProbeOptions): Promise<ProbeResult> {
     // The gateway's Replicate route returns no region header — residency stays
     // unknown, so there's no headers object to parse.
     headers = null;
+  } else if (modality === "decision") {
+    const request = buildDecisionRequest({
+      modelId: model_id,
+      state: "hi",
+      questions: DECISION_PROBE_QUESTIONS,
+      apiKey: process.env["IU_API_KEY"] ?? "",
+    });
+    const r = await rawFetch(`${openaiBase()}${request.path}`, {
+      method: "POST",
+      headers: request.headers,
+      body: JSON.stringify(request.body),
+      signal,
+    });
+    ({ status, body, headers } = r);
   } else if (modality === "llm") {
     const r = await gatewayChat({ model: model_id, provider, prompt: "hi", maxTokens: 4, signal });
     ({ status, body, headers } = r);
@@ -536,6 +559,22 @@ export async function runProbe(): Promise<ProbeResult[]> {
   } catch (err) {
     console.warn(`[probe] IU /models discovery skipped: ${String(err)}`);
   }
+
+  // Decision models are discovered as ordinary chat rows by older probes (and the
+  // Luna decisions route is never listed at all) — pin them to modality
+  // `decision` here too, so the daily refresh is self-healing without a re-seed.
+  await db
+    .insert(models)
+    .values(DECISION_CATALOG)
+    .onConflictDoUpdate({
+      target: models.id,
+      set: {
+        provider: sql`excluded.provider`,
+        family: sql`excluded.family`,
+        modality: sql`excluded.modality`,
+        display_name: sql`excluded.display_name`,
+      },
+    });
 
   // Fold the case-duplicate rows the merge above exposed (see the block comment
   // near reconcileCaseDuplicates for why). Discovery failing above leaves
