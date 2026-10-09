@@ -149,6 +149,82 @@ Both legs. 5/5 at `low`/`medium`/`high`/`default`, but 1.9–2.9s median wall, $
 run, and a ~7,000-token think spread with intermittent starvation. Only reason to reach for it:
 it is one of just two non-Claude ids that can drive Claude Code.
 
+## Decision models (`clef`, `clef-eu`, `clef-flash`, `pplx-decider-v1-27b`, `jev-latest`, `gpt-6-luna:decisions`)
+
+Typed-answer classifiers: no text generation, **no sampling parameters on either wire**, no
+reasoning effort, no token budget. A plain chat prompt is rejected — the body says
+`response_format of type "questions" is required` (the HTTP status varies, 400 or 503), which is
+why the probe sends a questions request instead. Verified live 2026-10-09; the typed client is
+`src/server/iu/decision-client.ts`, the id table `src/db/decision-models.ts`. Record:
+[decision-model.md](./decision-model.md).
+
+### Questions wire — Clef, Clef Flash, PPLX Decider, Jev
+
+| | |
+|-|-|
+| route | `POST {IU_OPENAI_BASE_URL}/chat/completions` |
+| auth | `api-key: <IU key>` (the usual Bearer header also works) |
+| state | the single user message, a string (JSON-encode an object) |
+| questions | `response_format: { "type": "questions", "questions": { "<name>": … } }` |
+| cost | `usage.cost` in USD is reported; `completion_tokens` is 0 for Clef |
+
+```json
+{"model":"clef-eu","stream":false,
+ "messages":[{"role":"user","content":"<state string>"}],
+ "response_format":{"type":"questions","questions":{
+   "kind":{"type":"choice","instructions":"…","criteria":{"legit":"…","spam":"…"}},
+   "spam":{"type":"noul","instructions":"…","criteria":{"true":"…","false":"…"}},
+   "urgency":{"type":"score","instructions":"…","criteria":["lowest","…","highest"]}}}}
+```
+
+The answers come back as a **JSON string** in `choices[0].message.content`:
+
+```json
+{"kind":{"type":"choice","choice":"seo","confidence":0.9036,"probabilities":{"other":0.0964,"seo":0.9036}},
+ "spam":{"type":"noul","noul":0.983},
+ "urgency":{"type":"score","score":0.1304,"confidence":0.8847,
+            "legend":{"0":"lowest","1":"…"},"probabilities":{"0":0.8847,"1":0.1001}}}
+```
+
+- `noul` is P(yes) — a yes/no question. The envelope's `model` reads e.g. `Cloudflare/clef`.
+- `score` is a **fractional index** into the `criteria` array (low to high); its `probabilities` are
+  keyed by index, not by label.
+- Probabilities and scores are rounded to four decimals.
+- `jev-latest` resolves to `jev-1.13.0` and is callable although `/models` does not list it.
+
+### Decisions wire — `gpt-6-luna:decisions`
+
+| | |
+|-|-|
+| route | `POST {IU_OPENAI_BASE_URL}/decisions` (OpenAI's Decisions API) |
+| auth | `Authorization: Bearer <IU key>` |
+| model | `gpt-6-luna` — the catalog id `gpt-6-luna:decisions` is modelpick's own, the wire never sees the suffix |
+| cost | **not reported**; `usage` carries tokens only (`input_tokens`, `output_tokens`) |
+
+```json
+{"model":"gpt-6-luna","input":"<state string>","questions":[
+  {"type":"predicate","name":"spam","instructions":"…"},
+  {"type":"choice","name":"kind","instructions":"…","choices":[{"value":"legit","description":"…"}]},
+  {"type":"score","name":"urgency","instructions":"…","levels":[{"label":"none","description":"…"}]}]}
+```
+
+The response carries a top-level `answers` array, matched to the questions **by `name`**:
+
+```json
+{"model":"gpt-6-luna","answers":[
+  {"type":"predicate","name":"spam","probability":0.85},
+  {"type":"choice","name":"kind","choice":"spam","confidence":0.92,
+   "probabilities":[{"value":"legit","probability":0.04},{"value":"spam","probability":0.96}]},
+  {"type":"score","name":"urgency","score":1.23,"confidence":0.0,
+   "probabilities":[{"value":0,"label":"none","probability":0.22}]}]}
+```
+
+- Choice and score `probabilities` are **arrays of records**, not objects.
+- A question can come back as `{"type":"refusal","name":…}`; the client surfaces it as its own
+  answer type. Not observed live — the refusal field names are unverified.
+- Its score `confidence` was `0.0` on a score the model clearly committed to; do not threshold
+  on it.
+
 ## Gateway-wide traps (apply to every model)
 
 1. **`max_completion_tokens`, never `max_tokens`** on the OpenAI leg — 503 otherwise.

@@ -19,6 +19,7 @@ Single-user, local-only. State lives in one SQLite file (`modelpick.db`, gitigno
 | **[docs/decisions/model-configs.md](docs/decisions/model-configs.md)** | The rollout reference: exact settings per model per wire, which gateway leg serves what, and the traps. |
 | [docs/decisions/](docs/decisions/) | The evidence behind each pick, with a current-verdict block at the top of every record. |
 | `/stack` | What runs today, and what is flagged for review. |
+| `/decision` | Typed-answer classifiers (Clef, Jev, PPLX Decider, Luna Decisions) ranked on our own graded bench. |
 
 ## Quick start
 
@@ -38,6 +39,7 @@ No `.env` file needed — secrets resolve via `secrets-run` at runtime (see Env 
 cap --list          # print the whole recommendation table
 cap                  # pick a model from measured data, then launch `ca` with it
 bun run bench        # run the agentic ccbench suite that backs the coding-model pick
+bun run bench:decision --dry-run   # the decision-model bench (~$0.06 without --dry-run)
 ```
 
 `cap`/`bun run route-map` read only the local SQLite file — no key, no network, nothing spent.

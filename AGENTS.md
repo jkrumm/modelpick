@@ -41,9 +41,21 @@ Two tiers (`schema.ts`):
   recommender. Each has its own weight profile (`CATEGORY_WEIGHTS` in
   `src/server/scoring/score.ts`) and a min-quality floor so cheap models can't win on price
   alone.
-- **Manual** (`MANUAL_CATEGORY` = `embedding | vision | image`) — no public leaderboard
+- **Manual** (`MANUAL_CATEGORY` = `embedding | vision | image | decision`) — no public leaderboard
   scores these, so there is **no algorithmic recommendation** and no drift flag. They live in
   My Stack with a research-backed rationale; refresh via `/research` + `/investigate-models`.
+- **`decision`** (a manual category, `MODALITY` `decision`) — typed-answer classifiers (Clef, Jev,
+  PPLX Decider, Luna's Decisions API: yes/no, choice and score answers with probabilities, no
+  text generation). No leaderboard scores them, so the recommender skips them, but they have their
+  **own live eval**: `bun run bench:decision` (`scripts/bench-decision.ts`, suites in
+  `src/server/bench/decision-tasks.ts`, three repeats, `--dry-run` costs nothing, ~$0.06 for the
+  full field) writes `decision_*` rows to `metric_snapshot` that rank the `/decision` tab.
+  The ids that are decision models live in `src/db/decision-models.ts` — a new one shows up in
+  `/models` as an ordinary chat model and fails the probe until it is added there. They are never
+  probed with a chat "hi" (`probe.ts` sends a minimal questions request), and Luna's Decisions
+  route is its own catalog entry, `gpt-6-luna:decisions`. Record:
+  [`docs/decisions/decision-model.md`](docs/decisions/decision-model.md); wire formats in
+  `model-configs.md`.
 
 `STACK_CATEGORY` is the union (scored + manual) and types `stack_choice.category`;
 `recommendation.category` stays scored-only.
@@ -68,7 +80,7 @@ wired in which file". They are different questions and the gap between them is t
 (the `/stack` slot-count column exists to expose exactly that).
 
 - Rows live in **`src/db/deployments.ts`**, one per real slot across claude-code, sideclaw,
-  warden, hermes, research, audio, argo, image-gen, rb, homelab. Seeded by
+  warden, hermes, research, audio, argo, image-gen, rb, homelab, email-gateway. Seeded by
   `seedDeployments()` (delete-then-insert: a slot that disappears from a service's config
   must disappear here too).
 - Every row carries `config_ref` — the file in the *other* repo that actually wires it —

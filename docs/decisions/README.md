@@ -82,6 +82,9 @@ current verdict clause:
 - [podcast-writer.md](./podcast-writer.md) — which model writes/reviews/researches the podcast →
   role split, `claude-opus-4-6` as the sole voice owner, `deepseek-v4.1-flash` on every other
   structural role.
+- [decision-model.md](./decision-model.md) — the `decision` category (typed-answer classifiers:
+  Clef, Jev, PPLX Decider, Luna's Decisions API) → `clef-eu` for email-gateway's decision lane
+  (owner decision, 2026-10-09); the graded bench ranks three other models above it on accuracy.
 - [model-configs.md](./model-configs.md) — the rollout reference: exact per-model settings,
   which gateway leg serves what, and the gateway-wide traps.
 - [reasoning-effort.md](./reasoning-effort.md) — the two effort ladders and what they cost →
