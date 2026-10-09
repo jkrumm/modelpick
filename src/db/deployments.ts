@@ -557,16 +557,16 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     // Residency-gated — the category winner is not region-verified.
     follows_recommendation: false,
     label: "approval classifier",
-    model_id: "claude-haiku-4-5",
+    model_id: "claude-haiku-5-5-eu",
     category: "fast",
-    thinking: "n/a",
+    thinking: "medium",
     params:
-      "api_mode anthropic_messages; context 200000; temperature=0 hardcoded in approval_smart.py",
-    config_ref: "hermes-agent/config.yaml:224-240",
+      "api_mode anthropic_messages; context 1000000; temperature=0 hardcoded in approval_smart.py, stripped by the adapter for 5.x; max_tokens 16 with default adaptive thinking (API default medium) — did not starve in the live probe. Idle while approvals.mode is off.",
+    config_ref: "hermes-agent/config.yaml:208-225",
     rationale:
-      "A deterministic yes/no gate — temperature 0, cheapest tier that classifies reliably.",
-    decision_doc: null,
-    decided_at: "2026-06-17",
+      "2026-10-08: off claude-haiku-4-5, which APPROVED `rm -rf ~/SourceRoot` in a probe; 5.5 EU escalates it through the real _smart_approve path (0.7–4.3s) and still approves harmless commands.",
+    decision_doc: "docs/decisions/hermes-brain.md",
+    decided_at: "2026-10-08",
     verified_at: VERIFIED,
   },
   {

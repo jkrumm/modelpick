@@ -1015,9 +1015,13 @@ narrows the guard to legacy Haikus. Live proof (session `20261008_122217_14a838`
 `claude-haiku-5-5-eu`, `thinking: adaptive`, `output_config.effort: high`, a 3-call / 2-tool loop,
 no fallback. `gpt-6-luna` stays the fallback on the OpenAI leg.
 
-**Open — the price cliff.** Haiku 5.5 input bills $0.50/MTok above 100k tokens (5×), and Hermes
-compacts at 240k. Pre-switch sessions ran 46k→124k, so long threads already cross it. Lowering
-the compaction trigger to ~100k is the owner's call; it is not changed.
+**Price cliff — accepted (owner, 2026-10-09).** Haiku 5.5 input bills $0.50/MTok above 100k
+tokens (5×), and Hermes compacts at 240k; long threads cross it and that cost is fine. The window
+itself is real: 599k and 749k-token probes both returned 200, so Hermes' "advertises 200,000"
+warning is stale metadata.
+
+The `approval` classifier moved to `claude-haiku-5-5-eu` too: `claude-haiku-4-5` approved
+`rm -rf ~/SourceRoot` in a probe with the real system prompt, 5.5 EU escalates it.
 
 Same day, `image-gen` enhance moved from `deepseek-v4.1-flash` to `gpt-6-luna` at `high`: short
 single-shot JSON planning, `response_format: json_object` probed live at high/medium/none. The
