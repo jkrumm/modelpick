@@ -120,7 +120,7 @@ on IU at the time.
 This record held `DeepSeek-V4-Flash` against a GLM-5.2 recommendation. The deployment table
 built on 2026-09-12 settled it a different way: a sweep of every consuming repo found
 **`DeepSeek-V4-Flash` wired into zero jobs**. It survives only in context-window lookup tables
-(`dotfiles/config/zsh/claude.zsh`, `sideclaw/server/mcp/session-runner.ts`) and in this repo's own benchmark scripts. Every actual
+(`dotfiles/config/zsh/claude.zsh`, `agent-gateway/server/mcp/session-runner.ts`) and in this repo's own benchmark scripts. Every actual
 fast-tier slot — research lead and worker, argo `/ai/v1`,
 audio-gateway's prep/outline/editorial/metadata passes, the Hermes brain and its aux lanes —
 had already moved to `gpt-5.6-luna`, twelve slots in total. The recommender had said Luna since
@@ -205,7 +205,7 @@ reproducible: it overshoots an explicitly stated word range every single time. I
 ### What this does not measure
 
 Tool calling and multi-turn agent loops — which is what the Hermes brain, research-gateway's
-workers and every sideclaw `session` tool actually are. Those are decided in
+workers and every agent-gateway `session` tool actually are. Those are decided in
 [gemini-tool-calling-shapes.md](./gemini-tool-calling-shapes.md) and by ccbench, not here. The
 standing 3-tool number (luna 6.6s vs V4.1 21.4s) predates the budget-starvation finding and
 should be re-run at ≥16k before it is trusted.

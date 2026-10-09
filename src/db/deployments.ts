@@ -95,7 +95,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
       "ANTHROPIC_MODEL + all four ANTHROPIC_DEFAULT_*; API_TIMEOUT_MS=3000000; context 1M via _ca_ctx; MAX_THINKING_TOKENS 8192 via _ca_thinking (config/zsh/iu-models.sh:38)",
     config_ref: "dotfiles/scripts/agent-dispatch.sh:177,196",
     rationale:
-      "ccbench unattended-worker pick: 10/10 on every task at 32x less than claude-sonnet-5, once the per-task clock stops being the experiment. Requesty hop, residency 'global' — non-sensitive code only. Implementation work now defaults to sideclaw dispatch (config/global.CLAUDE.md) rather than this launcher for live-tree edits. NOTE: dotfiles/CLAUDE.md:213 still claims this is claude-sonnet-5[1m]; the code is the truth.",
+      "ccbench unattended-worker pick: 10/10 on every task at 32x less than claude-sonnet-5, once the per-task clock stops being the experiment. Requesty hop, residency 'global' — non-sensitive code only. Implementation work now defaults to agw dispatch (config/global.CLAUDE.md) rather than this launcher for live-tree edits. NOTE: dotfiles/CLAUDE.md:213 still claims this is claude-sonnet-5[1m]; the code is the truth.",
     decision_doc: "docs/decisions/claude-code-model.md",
     decided_at: "2026-09-11",
     verified_at: VERIFIED,
@@ -184,9 +184,9 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
 
-  // ── sideclaw ──────────────────────────────────────────────────────────────
+  // ── agent-gateway ──────────────────────────────────────────────────────────────
   {
-    service: "sideclaw",
+    service: "agent-gateway",
     slot: "check",
     // CLASSIFY moved off glm-5.3-flash 2026-09-23 (GLM retired from this
     // server entirely) onto DeepSeek-V4-Flash — the same in-loop-speed
@@ -200,16 +200,16 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; fallback claude-haiku-4-5 on max; transport session; thinkingTokens 2048 (MAX_THINKING_TOKENS, the only effort control on this leg); override SIDECLAW_THINKING_TOKENS_CHECK",
-    config_ref: "sideclaw/server/lib/routing.ts:281-288,312",
+      "backend iu; fallback claude-haiku-4-5 on max; transport session; thinkingTokens 2048 (MAX_THINKING_TOKENS, the only effort control on this leg); override AGENT_GATEWAY_THINKING_TOKENS_CHECK",
+    config_ref: "agent-gateway/server/lib/routing.ts:281-288,312",
     rationale:
       "Reading tool output and deciding pass/fail — the cheapest tier that holds an agent loop. 2026-09-23: moved off glm-5.3-flash (GLM retired) onto DeepSeek-V4-Flash; thinkingTokens stays capped at 2048 so a classify-shaped call can't default to a gateway model's uncapped `max` reasoning.",
-    decision_doc: "docs/decisions/sideclaw-tiers.md",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-09-23",
     verified_at: VERIFIED,
   },
   {
-    service: "sideclaw",
+    service: "agent-gateway",
     slot: "overview",
     // CLASSIFY moved off glm-5.3-flash 2026-09-23 (GLM retired) onto
     // DeepSeek-V4-Flash — see the check row's comment for the evidence.
@@ -219,15 +219,15 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; fallback claude-haiku-4-5 on max; thinkingTokens 2048; override SIDECLAW_THINKING_TOKENS_OVERVIEW",
-    config_ref: "sideclaw/server/lib/routing.ts:281-288,313",
+      "backend iu; fallback claude-haiku-4-5 on max; thinkingTokens 2048; override AGENT_GATEWAY_THINKING_TOKENS_OVERVIEW",
+    config_ref: "agent-gateway/server/lib/routing.ts:281-288,313",
     rationale: "Same CLASSIFY tier as check.",
-    decision_doc: "docs/decisions/sideclaw-tiers.md",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-09-23",
     verified_at: VERIFIED,
   },
   {
-    service: "sideclaw",
+    service: "agent-gateway",
     slot: "review_router",
     // CLASSIFY moved off glm-5.3-flash 2026-09-23 (GLM retired) onto
     // DeepSeek-V4-Flash — see the check row's comment for the evidence.
@@ -237,15 +237,15 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; fallback claude-haiku-4-5 on max; thinkingTokens 2048; override SIDECLAW_THINKING_TOKENS_REVIEW_ROUTER",
-    config_ref: "sideclaw/server/lib/routing.ts:281-288,314",
+      "backend iu; fallback claude-haiku-4-5 on max; thinkingTokens 2048; override AGENT_GATEWAY_THINKING_TOKENS_REVIEW_ROUTER",
+    config_ref: "agent-gateway/server/lib/routing.ts:281-288,314",
     rationale: "Same CLASSIFY tier as check.",
-    decision_doc: "docs/decisions/sideclaw-tiers.md",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-09-23",
     verified_at: VERIFIED,
   },
   {
-    service: "sideclaw",
+    service: "agent-gateway",
     slot: "review",
     // Runs on the Max plan, where the category's cost term is meaningless.
     follows_recommendation: false,
@@ -254,15 +254,15 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "default",
     params: "backend max (fallback: same model on iu); [1m] context",
-    config_ref: "sideclaw/server/lib/routing.ts:289-295,316",
+    config_ref: "agent-gateway/server/lib/routing.ts:289-295,316",
     rationale:
-      "Judging a diff is the one sideclaw job where a miss is expensive and the Max plan charges nothing — so it does not follow the cheap CLASSIFY tier.",
-    decision_doc: "docs/decisions/sideclaw-tiers.md",
+      "Judging a diff is the one agent-gateway job where a miss is expensive and the Max plan charges nothing — so it does not follow the cheap CLASSIFY tier.",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-09-11",
     verified_at: VERIFIED,
   },
   {
-    service: "sideclaw",
+    service: "agent-gateway",
     slot: "narrative",
     // A deliberately different tier from the category winner.
     follows_recommendation: false,
@@ -271,32 +271,32 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "writing",
     thinking: "default",
     params: "backend max; fallback same model on iu",
-    config_ref: "sideclaw/server/lib/routing.ts:296-302,315",
+    config_ref: "agent-gateway/server/lib/routing.ts:296-302,315",
     rationale:
       "Prose tier. Note the writing stack pick is claude-opus-4-6 — this slot deliberately runs a cheaper model because the output is a summary, not authored prose.",
-    decision_doc: "docs/decisions/sideclaw-tiers.md",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-09-11",
     verified_at: VERIFIED,
   },
   {
-    service: "sideclaw",
+    service: "agent-gateway",
     slot: "adversary",
     label: "adversary — finding verification",
     model_id: "gpt-5.6-terra",
     category: null,
     thinking: "default",
     params: "backend iu; NO fallback; transport iu-openai (direct fetch, never runSession)",
-    config_ref: "sideclaw/server/lib/routing.ts:329-335",
+    config_ref: "agent-gateway/server/lib/routing.ts:329-335",
     rationale:
       "Structural, not scored: the value is that it is a different family from the model that produced the finding. No category recommendation can express 'not the same vendor'.",
-    decision_doc: "docs/decisions/sideclaw-tiers.md",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-09-11",
     verified_at: VERIFIED,
   },
   {
-    service: "sideclaw",
+    service: "agent-gateway",
     slot: "review_ocr",
-    // Second, larger bake-off 2026-09-25 on the same range (sideclaw 819bcc7..4898afb,
+    // Second, larger bake-off 2026-09-25 on the same range (agent-gateway 819bcc7..4898afb,
     // every finding checked by hand). ocr wall time = LLM rounds x ~5 s per round, equal
     // across models, so tok/s barely matters. At ocr's default effort (2 review passes)
     // v4.1-flash explored 117 rounds / 6m30s; with `--effort low` 3 runs took 2m31s-3m09s
@@ -309,16 +309,16 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: null,
     thinking: "default",
     params:
-      "backend iu; NO fallback; transport external-iu (the `ocr` CLI over IU's OpenAI chat route, ocrProtocolFor); ocr --effort low; override SIDECLAW_MODEL_REVIEW_OCR",
-    config_ref: "sideclaw/server/lib/routing.ts:317-335",
+      "backend iu; NO fallback; transport external-iu (the `ocr` CLI over IU's OpenAI chat route, ocrProtocolFor); ocr --effort low; override AGENT_GATEWAY_MODEL_REVIEW_OCR",
+    config_ref: "agent-gateway/server/lib/routing.ts:317-335",
     rationale:
       "Structural: measured inside ocr's own tool loop, which no leaderboard scores. v4.1-flash at --effort low finds the cross-file and config drift the Sonnet angle reviewers miss, in ~2.5-3 min, parallel to the angle phase.",
-    decision_doc: "docs/decisions/sideclaw-tiers.md",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-09-25",
     verified_at: VERIFIED,
   },
   {
-    service: "sideclaw",
+    service: "agent-gateway",
     slot: "dispatch",
     // Investigate/author tier only — implement runs the same route at a
     // higher reasoning_effort variant, see the dispatch_implement row below.
@@ -328,16 +328,16 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "high",
     params:
-      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode (opencode run, NOT claude -p — this id has no code path through claude -p at all); variant high (opencode's reasoning-effort knob; MAX_THINKING_TOKENS has no effect on this harness); override SIDECLAW_MODEL_DISPATCH / SIDECLAW_HARNESS_DISPATCH / SIDECLAW_VARIANT_DISPATCH",
-    config_ref: "sideclaw/server/lib/routing.ts:237-244,336",
+      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode (opencode run, NOT claude -p — this id has no code path through claude -p at all); variant high (opencode's reasoning-effort knob; MAX_THINKING_TOKENS has no effect on this harness); override AGENT_GATEWAY_MODEL_DISPATCH / AGENT_GATEWAY_HARNESS_DISPATCH / AGENT_GATEWAY_VARIANT_DISPATCH",
+    config_ref: "agent-gateway/server/lib/routing.ts:237-244,336",
     rationale:
       "2026-09-24: moved off DeepSeek-V4-Flash on claude -p (the retired AGENT tier) onto OpenCode running deepseek-v4.1-flash over the IU OpenAI-compatible route — a different id and transport claude -p cannot reach at all. Evidence: three implement briefs re-run from DeepSeek-V4-Pro's base commits favored OpenCode on cost by 1-2 orders of magnitude (vps $0.06/5min vs $2.46/10min; research-gateway #21 $0.10/5min vs $11.01/28min; weatherorb $0.06/5min vs $5.39/21min), and a blind diff review preferred OpenCode's output on 2 of 3 (lost vps: inverted volume-floor logic in a HyperDX config — not a clean sweep, recorded honestly). Cache hits 95-98% on this route vs 8% for V4-Pro on the Anthropic route.",
-    decision_doc: "docs/decisions/sideclaw-tiers.md",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-09-24",
     verified_at: VERIFIED,
   },
   {
-    service: "sideclaw",
+    service: "agent-gateway",
     slot: "dispatch_implement",
     // Shares AGENT_OC's model/route/evidence with dispatch above; only the
     // reasoning_effort variant differs for the higher-stakes write tier.
@@ -347,16 +347,16 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "max",
     params:
-      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode (opencode run, NOT claude -p); variant max (opencode's reasoning-effort knob, one step above dispatch's 'high'); override SIDECLAW_MODEL_DISPATCH_IMPLEMENT / SIDECLAW_HARNESS_DISPATCH_IMPLEMENT / SIDECLAW_VARIANT_DISPATCH_IMPLEMENT",
-    config_ref: "sideclaw/server/lib/routing.ts:245-252,337",
+      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode (opencode run, NOT claude -p); variant max (opencode's reasoning-effort knob, one step above dispatch's 'high'); override AGENT_GATEWAY_MODEL_DISPATCH_IMPLEMENT / AGENT_GATEWAY_HARNESS_DISPATCH_IMPLEMENT / AGENT_GATEWAY_VARIANT_DISPATCH_IMPLEMENT",
+    config_ref: "agent-gateway/server/lib/routing.ts:245-252,337",
     rationale:
       "2026-09-24: split off dispatch's AGENT_OC tier onto its own AGENT_OC_IMPLEMENT tier for the higher-stakes write path, mirroring the old AGENT_IMPLEMENT split — same model and route as dispatch, variant raised from 'high' to 'max'. See the dispatch row above for the underlying cost/quality evidence; this tier shares it rather than repeating a separate measurement.",
-    decision_doc: "docs/decisions/sideclaw-tiers.md",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-09-24",
     verified_at: VERIFIED,
   },
   {
-    service: "sideclaw",
+    service: "agent-gateway",
     slot: "otel",
     // Runs on the Max plan, where the category's cost term is meaningless.
     follows_recommendation: false,
@@ -366,36 +366,36 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend max; runs inline via runSession, never queued — the one tool exempt from the job contract",
-    config_ref: "sideclaw/server/lib/routing.ts:289-295,338",
+    config_ref: "agent-gateway/server/lib/routing.ts:289-295,338",
     rationale: "Interactive debugging: a jobId round-trip would cost more than the query.",
-    decision_doc: "docs/decisions/sideclaw-tiers.md",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-09-11",
     verified_at: VERIFIED,
   },
   {
-    service: "sideclaw",
+    service: "agent-gateway",
     slot: "excalidraw",
     label: "excalidraw_diagram (PROSE tier)",
     model_id: "claude-sonnet-5",
     category: null,
     thinking: "default",
     params: "backend max; fallback same model on iu",
-    config_ref: "sideclaw/server/lib/routing.ts:296-302,339",
+    config_ref: "agent-gateway/server/lib/routing.ts:296-302,339",
     rationale:
       "Structural: generating valid Excalidraw JSON is a format-fidelity job no category scores.",
-    decision_doc: "docs/decisions/sideclaw-tiers.md",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-09-11",
     verified_at: VERIFIED,
   },
   {
-    service: "sideclaw",
+    service: "agent-gateway",
     slot: "read_image",
     label: "read_image (VISION tier)",
     model_id: "gemini-3.5-flash",
     category: null,
     thinking: "n/a",
     params: "backend iu; NO fallback; transport iu-openai",
-    config_ref: "sideclaw/server/lib/routing.ts:303-309,340",
+    config_ref: "agent-gateway/server/lib/routing.ts:303-309,340",
     rationale:
       "Vision is a manual stack category — no leaderboard scores document/diagram reading, so there is no algorithmic recommendation to drift against.",
     decision_doc: "docs/decisions/vision-and-image.md",
@@ -403,14 +403,14 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
   {
-    service: "sideclaw",
+    service: "agent-gateway",
     slot: "read_drawing",
     label: "read_drawing (VISION tier)",
     model_id: "gemini-3.5-flash",
     category: null,
     thinking: "n/a",
     params: "backend iu; NO fallback; transport iu-openai",
-    config_ref: "sideclaw/server/lib/routing.ts:303-309,341",
+    config_ref: "agent-gateway/server/lib/routing.ts:303-309,341",
     rationale: "Same VISION tier as read_image.",
     decision_doc: "docs/decisions/vision-and-image.md",
     decided_at: "2026-06-17",
@@ -472,11 +472,11 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "default",
     params:
-      "TRIAGE_VALIDATION_DISPATCH_MODEL is deliberately unset — falls through to sideclaw's JUDGE tier (claude-sonnet-5[1m] on max)",
+      "TRIAGE_VALIDATION_DISPATCH_MODEL is deliberately unset — falls through to agent-gateway's JUDGE tier (claude-sonnet-5[1m] on max)",
     config_ref: "warden/scripts/triage.py:1207,4965",
     rationale:
-      "Unset on purpose so the gate inherits sideclaw's JUDGE routing rather than pinning a second copy of it. Changing sideclaw's JUDGE tier silently changes this slot.",
-    decision_doc: "docs/decisions/sideclaw-tiers.md",
+      "Unset on purpose so the gate inherits agent-gateway's JUDGE routing rather than pinning a second copy of it. Changing agent-gateway's JUDGE tier silently changes this slot.",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-09-11",
     verified_at: VERIFIED,
   },
@@ -595,7 +595,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     params: "provider custom, IU OpenAI leg (api_mode chat_completions); timeout 120",
     config_ref: "hermes-agent/config.yaml:196-203",
     rationale:
-      "Manual category. Moved off the direct-Google gemini-2.5-flash aux client onto the IU OpenAI leg on gemini-3.5-flash, matching sideclaw's read_image pick — closes the undeliberate split this row used to flag.",
+      "Manual category. Moved off the direct-Google gemini-2.5-flash aux client onto the IU OpenAI leg on gemini-3.5-flash, matching agent-gateway's read_image pick — closes the undeliberate split this row used to flag.",
     decision_doc: "docs/decisions/vision-and-image.md",
     decided_at: "2026-09-13",
     verified_at: VERIFIED,
@@ -982,7 +982,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "n/a",
     params: "INFERENCE_IMAGE_MODEL; image-asset bookmarks only",
     config_ref: "homelab/docker-compose.yml:620",
-    rationale: "Same vision pick as sideclaw's read_image, for the same reasons.",
+    rationale: "Same vision pick as agent-gateway's read_image, for the same reasons.",
     decision_doc: "docs/decisions/vision-and-image.md",
     decided_at: "2026-06-17",
     verified_at: VERIFIED,

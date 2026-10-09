@@ -346,7 +346,7 @@ async function runCall(model: string, effort: EffortLevel, task: FastTask): Prom
 }
 
 /** Claude models run on the IU **Anthropic** leg — the native wire, not the
- *  OpenAI-compat shim — because that is the leg Claude Code and the sideclaw
+ *  OpenAI-compat shim — because that is the leg Claude Code and the agent-gateway
  *  `claude` harness actually call. Effort maps onto the Messages API: `default`
  *  sends nothing (Haiku 5.5 then runs adaptive at `medium`), `none` disables
  *  thinking, the rest go in `output_config.effort`. `--openai-wire` forces the

@@ -114,7 +114,7 @@ const MY_STACK: StackChoiceInsert[] = [
     category: "coding",
     model_id: "glm-5.3-flash",
     env_note:
-      "The unattended worker: sideclaw's iu backend (CLASSIFY tier at MAX_THINKING_TOKENS 2048, AGENT/dispatch tier at 8192), rd bg, agent-dispatch, warden auto investigate/implement, batch jobs. Implementation work now defaults to sideclaw dispatch (config/global.CLAUDE.md) rather than a live-tree subagent. Interactive Claude Code over IU (the ca launcher) runs claude-sonnet-5 instead. Budget on IDLE, not wall clock — this model's honest time on hard agentic work is minutes per turn, and a fixed wall-clock kill reports working sessions as failures. MAX_THINKING_TOKENS is the only reasoning-effort control that reaches this leg (unset defaults to GLM's `max`, its worst setting) — 8192 for agentic/implementation lanes, 2048 for classify-shaped ones. Requesty hop, residency 'global' — non-sensitive code only.",
+      "The unattended worker: agent-gateway's iu backend (CLASSIFY tier at MAX_THINKING_TOKENS 2048, AGENT/dispatch tier at 8192), rd bg, agent-dispatch, warden auto investigate/implement, batch jobs. Implementation work now defaults to agw dispatch (config/global.CLAUDE.md) rather than a live-tree subagent. Interactive Claude Code over IU (the ca launcher) runs claude-sonnet-5 instead. Budget on IDLE, not wall clock — this model's honest time on hard agentic work is minutes per turn, and a fixed wall-clock kill reports working sessions as failures. MAX_THINKING_TOKENS is the only reasoning-effort control that reaches this leg (unset defaults to GLM's `max`, its worst setting) — 8192 for agentic/implementation lanes, 2048 for classify-shaped ones. Requesty hop, residency 'global' — non-sensitive code only.",
     rationale:
       "ccbench 2026-09-11: 10/10 on every task once the per-task clock stops being the experiment (--timeout-scale 3, $0.048 per suite). At 1x it appeared to fail 4 of 10, but every one of those landed exactly on its timeout budget and three still scored 1.00 — the harness killed work in progress. Best AA coding index (71.5) and DeepSWE (0.634, above claude-sonnet-5's 0.538) in the Anthropic-route field, at 16-48x less than DeepSeek-V4-Pro per suite. minimax-m3 aces ccbench but is the weakest reasoner measured (OTIS AIME 0.267 vs 0.939); DeepSeek-V4-Pro is the pick when wall clock is what you are paying for. See docs/decisions/claude-code-model.md.",
     decided_at: "2026-09-11",
@@ -165,7 +165,7 @@ const MY_STACK: StackChoiceInsert[] = [
     category: "vision",
     model_id: "gemini-3.5-flash",
     env_note:
-      "Used by sideclaw read_image/read_drawing. Non-EU vendor — fine for git-committed/non-sensitive images. Enable context caching ($0.15/M, 90% off) for repeated document reads.",
+      "Used by agent-gateway read_image/read_drawing. Non-EU vendor — fine for git-committed/non-sensitive images. Enable context caching ($0.15/M, 90% off) for repeated document reads.",
     rationale:
       "Best flash-tier vision model for document/chart/diagram reading: tops Roboflow Vision Evals across 67 prompts; AA quality 50 vs GPT-5.4-mini's 17 (the cheaper option is a false economy for structured extraction). $1.50/$9.00 per 1M, 155 tok/s.",
     decided_at: "2026-06-17",

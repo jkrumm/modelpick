@@ -19,8 +19,8 @@ The IU gateway has two legs and they do not serve the same models.
 | `gpt-5.6-luna` · `deepseek-v4.1-flash` · `gemini-3.8-flash` | yes | **404** |
 | `glm-5.3-flash` · `minimax-m3` | yes | yes |
 
-**Claude Code speaks the Anthropic protocol.** So every sideclaw job on the `claude` harness
-and every `ca <id>` launch can only run Anthropic-leg ids. sideclaw `dispatch` and warden
+**Claude Code speaks the Anthropic protocol.** So every agent-gateway job on the `claude` harness
+and every `ca <id>` launch can only run Anthropic-leg ids. agent-gateway `dispatch` and warden
 episodes run **OpenCode**, which reaches the OpenAI leg, so OpenAI-route ids
 (`deepseek-v4.1-flash`, the `gpt-*` family) are reachable there. "Can this slot run X" is
 answered by the harness and wire, then by `GET /api/routing` — not by a tradeoff.

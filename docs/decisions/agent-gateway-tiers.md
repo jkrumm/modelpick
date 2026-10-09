@@ -1,18 +1,18 @@
-# sideclaw's Five Tiers — Structural Picks, Not All Scored Ones
+# agent-gateway's Five Tiers — Structural Picks, Not All Scored Ones
 
 > **Current verdict (2026-10-05):** the tier structure holds; the GLM ids named below are
 > history — GLM retired from routing 2026-09-23. `dispatch` has its own **AGENT** tier (an
 > agentic episode needs more room than a classify-shaped call) and runs OpenCode; CLASSIFY
 > (`check`/`overview`/`review_router`) was re-pointed to `DeepSeek-V4-Flash` (see the note at the
-> end). Current ids: sideclaw `GET /api/routing`. JUDGE
+> end). Current ids: agent-gateway `GET /api/routing`. JUDGE
 > (`review`, `otel`) and PROSE (`narrative`, `excalidraw`) both still run `claude-sonnet-5` on
 > opposite billing lanes; VISION is `gemini-3.5-flash`; the adversary still runs `gpt-5.6-terra`.
-> `SIDECLAW_THINKING_TOKENS_<TOOL>` overrides any tier's budget per tool.
+> `AGENT_GATEWAY_THINKING_TOKENS_<TOOL>` overrides any tier's budget per tool.
 > **Status of this record:** the table below still shows `dispatch` grouped under JUDGE — it now
 > runs on its own AGENT tier at the cheap IU rate, not on Max.
 > Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
 
-sideclaw's per-tool routing table (`sideclaw/server/lib/routing.ts`) assigns every worker
+agent-gateway's per-tool routing table (`agent-gateway/server/lib/routing.ts`) assigns every worker
 route to one of five named tiers. Two of the five — CLASSIFY and VISION — are this repo's
 own scored picks (`coding` and `vision` in [`seed.ts`](../../src/db/seed.ts)). The other
 three — JUDGE, PROSE, and the adversary — are structural choices: nothing in this repo's
@@ -28,7 +28,7 @@ disagreeing on purpose", so their rationale lives here instead of in a scored ca
 | adversary | `gpt-5.6-terra` | iu-openai | `review`'s adversary pass | Deliberately out-of-family: a second model family disagrees differently than a same-family second opinion would, which is the point of running an adversary pass at all. |
 
 Fallback is reactive and one hop only (never a pre-emptive quota check — removed
-2026-09-08, see `sideclaw/CLAUDE.md`): a `max` attempt that fails before producing output on
+2026-09-08, see `agent-gateway/CLAUDE.md`): a `max` attempt that fails before producing output on
 a quota-flavoured signal retries once on `iu`; an `iu` attempt that fails on a transport
 error retries once on `max`. Neither JUDGE nor PROSE nor the adversary is a leaderboard
 entry in this repo's `stackChoice` table — they are recorded here because the reasoning is

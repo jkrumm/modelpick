@@ -207,7 +207,7 @@ async function picklist(
 
   // Enter takes the WORKER pick (glm-class), not the interactive one. The
   // estate's standing default for unattended-ish work is the cheap perfect
-  // scorer — agent-dispatch and sideclaw dispatch both run glm-5.3-flash — and
+  // scorer — agent-dispatch and agw dispatch both run glm-5.3-flash — and
   // a launcher that answers Enter with the premium id bills the IU key on the
   // worst combination: interactive pricing, nobody watching the meter. A human
   // who wants the interactive pick is exactly the person still awake enough to

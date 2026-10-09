@@ -47,8 +47,8 @@ used to run at an unchosen provider default now sets one deliberately:
 
 - Every **`glm-5.3-flash`** slot controls thinking via `MAX_THINKING_TOKENS`, the only lever
   that reaches this leg (`reasoning_effort` is ignored by the Requesty hop): **8192** for
-  agentic/implementation lanes (sideclaw's AGENT tier/`dispatch`, warden
-  investigate/implement), **2048** for classify-shaped lanes (sideclaw's CLASSIFY tier —
+  agentic/implementation lanes (agent-gateway's AGENT tier/`dispatch`, warden
+  investigate/implement), **2048** for classify-shaped lanes (agent-gateway's CLASSIFY tier —
   `check`/`overview`/`review_router`). See [claude-code-model.md](./claude-code-model.md).
 - Every **`deepseek-v4.1-flash`** slot — Hermes brain/delegation/compression, research-gateway
   lead+worker, audio-gateway's outline/editorial/metadata/research

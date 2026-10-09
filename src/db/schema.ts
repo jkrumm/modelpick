@@ -16,7 +16,7 @@ export const RESIDENCY = ["eu", "us", "unknown"] as const;
 // slots that legitimately run different models.
 export const SERVICE = [
   "claude-code",
-  "sideclaw",
+  "agent-gateway",
   "warden",
   "hermes",
   "research",
@@ -219,7 +219,7 @@ export const stackChoice = sqliteTable(
 
 // ── Deployments (what each service actually runs, per slot) ──────────────────
 // The truth layer. `stack_choice` answers "which model did I pick for the
-// *coding* idea"; this answers "which model does sideclaw's JUDGE tier call
+// *coding* idea"; this answers "which model does agent-gateway's JUDGE tier call
 // today, with what reasoning budget, wired in which file". One row per real
 // slot, because one category maps to several slots that legitimately differ —
 // Claude Code's interactive session and its unattended worker are both

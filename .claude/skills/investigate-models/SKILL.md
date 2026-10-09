@@ -19,9 +19,9 @@ can act on it (e.g. update My Stack).
 Four facts that resolve a large share of "which model for X":
 
 1. **`gpt-5.6-luna`, `deepseek-v4.1-flash` and `gemini-3.8-flash` 404 on the Anthropic leg.**
-   If the slot is Claude Code or a sideclaw route on the `claude` harness, the candidate set is
-   only Anthropic-leg ids. A sideclaw `dispatch` route or warden episode runs OpenCode, which
-   reaches the OpenAI leg too. Check the slot's harness (sideclaw `GET /api/routing`) before
+   If the slot is Claude Code or an agent-gateway route on the `claude` harness, the candidate set is
+   only Anthropic-leg ids. An agent-gateway `dispatch` route or warden episode runs OpenCode, which
+   reaches the OpenAI leg too. Check the slot's harness (agent-gateway `GET /api/routing`) before
    comparing anything.
 2. **The question is often the effort, not the model.** `glm-5.3-flash` defaults to `max`, which
    spends 56x the reasoning of `high` for no better output. Ask what effort the slot runs at
@@ -77,7 +77,7 @@ metrics:
 1. **Shortlist from the DB** what's actually callable: query `models` + latest
    `capability_probe` for the modality (`embedding`, or `llm` for vision = image-input
    models, or `image` for generation). Note residency where the probe confirmed it.
-2. **Rank externally with `/research`** (sideclaw, off Max), **constrained to that
+2. **Rank externally with `/research`** (agent-gateway, off Max), **constrained to that
    shortlist** — embeddings against MTEB / retrieval benchmarks, vision against
    document/diagram-understanding evals, image-gen against LMArena Image Arena. Ask for
    price + latency + (for embeddings) dimensions/Matryoshka. The research is the rationale.

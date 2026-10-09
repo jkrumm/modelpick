@@ -92,7 +92,7 @@ There are two fundamentally different shapes of work, and they belong in differe
 
 | Shape | Examples | Right home | Cost |
 |-|-|-|-|
-| **Stateless single HTTP call** | read one image, generate one image, TTS a string, transcribe a file | a direct `fetch` tool (e.g. a sideclaw HTTP tool) | ~0 (IU per-token, no Max, no worker) |
+| **Stateless single HTTP call** | read one image, generate one image, TTS a string, transcribe a file | a direct `fetch` tool (e.g. an agent-gateway HTTP tool) | ~0 (IU per-token, no Max, no worker) |
 | **Multi-step agent session** | drive a browser: navigate + click + inspect + screenshot | an agent loop | depends on driver model |
 
 The mistake to avoid is spinning up a whole agent session (cold spawn + tool loop) to do what
@@ -100,7 +100,7 @@ is really *one* vision/audio call. Diagram/image reading is a stateless call —
 direct fetch, never a spawned worker session. Conversely, browser driving genuinely needs the
 agent loop. The right move for a mixed skill is to **split it**: the stateless vision/audio
 call becomes a cheap direct fetch (stronger model, off Max), and only the genuine
-orchestration keeps an agent loop. The worker model for text tasks (sideclaw's `claude-sonnet-5`
+orchestration keeps an agent loop. The worker model for text tasks (agent-gateway's `claude-sonnet-5`
 / `claude-haiku-4-5`, see [claude-code-model.md](./claude-code-model.md)) is irrelevant to
 these — they are direct fetches that spawn no session at all.
 

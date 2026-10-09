@@ -3,7 +3,7 @@
 > **Current verdict (2026-10-05):** `claude-sonnet-5` interactive, `claude-opus-5` EU-pinned.
 > The **`glm-5.3-flash` unattended-worker verdict below is superseded**: GLM was retired from
 > routing 2026-09-23 after the DeepSeek-V4 re-bench (see the 2026-09-20 section). Workers are
-> whatever sideclaw serves, mostly IU models on OpenCode — read `GET /api/routing`, not this
+> whatever agent-gateway serves, mostly IU models on OpenCode — read `GET /api/routing`, not this
 > record. `MAX_THINKING_TOKENS` is still the only reasoning-effort control on the Anthropic leg
 > for non-Claude ids; the `8192` agentic / `2048` classify values were measured on ccbench.
 > **Status of this record:** interactive and EU-pinned picks current; the GLM-worker verdict is
@@ -15,7 +15,7 @@ one number does not cover both.
 
 - **Interactive Claude Code** — `claude-sonnet-5`. Fastest in the field by a wide margin,
   perfect score, fewest turns. When a human is waiting, wall clock *is* the product.
-- **Unattended workers** (sideclaw, batch jobs) — `glm-5.3-flash` *(superseded, see above)*. Perfect score on all
+- **Unattended workers** (agent-gateway, batch jobs) — `glm-5.3-flash` *(superseded, see above)*. Perfect score on all
   ten tasks, **32x cheaper** than `claude-sonnet-5`, and by ArtificialAnalysis's index the
   smarter of the two. The price is latency: 6.5x slower on ordinary work, up to 38x on heavy
   reasoning. Nobody is watching, so that is free money.
@@ -26,10 +26,10 @@ one number does not cover both.
 
 Note the split matches the mechanism: native subagents inherit their parent session's endpoint,
 so a Max session cannot delegate to an IU model. Handing work to an IU model from a Max
-orchestrator only happens through a subprocess lane — sideclaw's `dispatch` (OpenCode on IU
+orchestrator only happens through a subprocess lane — agent-gateway's `dispatch` (OpenCode on IU
 credentials) or `ca`/`cap`; see
-`sideclaw/server/lib/routing.ts` for the live per-tool table, and
-[sideclaw-tiers.md](./sideclaw-tiers.md) for why the other four tiers are routed the way
+`agent-gateway/server/lib/routing.ts` for the live per-tool table, and
+[agent-gateway-tiers.md](./agent-gateway-tiers.md) for why the other four tiers are routed the way
 they are.
 
 This supersedes the earlier LiteLLM-bridge lane (retired 2026-09-04), whose premises have both
@@ -589,7 +589,7 @@ and it is the actual deliverable of this re-bench:
 destroys the evidence that would have corrected it — the four "failures" above have blank
 `api_duration_ms` and zero token counts precisely because the harness killed them. Claude Code
 already exposes `CLAUDE_STREAM_IDLE_TIMEOUT_MS`, `API_TIMEOUT_MS` and `CLAUDE_CODE_MAX_RETRIES`;
-ccbench and sideclaw both wrapped them in a fixed wall-clock kill. ccbench no longer does.
+ccbench and agent-gateway both wrapped them in a fixed wall-clock kill. ccbench no longer does.
 
 **The thinking cap is a dial, not a requirement.** `MAX_THINKING_TOKENS=2048` buys roughly 30%
 wall-clock and is worth setting where latency is the product, but the model scores 10/10
@@ -759,7 +759,7 @@ happening during the silence, the process was genuinely blocked waiting on its o
 shell command's completion notification, which never arrived before the external 5-minute
 no-stdout kill. `MAX_THINKING_TOKENS` and thinking-delta streaming do not touch this failure
 mode at all. ccbench's grader gave this run a free pass because it re-reads the sandbox's final
-file state regardless of how the process exited; **warden/sideclaw's real dispatch lane does
+file state regardless of how the process exited; **warden/agent-gateway's real dispatch lane does
 not** — an episode killed before it reports is folded to `needs_human` with no verdict
 (`warden/CLAUDE.md` § *A dispatch that ends terminal with no verdict is not a verdict*), so the
 identical stall in production would very likely discard already-correct work rather than credit
@@ -786,7 +786,7 @@ Pick for the unattended-dispatch default: `DeepSeek-V4-Flash` over `glm-5.3-flas
 owner's sign-off to flip `_ca_ctx`/`AUTO_DISPATCH_MODEL`.** It matches `glm-5.3-flash`'s 10/10
 reliability at 14x the effective throughput, for $0.09/suite against $0.035 — cheap enough that
 throughput, not price, should decide the default worker. This section does not change the
-`_ca_ctx`/`_ca_thinking` tables or sideclaw's `GATEWAY_CONTEXT_TOKENS`; both are the owner's
+`_ca_ctx`/`_ca_thinking` tables or agent-gateway's `GATEWAY_CONTEXT_TOKENS`; both are the owner's
 files by request. Full evidence, raw transcripts and per-task cost breakdown:
 `docs/experiments/ccbench/{deepseek-v4-pro,deepseek-v4-flash,kimi-k2-7-code,minimax-m3}-ctxfix-2026-09-20/`
 and `docs/experiments/ccbench/glm-5-2-screen-2026-09-20/`.
@@ -865,8 +865,8 @@ single call, same as the other two. `(b)` (backend ignores `cache_control`) and 
 can't advance) are both now ruled out by direct measurement, not just this repo's guess.
 
 **So the production 9%/26% needs a different explanation, and it is not settled by this
-probe.** Pulled real turn-by-turn usage from two of yesterday's six Pro sideclaw-worktree
-dispatch sessions (`~/.claude/projects/-Users-jkrumm--local-state-sideclaw-worktrees-*/`,
+probe.** Pulled real turn-by-turn usage from two of yesterday's six Pro agent-gateway-worktree
+dispatch sessions (`~/.claude/projects/-Users-jkrumm--local-state-agent-gateway-worktrees-*/`,
 2026-09-20 18:07-18:16, `message.model:"deepseek-v4-pro"`):
 
 | session | turn timestamps (gap to prev) | input tokens | cache_read | ratio |

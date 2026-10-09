@@ -28,7 +28,7 @@ operating point**, and **operational fitness**. None dominates universally.
   read zero for `deepseek-v4.1-flash` put it at 14.9× Luna; its real sessions, 92–96% cached,
   came out ~2×.
 - **Operational fitness** — which gateway leg serves it (Claude Code can only reach
-  Anthropic-leg ids; OpenCode, as sideclaw `dispatch` runs it, reaches the OpenAI leg), whether it starves under the slot's token budget,
+  Anthropic-leg ids; OpenCode, as agent-gateway `dispatch` runs it, reaches the OpenAI leg), whether it starves under the slot's token budget,
   whether its thinking spend is predictable, whether it can hold a tool loop. This is where most
   picks are actually decided, and none of it appears on a leaderboard.
 
@@ -59,7 +59,7 @@ current verdict clause:
   decision, 2026-09-13); the recommender still names `gpt-5.6-luna`.
 - [claude-code-model.md](./claude-code-model.md) — which model drives Claude Code on the IU
   Anthropic route → `claude-sonnet-5` interactive, `claude-opus-5` EU-pinned (the
-  `glm-5.3-flash` worker verdict is superseded; GLM retired 2026-09-23, workers per sideclaw
+  `glm-5.3-flash` worker verdict is superseded; GLM retired 2026-09-23, workers per agent-gateway
   `GET /api/routing`).
 - [coding-model.md](./coding-model.md) — stub, superseded by claude-code-model.md; kept for the
   DeepSeek Pro→Flash coding-index history.
@@ -76,7 +76,7 @@ current verdict clause:
   calls.
 - [execution-modes.md](./execution-modes.md) — where agent work runs (inline / subagent / MCP /
   subprocess / research-gateway) → the rationale behind dotfiles' operational routing table.
-- [sideclaw-tiers.md](./sideclaw-tiers.md) — sideclaw's six routing tiers → CLASSIFY/AGENT/VISION
+- [agent-gateway-tiers.md](./agent-gateway-tiers.md) — agent-gateway's six routing tiers → CLASSIFY/AGENT/VISION
   scored (`coding`, `coding`, `vision`), JUDGE/PROSE/adversary structural; AGENT (`dispatch`)
   split off CLASSIFY on 2026-09-13.
 - [podcast-writer.md](./podcast-writer.md) — which model writes/reviews/researches the podcast →
