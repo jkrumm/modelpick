@@ -889,7 +889,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
 
-  // ── argo · image-gen · rb · homelab ───────────────────────────────────────
+  // ── argo · image-gateway · rb · homelab ───────────────────────────────────────
   {
     service: "argo",
     slot: "ai-gateway",
@@ -909,7 +909,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
   {
-    service: "image-gen",
+    service: "image-gateway",
     slot: "enhance",
     label: "/enhance prompt-plan brain",
     model_id: "gpt-6-luna",
@@ -917,7 +917,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "high",
     params:
       "ENHANCE_MODEL + ENHANCE_REASONING_EFFORT=high (enum none|low|medium|high, luna's probed ladder); max_completion_tokens 16000 (lib/enhance.ts:314); response_format json_object probed live at high/medium/none. No VPS override — the env.ts default is what ships.",
-    config_ref: "image-gen/gateway/src/env.ts:24,26",
+    config_ref: "image-gateway/gateway/src/env.ts:24,26",
     rationale:
       "2026-10-08: moved off deepseek-v4.1-flash — expanding a brief into a JSON plan is short single-shot work; gpt-6-luna passed bench-fast 15/15 at every effort at a third of DeepSeek's token price. No tools, so luna's tools+effort 503 does not apply. Deployed 147b98c, live /enhance smoke green.",
     decision_doc: "docs/decisions/hermes-brain.md",
@@ -925,7 +925,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: "2026-10-08",
   },
   {
-    service: "image-gen",
+    service: "image-gateway",
     slot: "generate",
     label: "image generation family",
     model_id: "gpt-image-2.5-flare",
@@ -933,7 +933,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "n/a",
     params:
       "DEFAULT_MODEL; its sibling gpt-image-2.5-sunburst serves the finals — model auto routes in shared/src/rules.ts: edits and high/xhigh/max generates -> sunburst, low/medium/auto -> flare; legacy gpt-image-2 requests routed like auto",
-    config_ref: "image-gen/shared/src/contract.ts:31",
+    config_ref: "image-gateway/shared/src/contract.ts:31",
     rationale:
       "2026-09-23: gpt-image-2 retired from the generate path. The two 2.5 models price and tokenize identically and trade latency only (flare high 20s vs sunburst 32s; flare streams no partials). 2.5 high costs ~$0.053, about 4x less than gpt-image-2 high; both support real alpha transparency, which gpt-image-2 lacked.",
     decision_doc: "docs/decisions/vision-and-image.md",
