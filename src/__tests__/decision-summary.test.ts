@@ -113,6 +113,7 @@ describe("buildDecisionSummary", () => {
       "contact-form-verdict",
       "email-triage",
       "urgency-score",
+      "hard-verdict",
     ]);
   });
 
