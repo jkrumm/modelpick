@@ -22,7 +22,7 @@ export const SERVICE = [
   "research",
   "audio",
   "argo",
-  "image-gen",
+  "image-gateway",
   "rb",
   "homelab",
   "email-gateway",
