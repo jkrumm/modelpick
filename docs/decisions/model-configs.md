@@ -149,48 +149,64 @@ Both legs. 5/5 at `low`/`medium`/`high`/`default`, but 1.9–2.9s median wall, $
 run, and a ~7,000-token think spread with intermittent starvation. Only reason to reach for it:
 it is one of just two non-Claude ids that can drive Claude Code.
 
-## Decision models (`clef`, `clef-eu`, `clef-flash`, `pplx-decider-v1-27b`, `jev-latest`, `gpt-6-luna:decisions`)
+## Decision models (`clef`, `clef-eu`, `clef-flash`, `pplx-decider-v1-27b`, `jev-latest`, `decision-1`, `decision-1-eu`, `gpt-6-luna:decisions`)
 
 Typed-answer classifiers: no text generation, **no sampling parameters on either wire**, no
-reasoning effort, no token budget. A plain chat prompt is rejected — the body says
-`response_format of type "questions" is required` (the HTTP status varies, 400 or 503), which is
-why the probe sends a questions request instead. Verified live 2026-10-09; the typed client is
+reasoning effort, no token budget. A plain chat prompt is rejected, which is why the probe sends a
+one-question decision request instead. Verified live 2026-10-13; the typed client is
 `src/server/iu/decision-client.ts`, the id table `src/db/decision-models.ts`. Record:
 [decision-model.md](./decision-model.md).
 
-### Questions wire — Clef, Clef Flash, PPLX Decider, Jev
+### systemone wire — Clef, Clef Flash, Decision-1, PPLX Decider, Jev
+
+UE's native decision API since 2026-10-13: Jev's own format (typesafe.ai's `/v1/systemone`),
+adopted by Cloudflare Clef and Microsoft Decision-1. A drop-in for `https://api.typesafe.ai/v1`,
+so any systemone client works by swapping the base URL (the AI SDK provider is
+`@ai-sdk/typesafe-ai`).
 
 | | |
 |-|-|
-| route | `POST {IU_OPENAI_BASE_URL}/chat/completions` |
-| auth | `api-key: <IU key>` (the usual Bearer header also works) |
-| state | the single user message, a string (JSON-encode an object) |
-| questions | `response_format: { "type": "questions", "questions": { "<name>": … } }` |
-| cost | `usage.cost` in USD is reported; `completion_tokens` is 0 for Clef |
+| route | `POST {IU_DECISIONS_BASE_URL}/systemone` (`…/decisions/v1/systemone`) |
+| list | `GET {IU_DECISIONS_BASE_URL}/models` → `{"models":[{"name":…,"description":…}]}` |
+| auth | `Authorization: Bearer <IU key>` (`api-key` also works) |
+| state | `state`: a string **or a JSON object/array**, passed as-is; required |
+| questions | `questions`: an object keyed by a name you choose; required |
+| cost | `usage.cost` in USD for Clef, PPLX, Jev; **none for Decision-1** ($0.042/1M input, output free, 2026-10-09) |
 
 ```json
-{"model":"clef-eu","stream":false,
- "messages":[{"role":"user","content":"<state string>"}],
- "response_format":{"type":"questions","questions":{
-   "kind":{"type":"choice","instructions":"…","criteria":{"legit":"…","spam":"…"}},
-   "spam":{"type":"noul","instructions":"…","criteria":{"true":"…","false":"…"}},
-   "urgency":{"type":"score","instructions":"…","criteria":["lowest","…","highest"]}}}}
+{"model":"decision-1-eu","state":{"subject":"…","body":"…"},"questions":{
+  "kind":{"type":"choice","instructions":"…","criteria":{"legit":"…","spam":"…"}},
+  "spam":{"type":"noul","instructions":"…","criteria":{"true":"…","false":"…"}},
+  "urgency":{"type":"score","instructions":"…","criteria":["lowest","…","highest"]}}}
 ```
 
-The answers come back as a **JSON string** in `choices[0].message.content`:
+The answers come back as an **object keyed by question name**:
 
 ```json
-{"kind":{"type":"choice","choice":"seo","confidence":0.9036,"probabilities":{"other":0.0964,"seo":0.9036}},
- "spam":{"type":"noul","noul":0.983},
- "urgency":{"type":"score","score":0.1304,"confidence":0.8847,
-            "legend":{"0":"lowest","1":"…"},"probabilities":{"0":0.8847,"1":0.1001}}}
+{"model":"microsoft-decision-1","answers":{
+  "kind":{"type":"choice","choice":"spam","confidence":0.9886,"probabilities":{"legit":0.0067,"spam":0.9924}},
+  "spam":{"type":"noul","noul":0.998},
+  "urgency":{"type":"score","score":1.10,"confidence":0.66,
+             "legend":{"0":"lowest","1":"…"},"probabilities":{"0":0.079,"1":0.747}}},
+ "usage":{"input_tokens":133,"output_tokens":3}}
 ```
 
-- `noul` is P(yes) — a yes/no question. The envelope's `model` reads e.g. `Cloudflare/clef`.
-- `score` is a **fractional index** into the `criteria` array (low to high); its `probabilities` are
-  keyed by index, not by label.
-- Probabilities and scores are rounded to four decimals.
-- `jev-latest` resolves to `jev-1.13.0` and is callable although `/models` does not list it.
+- `noul` is P(yes) — a yes/no question.
+- `score` is a **fractional index** into the `criteria` array (low to high), the probability-weighted
+  mean; its `probabilities` are keyed by index, not by label.
+- Clef, PPLX and Jev round to four decimals; Decision-1 does not.
+- The envelope's `model` is the served model (`Cloudflare/clef`, `jev-1.13.0`) and reads
+  `microsoft-decision-1` for **both** Decision-1 ids, so it cannot prove residency. The headers can:
+  `decision-1-eu` → `x-middleware-forwarded-server: GDPR Sink Sweden Decisions API`,
+  `azureml-destination-region: swedencentral`; `decision-1` → `Global Sink Sweden Decisions API`,
+  `azureml-destination-region: centralus` — **US-served despite "Sweden" in the server name and
+  `x-ms-region`**. `parseResidency` lets the destination region decide for that reason.
+  `clef-eu` → `Requesty EU decision compatibility API`; the rest go through Requesty with no region.
+- Rate limits: `decision-1-eu` 250 requests/60 s, `decision-1` 900.
+- `decision-1`/`decision-1-eu` 404 on the legacy chat/completions questions wire; `gpt-6-luna` 404s
+  on systemone. The legacy wire (`response_format: {type:"questions"}` on `/chat/completions`,
+  answers as a JSON string in `choices[0].message.content`) still serves Clef, PPLX and Jev, but
+  modelpick no longer speaks it.
 
 ### Decisions wire — `gpt-6-luna:decisions`
 

@@ -1,6 +1,6 @@
 /**
  * The decision-bench task registry — graded suites for decision models (typed-answer
- * classifiers: Clef, Jev, PPLX Decider, Luna's Decisions route). Each suite is one
+ * classifiers: Clef, Decision-1, Jev, PPLX Decider, Luna's Decisions route). Each suite is one
  * set of typed questions plus cases with the expected answer per question.
  *
  * Three suites, one per answer type, so every wire path is exercised:

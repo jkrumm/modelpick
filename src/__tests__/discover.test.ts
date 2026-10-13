@@ -1,5 +1,10 @@
-import { describe, it, expect } from "vitest";
-import { classifyModality, deriveProvider } from "../server/iu/discover.js";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
+import {
+  classifyModality,
+  deriveProvider,
+  discoverDecisionModelNames,
+  unregisteredDecisionRows,
+} from "../server/iu/discover.js";
 
 // ── deriveProvider — previously-unclassified ("other") ids ─────────────────────────
 
@@ -116,12 +121,18 @@ describe("classifyModality — decision models", () => {
   // These look like ordinary chat models on /models; the id is the only signal.
   // Classified as llm they are probed with a plain "hi" and scored against chat
   // leaderboards.
-  it.each(["clef", "clef-eu", "clef-flash", "pplx-decider-v1-27b", "jev-latest", "jev-1.13.0"])(
-    "classifies %s as decision",
-    (id) => {
-      expect(classifyModality(id)).toBe("decision");
-    },
-  );
+  it.each([
+    "clef",
+    "clef-eu",
+    "clef-flash",
+    "pplx-decider-v1-27b",
+    "jev-latest",
+    "jev-1.13.0",
+    "decision-1",
+    "decision-1-eu",
+  ])("classifies %s as decision", (id) => {
+    expect(classifyModality(id)).toBe("decision");
+  });
 
   it("leaves the chat model Luna alone", () => {
     expect(classifyModality("gpt-6-luna")).toBe("llm");
@@ -129,5 +140,87 @@ describe("classifyModality — decision models", () => {
 
   it("classifies Luna's decisions-route catalog entry as decision", () => {
     expect(classifyModality("gpt-6-luna:decisions")).toBe("decision");
+  });
+});
+
+// ── decision model discovery ──────────────────────────────────────────────────
+
+describe("discoverDecisionModelNames", () => {
+  const fetchMock = vi.fn<typeof fetch>();
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+    process.env["IU_DECISIONS_BASE_URL"] =
+      "https://iu-test.example/decisions/v1";
+    process.env["IU_API_KEY"] = "test-key";
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reads the names off GET /models with Bearer auth", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          models: [
+            { name: "clef", description: "Cloudflare", release_date: "" },
+            { name: "decision-1-eu", description: "", release_date: "" },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await expect(discoverDecisionModelNames()).resolves.toEqual([
+      "clef",
+      "decision-1-eu",
+    ]);
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe("https://iu-test.example/decisions/v1/models");
+    expect(
+      new Headers((init as RequestInit).headers).get("authorization"),
+    ).toBe("Bearer test-key");
+  });
+
+  it("throws on a non-2xx so the probe can warn and continue", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("nope", { status: 401 }));
+    await expect(discoverDecisionModelNames()).rejects.toThrow(/HTTP 401/);
+  });
+
+  it("throws on a malformed list", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ models: "x" }), { status: 200 }),
+    );
+    await expect(discoverDecisionModelNames()).rejects.toThrow();
+  });
+});
+
+describe("unregisteredDecisionRows", () => {
+  it("ignores every registered decision model", () => {
+    expect(
+      unregisteredDecisionRows(["clef", "decision-1", "jev-1.13.0"]),
+    ).toEqual([]);
+  });
+
+  it("ignores a registered model's wire name and dedupes repeats", () => {
+    expect(unregisteredDecisionRows(["gpt-6-luna"])).toEqual([]);
+    expect(unregisteredDecisionRows(["decision-2", "decision-2"])).toHaveLength(1);
+  });
+
+  it("turns an unknown name into a decision catalog row", () => {
+    expect(unregisteredDecisionRows(["clef", "decision-2"])).toEqual([
+      {
+        id: "decision-2",
+        provider: "other",
+        family: "decision",
+        modality: "decision",
+        display_name: "Decision 2",
+        context_window: null,
+        iu_listed: true,
+        transport: "iu",
+      },
+    ]);
   });
 });

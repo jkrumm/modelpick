@@ -179,10 +179,24 @@ export async function gatewayChat(opts: {
   return { ...res, text: extractAssistantText(dialect, res.body) };
 }
 
+// Azure region names (`azureml-destination-region`) by serving geography.
+const EU_AZURE_REGION =
+  /^(sweden|france|germany|westeurope|northeurope|switzerland|norway|uk|poland|italy|spain)/;
+// Tolerates digit and `euap` suffixes (`eastus2`, `centraluseuap`).
+const US_AZURE_REGION = /^(central|east|west|northcentral|southcentral|westcentral)us[0-9a-z]*$/;
+
 export function parseResidency(headers: Headers): Residency {
   const region = (headers.get("x-ms-region") ?? "").toLowerCase();
   const server = (headers.get("x-middleware-forwarded-server") ?? "").toLowerCase();
+  // Where the model actually ran. `x-ms-region` names the gateway's region and
+  // lies for Decision-1 Global (Sweden Central gateway, centralus deployment), so
+  // a recognised EU or US destination region wins; an unrecognised one falls
+  // through to the gateway headers below.
+  const destination = (headers.get("azureml-destination-region") ?? "").toLowerCase();
 
+  if (EU_AZURE_REGION.test(destination)) return "eu";
+  if (US_AZURE_REGION.test(destination)) return "us";
+  if (server.includes("requesty eu")) return "eu";
   if (region.includes("sweden") || server.includes("sweden")) {
     return "eu";
   }

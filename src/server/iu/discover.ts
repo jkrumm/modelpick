@@ -1,6 +1,7 @@
+import { z } from "zod";
 import { iuFetch } from "./client.js";
 import type { ModelInsert, Modality } from "../../db/schema.js";
-import { isDecisionModel } from "../../db/decision-models.js";
+import { isDecisionModel, isKnownDecisionName } from "../../db/decision-models.js";
 
 // Raw shape from the IU /models endpoint (OpenAI-compatible list).
 interface IuModelRaw {
@@ -90,6 +91,41 @@ function extractModels(raw: unknown): IuModelRaw[] {
     if (Array.isArray(obj["models"])) return obj["models"] as IuModelRaw[];
   }
   return [];
+}
+
+const decisionModelList = z.object({ models: z.array(z.object({ name: z.string() })) });
+
+/** Fetches IU's decision model list (`GET {IU_DECISIONS_BASE_URL}/models`) and
+ *  returns every name. Decision models are not in the chat /models list (Jev) or
+ *  are indistinguishable there, so this list is what reveals a new one. */
+export async function discoverDecisionModelNames(): Promise<string[]> {
+  const base = (process.env["IU_DECISIONS_BASE_URL"] ?? "").replace(/\/+$/, "");
+  if (base === "") throw new Error("IU_DECISIONS_BASE_URL is not set");
+  const resp = await fetch(`${base}/models`, {
+    headers: { Authorization: `Bearer ${process.env["IU_API_KEY"] ?? ""}` },
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!resp.ok) throw new Error(`IU decisions /models returned HTTP ${resp.status}`);
+  return decisionModelList.parse(await resp.json()).models.map((m) => m.name);
+}
+
+/** Catalog rows for listed decision names `DECISION_MODELS` does not know yet. They
+ *  get the generic decision shape so they are probed on the systemone default
+ *  instead of being misclassified; registering them in decision-models.ts adds
+ *  the provider, display name and region. */
+export function unregisteredDecisionRows(names: string[]): ModelInsert[] {
+  return [...new Set(names)]
+    .filter((name) => !isKnownDecisionName(name))
+    .map((name) => ({
+      id: name,
+      provider: "other",
+      family: "decision",
+      modality: "decision" as const,
+      display_name: prettifyName(name),
+      context_window: null,
+      iu_listed: true,
+      transport: "iu" as const,
+    }));
 }
 
 /** Fetches the live IU /models list and maps it to catalog model rows. */

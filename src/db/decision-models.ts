@@ -3,18 +3,20 @@ import type { ModelInsert } from "./schema.js";
 /**
  * The decision models — typed-answer classifiers that answer yes/no, choice and
  * score questions with probabilities and never generate text. The IU /models
- * list and the portal export carry them as ordinary chat models (provider
- * "other"), so the id is the only reliable signal: this table is the one place
- * that says which ids are decision models and how each is reached.
+ * list and the portal export carry some of them as ordinary chat models
+ * (provider "other"), so the id is the only reliable signal: this table is the
+ * one place that says which ids are decision models and how each is reached.
+ * IU's own decision list, `GET {IU_DECISIONS_BASE_URL}/models`, is the discovery
+ * source for new ones (probe.ts warns about any id missing here).
  *
  * Pure data, no DB or network import — `classifyModality` (discover.ts), the seed
  * and the decision client all read it.
  */
 
-/** Wire a decision model is called on. `questions` = chat/completions with
- *  `response_format: { type: "questions" }` (Clef, PPLX, Jev); `decisions` = the
- *  OpenAI Decisions API route `POST /decisions` (GPT-6 Luna). */
-export type DecisionWire = "questions" | "decisions";
+/** Wire a decision model is called on. `systemone` = IU's native decision API
+ *  `POST {IU_DECISIONS_BASE_URL}/systemone` (Clef, Decision-1, PPLX, Jev);
+ *  `decisions` = the OpenAI Decisions API route `POST /decisions` (GPT-6 Luna). */
+export type DecisionWire = "systemone" | "decisions";
 
 export interface DecisionModelSpec {
   id: string;
@@ -27,12 +29,15 @@ export interface DecisionModelSpec {
   region: "eu" | null;
   iu_listed: boolean;
   note: string;
+  /** USD per 1M tokens, for a wire that reports no cost and a model no collector
+   *  prices. Researched and dated at the entry; absent = the collected rate card. */
+  rate?: { input: number; output: number };
 }
 
 export const DECISION_MODELS: readonly DecisionModelSpec[] = [
   {
     id: "clef",
-    wire: "questions",
+    wire: "systemone",
     provider: "cloudflare",
     display_name: "Clef",
     region: null,
@@ -41,7 +46,7 @@ export const DECISION_MODELS: readonly DecisionModelSpec[] = [
   },
   {
     id: "clef-eu",
-    wire: "questions",
+    wire: "systemone",
     provider: "cloudflare",
     display_name: "Clef (EU)",
     region: "eu",
@@ -50,7 +55,7 @@ export const DECISION_MODELS: readonly DecisionModelSpec[] = [
   },
   {
     id: "clef-flash",
-    wire: "questions",
+    wire: "systemone",
     provider: "cloudflare",
     display_name: "Clef Flash",
     region: null,
@@ -59,7 +64,7 @@ export const DECISION_MODELS: readonly DecisionModelSpec[] = [
   },
   {
     id: "pplx-decider-v1-27b",
-    wire: "questions",
+    wire: "systemone",
     provider: "perplexity",
     display_name: "PPLX Decider v1 27B",
     region: null,
@@ -68,21 +73,43 @@ export const DECISION_MODELS: readonly DecisionModelSpec[] = [
   },
   {
     id: "jev-latest",
-    wire: "questions",
+    wire: "systemone",
     provider: "other",
     display_name: "Jev (latest)",
     region: null,
-    iu_listed: false,
-    note: "Callable on UE but absent from /models; alias of jev-1.13.0",
+    iu_listed: true,
+    note: "Alias of jev-1.13.0; on the decisions model list, absent from the chat /models",
   },
   {
     id: "jev-1.13.0",
-    wire: "questions",
+    wire: "systemone",
     provider: "other",
     display_name: "Jev 1.13.0",
     region: null,
-    iu_listed: false,
-    note: "Callable on UE but absent from /models; pinned version behind jev-latest",
+    iu_listed: true,
+    note: "Pinned version behind jev-latest; on the decisions model list, absent from the chat /models",
+  },
+  {
+    id: "decision-1",
+    wire: "systemone",
+    // Published 2026-10-09: $0.042/1M input, output free. No collector lists it.
+    rate: { input: 0.042, output: 0 },
+    provider: "microsoft",
+    display_name: "Decision-1",
+    region: null,
+    iu_listed: true,
+    note: "Microsoft decision-1, Global — served from Azure centralus (2026-10-13)",
+  },
+  {
+    id: "decision-1-eu",
+    wire: "systemone",
+    // Published 2026-10-09: $0.042/1M input, output free. No collector lists it.
+    rate: { input: 0.042, output: 0 },
+    provider: "microsoft",
+    display_name: "Decision-1 (EU)",
+    region: "eu",
+    iu_listed: true,
+    note: "Microsoft decision-1, EU deployment (Azure swedencentral)",
   },
   {
     // GPT-6 Luna is BOTH a chat LLM (`gpt-6-luna`, untouched) and reachable on
@@ -106,6 +133,12 @@ export function decisionSpec(modelId: string): DecisionModelSpec | undefined {
 
 export function isDecisionModel(modelId: string): boolean {
   return BY_ID.has(modelId);
+}
+
+/** A name some registered model puts on the wire — the catalog id or its
+ *  `apiModel` (`gpt-6-luna` for `gpt-6-luna:decisions`). */
+export function isKnownDecisionName(name: string): boolean {
+  return BY_ID.has(name) || DECISION_MODELS.some((m) => m.apiModel === name);
 }
 
 /** Catalog rows for the seed — the upsert is what flips an already-discovered

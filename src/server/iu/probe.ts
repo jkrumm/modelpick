@@ -37,11 +37,12 @@ export interface ProbeResult {
 const PROBE_TIMEOUT_MS = 30_000;
 
 const openaiBase = (): string => process.env["IU_OPENAI_BASE_URL"] ?? "";
+const decisionsBase = (): string => process.env["IU_DECISIONS_BASE_URL"] ?? "";
 const geminiBase = (): string => process.env["IU_GEMINI_BASE_URL"] ?? "";
 
 /** The smallest valid decision request: one yes/no question. A decision model
- *  rejects a plain chat prompt (`response_format of type "questions" is
- *  required`), so "hi" says nothing about whether it is reachable. */
+ *  rejects a plain chat prompt, so "hi" says nothing about whether it is
+ *  reachable. */
 const DECISION_PROBE_QUESTIONS: Record<string, DecisionQuestion> = {
   greeting: { type: "boolean", instructions: "Is this text a greeting?" },
 };
@@ -120,7 +121,8 @@ export async function probeModel(opts: ProbeOptions): Promise<ProbeResult> {
       questions: DECISION_PROBE_QUESTIONS,
       apiKey: process.env["IU_API_KEY"] ?? "",
     });
-    const r = await rawFetch(`${openaiBase()}${request.path}`, {
+    const base = request.base === "systemone" ? decisionsBase() : openaiBase();
+    const r = await rawFetch(`${base.replace(/\/+$/, "")}${request.path}`, {
       method: "POST",
       headers: request.headers,
       body: JSON.stringify(request.body),
@@ -527,7 +529,7 @@ export async function runProbe(): Promise<ProbeResult[]> {
   const [
     { db },
     { capabilityProbe, metricSnapshot, recommendation, stackChoice, demo, models },
-    { discoverIuModels },
+    { discoverIuModels, discoverDecisionModelNames, unregisteredDecisionRows },
   ] = await Promise.all([
     import("../../db/index.js"),
     import("../../db/schema.js"),
@@ -558,6 +560,25 @@ export async function runProbe(): Promise<ProbeResult[]> {
     }
   } catch (err) {
     console.warn(`[probe] IU /models discovery skipped: ${String(err)}`);
+  }
+
+  // A decision model IU lists that DECISION_MODELS does not know would otherwise be
+  // missing (Jev is not in the chat /models) or probed as a chat model. Add it as a
+  // decision row so it is probed on the systemone default, and say so loudly.
+  try {
+    const unregistered = unregisteredDecisionRows(await discoverDecisionModelNames());
+    for (const row of unregistered) {
+      console.warn(
+        `[probe] decision model "${row.id}" is listed by IU but unregistered — add it to src/db/decision-models.ts`,
+      );
+    }
+    // Insert only: an existing row with the same id (a chat model) is never
+    // re-typed from an unregistered listing — registering the id does that.
+    if (unregistered.length > 0) {
+      await db.insert(models).values(unregistered).onConflictDoNothing();
+    }
+  } catch (err) {
+    console.warn(`[probe] IU decisions /models discovery skipped: ${String(err)}`);
   }
 
   // Decision models are discovered as ordinary chat rows by older probes (and the

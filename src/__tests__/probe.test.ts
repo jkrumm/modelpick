@@ -28,6 +28,7 @@ function makeFetchResponse(
 beforeEach(() => {
   fetchMock.mockReset();
   process.env["IU_OPENAI_BASE_URL"] = "https://iu-test.example/openai/v1";
+  process.env["IU_DECISIONS_BASE_URL"] = "https://iu-test.example/decisions/v1";
   process.env["IU_ANTHROPIC_BASE_URL"] = "https://iu-test.example/anthropic/v1";
   process.env["IU_GEMINI_BASE_URL"] = "https://iu-test.example/gemini/v1beta";
   process.env["IU_API_KEY"] = "test-key";
@@ -57,6 +58,74 @@ describe("parseResidency", () => {
       "x-middleware-forwarded-server": "OpenAI Vendor Group Key",
     });
     expect(parseResidency(h)).toBe("us");
+  });
+
+  it("lets azureml-destination-region decide: decision-1 Global is US despite a Sweden gateway", () => {
+    const h = new Headers({
+      "x-middleware-forwarded-server": "Global Sink Sweden Decisions API",
+      "azureml-destination-region": "centralus",
+      "x-ms-region": "Sweden Central",
+    });
+    expect(parseResidency(h)).toBe("us");
+  });
+
+  it("returns eu for the decision-1-eu swedencentral deployment", () => {
+    const h = new Headers({
+      "x-middleware-forwarded-server": "GDPR Sink Sweden Decisions API",
+      "azureml-destination-region": "swedencentral",
+      "x-ms-region": "Sweden Central",
+    });
+    expect(parseResidency(h)).toBe("eu");
+  });
+
+  it.each([
+    "francecentral",
+    "germanywestcentral",
+    "westeurope",
+    "northeurope",
+    "uksouth",
+  ])("treats the Azure region %s as eu", (region) => {
+    expect(
+      parseResidency(new Headers({ "azureml-destination-region": region })),
+    ).toBe("eu");
+  });
+
+  it.each([
+    "centralus",
+    "eastus",
+    "eastus2",
+    "westus",
+    "westus3",
+    "southcentralus",
+    "northcentralus",
+    "eastus2euap",
+    "centraluseuap",
+  ])("treats the Azure region %s as us", (region) => {
+    expect(
+      parseResidency(new Headers({ "azureml-destination-region": region })),
+    ).toBe("us");
+  });
+
+  it("falls through to the other headers when the destination region is unrecognised", () => {
+    const h = new Headers({
+      "azureml-destination-region": "mars1",
+      "x-ms-region": "Sweden Central",
+    });
+    expect(parseResidency(h)).toBe("eu");
+  });
+
+  it("returns eu for the Requesty EU decision compatibility API", () => {
+    const h = new Headers({
+      "x-middleware-forwarded-server": "Requesty EU decision compatibility API",
+    });
+    expect(parseResidency(h)).toBe("eu");
+  });
+
+  it("leaves the Requesty global decision API unknown", () => {
+    const h = new Headers({
+      "x-middleware-forwarded-server": "Requesty decision compatibility API",
+    });
+    expect(parseResidency(h)).toBe("unknown");
   });
 
   it("returns unknown when no relevant headers present", () => {
@@ -333,12 +402,13 @@ describe("probeModel — LLM", () => {
 });
 
 describe("probeModel — decision", () => {
-  // The daily probe used to send these a plain "hi" chat and store the 400
-  // (`response_format of type "questions" is required`) as probe_status unknown.
-  it("probes with a minimal questions request and marks a 200 available", async () => {
+  // The daily probe used to send these a plain "hi" chat and store the 400 as
+  // probe_status unknown.
+  it("probes with a minimal systemone request and marks a 200 available", async () => {
     fetchMock.mockResolvedValueOnce(
       makeFetchResponse(200, {
-        choices: [{ message: { content: '{"greeting":{"noul":0.99,"type":"noul"}}' } }],
+        model: "Cloudflare/clef",
+        answers: { greeting: { noul: 0.99, type: "noul" } },
       }),
     );
 
@@ -351,11 +421,57 @@ describe("probeModel — decision", () => {
     expect(result.accessible).toBe(true);
     expect(result.probe_status).toBe("available");
     const [url, init] = fetchMock.mock.calls[0] ?? [];
-    expect(url).toBe("https://iu-test.example/openai/v1/chat/completions");
+    expect(url).toBe("https://iu-test.example/decisions/v1/systemone");
     const body = JSON.parse(String((init as RequestInit).body)) as {
-      response_format: { type: string };
+      model: string;
+      state: string;
+      questions: Record<string, { type: string }>;
     };
-    expect(body.response_format.type).toBe("questions");
+    expect(body.model).toBe("clef-eu");
+    expect(body.questions["greeting"]?.type).toBe("noul");
+  });
+
+  it("reads Decision-1's residency from its routing headers", async () => {
+    fetchMock.mockResolvedValueOnce(
+      makeFetchResponse(
+        200,
+        {
+          model: "microsoft-decision-1",
+          answers: { greeting: { noul: 0.9, type: "noul" } },
+        },
+        {
+          "azureml-destination-region": "centralus",
+          "x-ms-region": "Sweden Central",
+        },
+      ),
+    );
+
+    const result = await probeModel({
+      model_id: "decision-1",
+      modality: "decision",
+      provider: "microsoft",
+    });
+
+    expect(result.probe_status).toBe("available");
+    expect(result.residency).toBe("us");
+  });
+
+  it("probes an id missing from the registry on the systemone default", async () => {
+    fetchMock.mockResolvedValueOnce(
+      makeFetchResponse(200, {
+        answers: { greeting: { noul: 0.9, type: "noul" } },
+      }),
+    );
+
+    await probeModel({
+      model_id: "brand-new-decider",
+      modality: "decision",
+      provider: "other",
+    });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://iu-test.example/decisions/v1/systemone",
+    );
   });
 
   it("probes Luna's decisions entry on the /decisions route", async () => {

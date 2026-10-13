@@ -44,16 +44,17 @@ Two tiers (`schema.ts`):
 - **Manual** (`MANUAL_CATEGORY` = `embedding | vision | image | decision`) — no public leaderboard
   scores these, so there is **no algorithmic recommendation** and no drift flag. They live in
   My Stack with a research-backed rationale; refresh via `/research` + `/investigate-models`.
-- **`decision`** (a manual category, `MODALITY` `decision`) — typed-answer classifiers (Clef, Jev,
-  PPLX Decider, Luna's Decisions API: yes/no, choice and score answers with probabilities, no
-  text generation). No leaderboard scores them, so the recommender skips them, but they have their
-  **own live eval**: `bun run bench:decision` (`scripts/bench-decision.ts`, suites in
-  `src/server/bench/decision-tasks.ts`, three repeats, `--dry-run` costs nothing, ~$0.06 for the
-  full field) writes `decision_*` rows to `metric_snapshot` that rank the `/decision` tab.
-  The ids that are decision models live in `src/db/decision-models.ts` — a new one shows up in
-  `/models` as an ordinary chat model and fails the probe until it is added there. They are never
-  probed with a chat "hi" (`probe.ts` sends a minimal questions request), and Luna's Decisions
-  route is its own catalog entry, `gpt-6-luna:decisions`. Record:
+- **`decision`** (a manual category, `MODALITY` `decision`) — typed-answer classifiers (Clef,
+  Decision-1, Jev, PPLX Decider, Luna's Decisions API: yes/no, choice and score answers with
+  probabilities, no text generation). No leaderboard scores them, so the recommender skips them,
+  but they have their **own live eval**: `bun run bench:decision` (`scripts/bench-decision.ts`,
+  suites in `src/server/bench/decision-tasks.ts`, three repeats, `--dry-run` costs nothing, ~$0.06
+  for the full field) writes `decision_*` rows to `metric_snapshot` that rank the `/decision` tab.
+  All but Luna are called on UE's native **systemone** API (`IU_DECISIONS_BASE_URL` +
+  `/systemone`); Luna's Decisions route is its own catalog entry, `gpt-6-luna:decisions`, on the
+  OpenAI leg. The ids live in `src/db/decision-models.ts`; the probe reads UE's decision list
+  (`/decisions/v1/models`) and warns about — and catalogs — any id missing there. They are never
+  probed with a chat "hi" (`probe.ts` sends a minimal decision request). Record:
   [`docs/decisions/decision-model.md`](docs/decisions/decision-model.md); wire formats in
   `model-configs.md`.
 

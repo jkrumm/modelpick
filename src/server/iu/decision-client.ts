@@ -4,15 +4,17 @@ import { decisionSpec, type DecisionWire } from "../../db/decision-models.js";
 /**
  * Typed client for IU's two decision wires, behind one neutral shape.
  *
- *  - `questions`: `POST {IU_OPENAI_BASE_URL}/chat/completions` with
- *    `response_format: { type: "questions", questions }` and header `api-key`.
- *    The answers come back as a JSON STRING in `choices[0].message.content`.
- *    Clef, Clef Flash, PPLX Decider, Jev.
+ *  - `systemone`: `POST {IU_DECISIONS_BASE_URL}/systemone` (Jev's native format,
+ *    adopted by Clef and Decision-1), Bearer auth, body `{ model, state,
+ *    questions }` where `state` is a string or a JSON object as given. Answers
+ *    come back as an object keyed by question name. Clef family, Decision-1,
+ *    PPLX Decider, Jev.
  *  - `decisions`: `POST {IU_OPENAI_BASE_URL}/decisions` (OpenAI's Decisions API),
  *    answers in a top-level `answers` array matched by `name`. GPT-6 Luna.
  *
- * Neither wire takes sampling parameters. Envelopes verified live 2026-10-09 —
- * docs/decisions/model-configs.md.
+ * Neither wire takes sampling parameters. Envelopes verified live 2026-10-13 —
+ * docs/decisions/model-configs.md. The legacy chat/completions "questions" wire
+ * is gone: no routed model uses it (Decision-1 404s there).
  *
  * Request building and response parsing are pure so they are testable against
  * the recorded envelopes; `callDecision` is the only function that does I/O.
@@ -22,7 +24,7 @@ import { decisionSpec, type DecisionWire } from "../../db/decision-models.js";
 
 export type DecisionQuestion =
   | {
-      /** Yes/no. `noul` on the questions wire, `predicate` on the decisions wire. */
+      /** Yes/no. `noul` on the systemone wire, `predicate` on the decisions wire. */
       type: "boolean";
       instructions: string;
       criteria?: { true: string; false: string };
@@ -60,7 +62,7 @@ export type DecisionAnswer =
 export interface DecisionUsage {
   inputTokens: number;
   outputTokens: number;
-  /** Provider-reported USD; null when the wire reports none (the decisions wire). */
+  /** Provider-reported USD; null when the wire reports none (decisions wire, Decision-1). */
   costUsd: number | null;
 }
 
@@ -71,7 +73,7 @@ export interface DecisionResult {
   servedModel: string | null;
 }
 
-export type DecisionState = string | Record<string, unknown>;
+export type DecisionState = string | Record<string, unknown> | unknown[];
 
 export class DecisionError extends Error {
   constructor(
@@ -93,15 +95,17 @@ export interface DecisionRoute {
   apiModel: string;
 }
 
-/** Unknown ids default to the questions wire — the generic decision shape. */
+/** Unknown ids default to the systemone wire — the generic decision shape. */
 export function routeFor(modelId: string): DecisionRoute {
   const spec = decisionSpec(modelId);
-  return { wire: spec?.wire ?? "questions", apiModel: spec?.apiModel ?? modelId };
+  return { wire: spec?.wire ?? "systemone", apiModel: spec?.apiModel ?? modelId };
 }
 
 // ── request building ─────────────────────────────────────────────────────────
 
 export interface DecisionRequest {
+  /** Which configured base URL the path hangs off. */
+  base: "openai" | "systemone";
   path: string;
   headers: Record<string, string>;
   body: unknown;
@@ -111,7 +115,7 @@ function stateText(state: DecisionState): string {
   return typeof state === "string" ? state : JSON.stringify(state);
 }
 
-function toQuestionsWire(question: DecisionQuestion): unknown {
+function toSystemoneQuestion(question: DecisionQuestion): unknown {
   if (question.type === "boolean") {
     return {
       type: "noul",
@@ -162,6 +166,7 @@ export function buildDecisionRequest(input: {
   const route = routeFor(modelId);
   if (route.wire === "decisions") {
     return {
+      base: "openai",
       path: "/decisions",
       headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
       body: {
@@ -172,18 +177,15 @@ export function buildDecisionRequest(input: {
     };
   }
   return {
-    path: "/chat/completions",
-    headers: { "content-type": "application/json", "api-key": apiKey },
+    base: "systemone",
+    path: "/systemone",
+    headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
     body: {
       model: route.apiModel,
-      stream: false,
-      messages: [{ role: "user", content: stateText(state) }],
-      response_format: {
-        type: "questions",
-        questions: Object.fromEntries(
-          Object.entries(questions).map(([name, q]) => [name, toQuestionsWire(q)]),
-        ),
-      },
+      state,
+      questions: Object.fromEntries(
+        Object.entries(questions).map(([name, q]) => [name, toSystemoneQuestion(q)]),
+      ),
     },
   };
 }
@@ -192,7 +194,7 @@ export function buildDecisionRequest(input: {
 
 const probability = z.number().finite().min(0).max(1);
 
-const questionsAnswer = z.discriminatedUnion("type", [
+const systemoneAnswer = z.discriminatedUnion("type", [
   z.object({ type: z.literal("noul"), noul: probability }),
   z.object({
     type: z.literal("choice"),
@@ -208,13 +210,13 @@ const questionsAnswer = z.discriminatedUnion("type", [
   }),
 ]);
 
-const questionsEnvelope = z.object({
+const systemoneEnvelope = z.object({
   model: z.string().optional(),
-  choices: z.array(z.object({ message: z.object({ content: z.string() }) })).min(1),
+  answers: z.record(z.string(), systemoneAnswer),
   usage: z
     .object({
-      prompt_tokens: z.number().optional(),
-      completion_tokens: z.number().optional(),
+      input_tokens: z.number().optional(),
+      output_tokens: z.number().optional(),
       cost: z.number().optional(),
     })
     .optional(),
@@ -232,15 +234,12 @@ function malformed(what: string, body: string): DecisionError {
   return new DecisionError(0, `decision response is malformed: ${what}`, body);
 }
 
-export function parseQuestionsResponse(bodyText: string): DecisionResult {
-  const envelope = questionsEnvelope.safeParse(parseJson(bodyText));
+export function parseSystemoneResponse(bodyText: string): DecisionResult {
+  const envelope = systemoneEnvelope.safeParse(parseJson(bodyText));
   if (!envelope.success) throw malformed(envelope.error.message, bodyText);
-  const content = envelope.data.choices[0]?.message.content ?? "";
-  const answers = z.record(z.string(), questionsAnswer).safeParse(parseJson(content));
-  if (!answers.success) throw malformed(answers.error.message, content);
 
   const out: Record<string, DecisionAnswer> = {};
-  for (const [name, a] of Object.entries(answers.data)) {
+  for (const [name, a] of Object.entries(envelope.data.answers)) {
     if (a.type === "noul") out[name] = { type: "boolean", probability: a.noul };
     else if (a.type === "choice") {
       out[name] = {
@@ -262,8 +261,8 @@ export function parseQuestionsResponse(bodyText: string): DecisionResult {
   return {
     answers: out,
     usage: {
-      inputTokens: usage?.prompt_tokens ?? 0,
-      outputTokens: usage?.completion_tokens ?? 0,
+      inputTokens: usage?.input_tokens ?? 0,
+      outputTokens: usage?.output_tokens ?? 0,
       costUsd: usage?.cost ?? null,
     },
     servedModel: envelope.data.model ?? null,
@@ -349,7 +348,7 @@ export function parseDecisionsResponse(bodyText: string): DecisionResult {
 }
 
 export function parseDecisionResponse(wire: DecisionWire, bodyText: string): DecisionResult {
-  return wire === "decisions" ? parseDecisionsResponse(bodyText) : parseQuestionsResponse(bodyText);
+  return wire === "decisions" ? parseDecisionsResponse(bodyText) : parseSystemoneResponse(bodyText);
 }
 
 // ── the one network call ─────────────────────────────────────────────────────
@@ -358,7 +357,7 @@ export interface CallDecisionInput {
   modelId: string;
   state: DecisionState;
   questions: Record<string, DecisionQuestion>;
-  baseUrl: string;
+  baseUrls: { openai: string; systemone: string };
   apiKey: string;
   signal?: AbortSignal;
   /** Injectable for tests. */
@@ -368,9 +367,9 @@ export interface CallDecisionInput {
 /** One decision call. Throws `DecisionError` on a non-2xx, a transport failure,
  *  a malformed envelope, or a question the model returned no answer for. */
 export async function callDecision(input: CallDecisionInput): Promise<DecisionResult> {
-  const { modelId, questions, baseUrl, signal, fetchImpl = fetch } = input;
+  const { modelId, questions, baseUrls, signal, fetchImpl = fetch } = input;
   const request = buildDecisionRequest(input);
-  const url = `${baseUrl.replace(/\/+$/, "")}${request.path}`;
+  const url = `${baseUrls[request.base].replace(/\/+$/, "")}${request.path}`;
 
   let response: Response;
   try {

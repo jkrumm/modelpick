@@ -4,7 +4,7 @@
  *   bun run bench:decision [--models a,b] [--tasks contact-form-verdict,email-triage]
  *                          [--repeat N] [--dry-run]
  *
- * Decision models (Clef, Jev, PPLX Decider, Luna's Decisions route) answer yes/no,
+ * Decision models (Clef, Decision-1, Jev, PPLX Decider, Luna's Decisions route) answer yes/no,
  * choice and score questions with probabilities and generate no text, so no chat
  * leaderboard and none of bench-fast's tasks can say anything about them. This runs
  * email-gateway's real questions (src/server/bench/decision-tasks.ts) on graded
@@ -13,10 +13,14 @@
  *   accuracy      graded questions answered correctly (macro average over suites)
  *   Brier         calibration of the returned probabilities (lower is better)
  *   p50 latency   median wall time of one call
- *   $/1k calls    reported `usage.cost`; the Decisions wire reports none, so Luna's
- *                 cost is estimated from the rate card and marked as such
+ *   $/1k calls    reported `usage.cost`; Luna's Decisions wire and Decision-1 report
+ *                 none, so their cost is estimated from the rate card where one exists
+ *                 (else left blank) and marked as such
  *   error rate    failed calls (HTTP, timeout, malformed) — counted apart from wrong
  *   refusal rate  questions the model declined to answer
+ *
+ * Wires: systemone (`IU_DECISIONS_BASE_URL`) for Clef, Decision-1, PPLX and Jev;
+ * the OpenAI `/decisions` route (`IU_OPENAI_BASE_URL`) for Luna.
  *
  * Results go to `metric_snapshot` (source `live`, metrics `decision_*`) — the
  * /decision tab ranks from them — and the report to
@@ -55,6 +59,8 @@ const CANDIDATE_MODELS: readonly string[] = [
   "clef-flash",
   "pplx-decider-v1-27b",
   "jev-latest",
+  "decision-1",
+  "decision-1-eu",
   "gpt-6-luna:decisions",
 ];
 
@@ -149,7 +155,7 @@ async function runModel(
             modelId: model,
             state: testCase.state,
             questions: task.questions,
-            baseUrl: env("IU_OPENAI_BASE_URL"),
+            baseUrls: { openai: env("IU_OPENAI_BASE_URL"), systemone: env("IU_DECISIONS_BASE_URL") },
             apiKey: env("IU_API_KEY"),
             signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
           });
@@ -266,7 +272,7 @@ function buildReport(input: {
     "# bench-decision report",
     "",
     `Generated ${generatedAt}. Models: ${models.join(", ")}. Suites: ${tasks.map((t) => `${t.id} (${t.cases.length} cases)`).join(", ")}. Repeats: ${rounds}.`,
-    `Total spend: $${spendUsd.toFixed(4)}${spendEstimated ? " (includes rate-card estimates for the Decisions wire, which reports no cost)" : ""}.`,
+    `Total spend: $${spendUsd.toFixed(4)}${spendEstimated ? " (includes rate-card estimates for wires that report no cost)" : ""}.`,
     fullRun ? "" : "\n> Partial run (`--tasks`): only per-suite accuracy was written to `metric_snapshot`.",
     "",
     "## Headline",
@@ -323,9 +329,14 @@ async function main(): Promise<void> {
     return;
   }
 
-  // The Decisions wire reports no cost; price it from the chat model's rate card.
+  // The Decisions wire and Decision-1 report no cost; price them from the rate card.
   const rateIds = [...new Set(models.map((m) => decisionSpec(m)?.apiModel ?? m))];
   const rates = await loadRates(rateIds);
+  for (const model of models) {
+    const key = decisionSpec(model)?.apiModel ?? model;
+    const rate = decisionSpec(model)?.rate;
+    if (rate && !rates.has(key)) rates.set(key, rate);
+  }
 
   const perModel = await Promise.all(
     models.map((model) => runModel(model, tasks, repeats, rates.get(decisionSpec(model)?.apiModel ?? model))),
