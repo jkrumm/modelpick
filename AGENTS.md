@@ -48,7 +48,7 @@ Two tiers (`schema.ts`):
   Decision-1, Jev, PPLX Decider, Luna's Decisions API: yes/no, choice and score answers with
   probabilities, no text generation). No leaderboard scores them, so the recommender skips them,
   but they have their **own live eval**: `bun run bench:decision` (`scripts/bench-decision.ts`,
-  suites in `src/server/bench/decision-tasks.ts`, three repeats, `--dry-run` costs nothing, ~$0.06
+  suites in `src/server/bench/decision-tasks.ts`, three repeats, `--dry-run` costs nothing, ~$0.09
   for the full field) writes `decision_*` rows to `metric_snapshot` that rank the `/decision` tab.
   All but Luna are called on UE's native **systemone** API (`IU_DECISIONS_BASE_URL` +
   `/systemone`); Luna's Decisions route is its own catalog entry, `gpt-6-luna:decisions`, on the

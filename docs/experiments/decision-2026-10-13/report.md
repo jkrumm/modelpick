@@ -1,7 +1,7 @@
 # bench-decision report
 
-Generated 2026-10-13T13:34:33.683Z. Models: clef, clef-eu, clef-flash, pplx-decider-v1-27b, jev-latest, decision-1, decision-1-eu, gpt-6-luna:decisions. Suites: contact-form-verdict (25 cases), email-triage (15 cases), urgency-score (8 cases). Repeats: 3.
-Total spend: $0.0611 (includes rate-card estimates for wires that report no cost).
+Generated 2026-10-13T14:05:31.395Z. Models: clef, clef-eu, clef-flash, pplx-decider-v1-27b, jev-latest, decision-1, decision-1-eu, gpt-6-luna:decisions. Suites: contact-form-verdict (25 cases), email-triage (15 cases), urgency-score (8 cases), hard-verdict (20 cases). Repeats: 3.
+Total spend: $0.0892 (includes rate-card estimates for wires that report no cost).
 
 
 ## Headline
@@ -10,27 +10,27 @@ Ranked by accuracy (macro average over suites), then Brier, then median latency;
 
 | # | model | accuracy | Brier | p50 ms | $/1k calls | errors | refusals | unstable cases |
 |-|-|-|-|-|-|-|-|-|
-| 1 | `pplx-decider-v1-27b` | 100.0% | 0.0015 | 335 | $0.019 | 0/144 | 0.0% | 0 |
-| 2 | `gpt-6-luna:decisions` | 100.0% | 0.0102 | 309 | $0.048 (est.) | 0/144 | 0.0% | 0 |
-| 3 | `jev-latest` | 100.0% | 0.0123 | 265 | $0.029 | 0/144 | 0.0% | 0 |
-| 4 | `clef-eu` (EU) | 98.3% | 0.0365 | 216 | $0.125 | 0/144 | 0.0% | 1 |
-| 5 | `clef` | 96.4% | 0.0559 | 337 | $0.125 | 0/144 | 0.0% | 0 |
-| 6 | `decision-1` | 94.4% | 0.0059 | 313 | $0.015 (est.) | 0/144 | 0.0% | 1 |
-| 7 | `clef-flash` | 93.8% | 0.1354 | 390 | $0.047 | 0/144 | 0.0% | 0 |
-| 8 | `decision-1-eu` (EU) | 88.9% | 0.0058 | 201 | $0.015 (est.) | 0/144 | 0.0% | 1 |
+| 1 | `pplx-decider-v1-27b` | 100.0% | 0.0011 | 342 | $0.019 | 0/204 | 0.0% | 0 |
+| 2 | `gpt-6-luna:decisions` | 100.0% | 0.0111 | 303 | $0.049 (est.) | 0/204 | 0.0% | 0 |
+| 3 | `jev-latest` | 100.0% | 0.0122 | 266 | $0.030 | 0/204 | 0.0% | 0 |
+| 4 | `clef-eu` (EU) | 97.8% | 0.0464 | 144 | $0.129 | 0/204 | 0.0% | 0 |
+| 5 | `clef` | 96.1% | 0.0658 | 359 | $0.129 | 0/204 | 0.0% | 0 |
+| 6 | `clef-flash` | 94.1% | 0.1479 | 381 | $0.048 | 0/204 | 0.0% | 0 |
+| 7 | `decision-1` | 93.8% | 0.0045 | 320 | $0.016 (est.) | 0/204 | 0.0% | 2 |
+| 8 | `decision-1-eu` (EU) | 92.7% | 0.0051 | 191 | $0.016 (est.) | 0/204 | 0.0% | 2 |
 
 ## Accuracy per suite
 
-| model | `contact-form-verdict` | `email-triage` | `urgency-score` |
-|-|-|-|-|
-| `pplx-decider-v1-27b` | 100.0% | 100.0% | 100.0% |
-| `gpt-6-luna:decisions` | 100.0% | 100.0% | 100.0% |
-| `jev-latest` | 100.0% | 100.0% | 100.0% |
-| `clef-eu` | 96.0% | 98.9% | 100.0% |
-| `clef` | 96.0% | 93.3% | 100.0% |
-| `decision-1` | 100.0% | 100.0% | 83.3% |
-| `clef-flash` | 88.0% | 93.3% | 100.0% |
-| `decision-1-eu` | 100.0% | 100.0% | 66.7% |
+| model | `contact-form-verdict` | `email-triage` | `urgency-score` | `hard-verdict` |
+|-|-|-|-|-|
+| `pplx-decider-v1-27b` | 100.0% | 100.0% | 100.0% | 100.0% |
+| `gpt-6-luna:decisions` | 100.0% | 100.0% | 100.0% | 100.0% |
+| `jev-latest` | 100.0% | 100.0% | 100.0% | 100.0% |
+| `clef-eu` | 96.0% | 100.0% | 100.0% | 95.0% |
+| `clef` | 96.0% | 93.3% | 100.0% | 95.0% |
+| `clef-flash` | 88.0% | 93.3% | 100.0% | 95.0% |
+| `decision-1` | 100.0% | 100.0% | 75.0% | 100.0% |
+| `decision-1-eu` | 100.0% | 100.0% | 70.8% | 100.0% |
 
 ## Where the field splits
 
@@ -41,9 +41,11 @@ Ranked by accuracy (macro average over suites), then Brier, then median latency;
 | `contact-form-verdict/reseller-licence-pitch` | clef (3/3), clef-eu (3/3), clef-flash (3/3) |
 | `email-triage/security-alert` | clef (6/6), clef-flash (3/6) |
 | `email-triage/visitor-confirmation` | clef-flash (3/6) |
-| `urgency-score/casual-suggestion` | decision-1-eu (2/3) |
+| `urgency-score/casual-suggestion` | decision-1 (2/3), decision-1-eu (2/3) |
 | `urgency-score/site-down-checkout` | decision-1 (3/3), decision-1-eu (3/3) |
-| `urgency-score/berth-cancelled-guests-arriving` | decision-1-eu (3/3) |
+| `urgency-score/berth-cancelled-guests-arriving` | decision-1-eu (2/3) |
+| `hard-verdict/hard-legit-urgent-commands` | clef-flash (3/3) |
+| `hard-verdict/hard-legit-found-via-google` | clef (3/3), clef-eu (3/3) |
 
 ## Errors
 

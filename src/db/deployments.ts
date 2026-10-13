@@ -992,14 +992,14 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     service: "email-gateway",
     slot: "decision-lane",
     label: "shadow decision lane (Jev, historical name)",
-    model_id: "decision-1-eu",
+    model_id: "pplx-decider-v1-27b",
     category: "decision",
     thinking: "n/a",
     params:
-      "DECISION_PROVIDER=ue; UE systemone wire (POST <origin of LLM_BASE_URL>/decisions/v1/systemone, DECISION_BASE_URL overrides), Bearer key, no sampling params. No cost on the wire: argo prices it at $0.042/1M input (DECISION_RATES). Shadow mode: recorded beside the LLM classifier's verdict, never authoritative. DECISION_MODEL defaults to decision-1-eu in src/env.ts too.",
+      "DECISION_PROVIDER=ue; UE systemone wire via @ai-sdk/typesafe-ai (createTypeSafeAi({ baseURL: <origin of LLM_BASE_URL>/decisions/v1 }).decisionModel, experimental_decide; DECISION_BASE_URL overrides), no sampling params. The provider drops usage.cost, so argo cost is computed from DECISION_RATES. Shadow mode: recorded beside the LLM classifier's verdict, never authoritative. DECISION_MODEL defaults to pplx-decider-v1-27b in src/env.ts too.",
     config_ref: "vps/apps/email-gateway/compose.yml:43",
     rationale:
-      "2026-10-13: clef-eu -> decision-1-eu on UE's native systemone API. 100% on the lane's two suites (clef-eu 97.5%), Brier 0.006 vs 0.036, same ~200 ms, ~8x cheaper, EU (Azure swedencentral; plain decision-1 is US-served). Earlier: Vercel Jev (403, 2026-09-21) -> OpenRouter Clef (2026-10-05) -> UE clef-eu (2026-10-09).",
+      "2026-10-13: residency and cost are not criteria (owner). The only model at 100% on all four bench suites incl. adversarial hard-verdict and urgency, Brier 0.0011 (10x the next), hedges on borderline cases and honours the 'when unsure, choose legit' rule jev-latest breaks. Earlier: Vercel Jev (403) -> OpenRouter Clef -> UE clef-eu (2026-10-09) -> decision-1-eu (2026-10-13, residency + cost) -> PPLX the same day.",
     decision_doc: "docs/decisions/decision-model.md",
     decided_at: "2026-10-13",
     verified_at: "2026-10-13",

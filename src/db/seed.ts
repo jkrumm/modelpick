@@ -181,11 +181,11 @@ const MY_STACK: StackChoiceInsert[] = [
   },
   {
     category: "decision",
-    model_id: "decision-1-eu",
+    model_id: "pplx-decider-v1-27b",
     env_note:
-      "email-gateway's decision lane (DECISION_MODEL decision-1-eu on UE's native systemone API, /decisions/v1/systemone): typed yes/no and choice answers with probabilities, no text generation. EU deployment (Azure swedencentral) — the plain decision-1 id is served from the US. gpt-6-luna stays the chat model for everything else in that service.",
+      "email-gateway's decision lane (DECISION_MODEL pplx-decider-v1-27b on UE's native systemone API, /decisions/v1/systemone, via @ai-sdk/typesafe-ai): typed yes/no and choice answers with probabilities, no text generation. gpt-6-luna stays the chat model for everything else in that service.",
     rationale:
-      "2026-10-13 (docs/decisions/decision-model.md): on email-gateway's own two suites (live verdict question, inbound spam + category) it is 100% against clef-eu's 97.5%, with ~6x better calibration (Brier 0.006 vs 0.036), the same ~200 ms median and ~8x lower cost ($0.042/1M input, output free). Its weakness is score questions behind an injection-guard clause (urgency suite 66.7%), which the lane does not ask. No external leaderboard scores decision models, so the recommender never picks here.",
+      "2026-10-13 (docs/decisions/decision-model.md): residency and cost are not criteria (owner). The only model at 100% on all four bench suites incl. the adversarial hard-verdict and the urgency score, Brier 0.0011 (10x the next), hedges on borderline cases (0.74-0.92), and honours the question's 'when unsure, choose legit' rule that jev-latest breaks. No external leaderboard scores decision models, so the recommender never picks here.",
     decided_at: "2026-10-13",
   },
 ];

@@ -1,11 +1,12 @@
-# Decision Models — `decision-1-eu` for email-gateway's decision lane
+# Decision Models — `pplx-decider-v1-27b` for email-gateway's decision lane
 
-> **Current verdict (2026-10-13):** the `decision` pick is **`decision-1-eu`** (Microsoft Decision-1,
-> EU deployment on Azure swedencentral), called on UE's native systemone API, for email-gateway's
-> decision lane. It replaces `clef-eu` (2026-10-09). On email-gateway's own two suites it is
-> 100% against `clef-eu`'s 97.5%, with ~6x better calibration, the same ~200 ms median and ~8x lower
-> cost. Its one weakness, score questions behind an injection-guard clause, is a question type the
-> lane does not ask. Wired as `DECISION_MODEL` in `vps/apps/email-gateway/compose.yml`.
+> **Current verdict (2026-10-13, revised the same day):** the `decision` pick is
+> **`pplx-decider-v1-27b`** (Perplexity Decider, 27B), called on UE's native systemone API, for
+> email-gateway's decision lane. The owner dropped residency and cost as criteria. Without them it is
+> the only model with no weakness found: 100% on all four suites (204 calls, none unstable), Brier
+> 0.0011 (10x better than the next), honest hedging on borderline cases, and it follows the lane's
+> "when unsure, choose legit" rule. Its ~340 ms median does not matter for an async mail lane.
+> Wired as `DECISION_MODEL` in `vps/apps/email-gateway/compose.yml`.
 > **Status of this record:** current. First record of its kind.
 > Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md); wire formats in
 > [model-configs.md](./model-configs.md) §Decision models.
@@ -32,7 +33,72 @@ breaks every assumption the chat categories rest on:
 its own catalog entry, `gpt-6-luna:decisions` (modality `decision`), so the chat model row and its
 five running slots are untouched.
 
-## 2026-10-13 — systemone, Decision-1, and the switch to `decision-1-eu`
+## 2026-10-13 (later) — residency and cost dropped, `pplx-decider-v1-27b`
+
+**The owner changed the criteria the same day:** where a model runs and what it costs are not
+deciding factors (IU pays, and every decision model is fractions of a cent per thousand calls).
+Both of `decision-1-eu`'s advantages below came from those criteria, apart from 60 ms of
+latency on an async lane. With them gone the question is accuracy that holds up, plus confidence that
+means something.
+
+**The bench saturated, so it was made harder.** A fourth suite, `hard-verdict`, puts the live verdict
+question on 20 adversarial cases:
+- legit mail with red flags: URGENT plus "ignore the auto-reply", an SEO-sounding job offer, a
+  paid banner, a `<script>` bug report, an angry user, German and Italian one-liners;
+- sales pitches dressed as bug reports or partnerships;
+- phishing and prompt injection dressed as customers.
+
+Full run, 8 models × 68 cases × 3 = 1,632 calls, **$0.089**. Report:
+[`docs/experiments/decision-2026-10-13/report.md`](../experiments/decision-2026-10-13/report.md).
+
+| # | model | verdict / triage / urgency / hard | Brier | p50 | unstable |
+|-|-|-|-|-|-|
+| 1 | `pplx-decider-v1-27b` | 100 / 100 / 100 / 100 | 0.0011 | 342 ms | 0 |
+| 2 | `gpt-6-luna:decisions` | 100 / 100 / 100 / 100 | 0.0111 | 303 ms | 0 |
+| 3 | `jev-latest` | 100 / 100 / 100 / 100 | 0.0122 | 266 ms | 0 |
+| 4 | `clef-eu` | 96 / 100 / 100 / 95 | 0.0464 | 144 ms | 0 |
+| 5 | `clef` | 96 / 93.3 / 100 / 95 | 0.0658 | 359 ms | 0 |
+| 6 | `clef-flash` | 88 / 93.3 / 100 / 95 | 0.1479 | 381 ms | 0 |
+| 7 | `decision-1` | 100 / 100 / 75 / 100 | 0.0045 | 320 ms | 2 |
+| 8 | `decision-1-eu` | 100 / 100 / ~67 / 100 | 0.0051 | 191 ms | 2 |
+
+The hard suite only knocked out the Clef family (`clef`/`clef-eu` call a family that "found you
+through Google, your site ranks well" marketing). Five models stayed perfect on it, so accuracy still
+cannot separate PPLX, Luna, Jev and Decision-1.
+
+**The tie-break is calibration, so it was probed directly.** On 2026-10-09 PPLX's Brier was
+discounted as possible blanket overconfidence: always right, so never tested. An ad-hoc probe sent
+five deliberately borderline submissions: a fan who also pitches UX work, a question plus a
+cross-promotion offer, an event agency wanting to list the yacht for commission, a blogger asking
+for a discount, and "hi can we talk about your website". Probability on the chosen label:
+
+| case | PPLX | Jev | decision-1-eu | Luna |
+|-|-|-|-|-|
+| fan-plus-ux-pitch | marketing 0.92 | marketing 0.98 | marketing 0.97 | marketing 0.80 |
+| cross-promo | legit 0.91 | **marketing 0.58** | legit 0.79 | legit 0.57 |
+| event-agency-commission | legit 0.90 | **marketing 0.59** | legit 0.77 | legit 0.53 |
+| blogger-discount | legit 0.85 | legit 0.68 | legit 0.79 | legit 0.83 |
+| vague-one-liner | legit 0.74 | legit 0.87 | legit 0.71 | legit 0.87 |
+
+- **PPLX hedges.** It is not pinned at 0.99. The 2026-10-09 worry is answered: its low Brier is
+  being right with confidence that drops when the case is unclear.
+- **Jev breaks the question's own rule.** At 0.58 it is unsure, and the question says "when
+  genuinely unsure between legit and another category, choose legit". It picks marketing anyway,
+  twice, which is the error that costs a lead.
+- **Luna hedges hardest** (0.53, 0.57), but it is on a different wire (OpenAI `/decisions`, not
+  systemone) and its latency is erratic: 2.2 s p50 on one run of the hard suite, 0.3 s on others.
+
+### Verdict
+
+**`pplx-decider-v1-27b`.** It is the only model that is perfect on every suite, including the
+urgency score `decision-1` fails and the tie-break rule Jev ignores. It has the best calibration by
+an order of magnitude, and that calibration now has evidence behind it. The 2026-10-09 caveat on its
+confidences is withdrawn.
+
+`decision-1-eu` was the pick for a few hours. It is still the answer if residency comes back as a
+requirement and the lane stays boolean/choice only.
+
+## 2026-10-13 — systemone, Decision-1, and the (superseded) switch to `decision-1-eu`
 
 UE added a native decision API on 2026-10-13: **systemone** (Jev's format, adopted by Cloudflare
 Clef and Microsoft Decision-1) at `/decisions/v1/systemone`, with its own model list at
@@ -189,6 +255,7 @@ reports no cost on the wire) rather than staying on `clef-eu` by inertia.
 | 2026-10-05 | moved to OpenRouter `cloudflare/clef` | owner-paid; Workers AI per-minute 429s appeared |
 | 2026-10-09 | moved to UE `clef-eu` | IU-billed, EU-hosted, 165 ms; the benchmark above |
 | 2026-10-13 | moved to UE `decision-1-eu` on systemone | perfect on the lane's questions, 6x better Brier, ~8x cheaper, still EU |
+| 2026-10-13 | moved to UE `pplx-decider-v1-27b`, client on `@ai-sdk/typesafe-ai` | owner dropped residency and cost; only model perfect on all four suites, best calibration |
 
 ## Landscape (research, 2026-10-09)
 
@@ -210,17 +277,19 @@ Any one of these re-runs `bun run bench:decision` and revisits the pick:
    it as a `decision` row and warns that it is unregistered. Add it to `src/db/decision-models.ts`
    (region, rate) and `CANDIDATE_MODELS` in the bench script. PPLX Decider v1.1, a new Jev pin and
    Decision-1's announced MAI/OpenAI rebase are the first candidates.
-2. **`decision-1-eu` starts failing** in email-gateway: 429s against its 250/min limit, 5xx, or
-   malformed answers in the `jev_*` job failures.
+2. **`pplx-decider-v1-27b` starts failing** in email-gateway: 429s, 5xx, or malformed answers in
+   the `jev_*` job failures. PPLX Decider v1.1 appearing on `/decisions/v1/models` is a re-bench
+   on its own.
 3. **Agreement drops.** The decision lane's verdict and the LLM classifier's verdict, which
    email-gateway stores side by side per submission, disagree noticeably more often than they did
    on `clef-eu`.
-4. **The residency requirement changes.** Without it the ranking above decides, not the EU line.
-5. **The lane adds a score question.** Decision-1's urgency result (66.7%) is then the relevant
-   number. Re-phrase the injection guard as above and re-bench before relying on it.
-6. **A bench re-run moves `decision-1-eu`.** Any miss on `contact-form-verdict` or `email-triage`,
-   in particular a genuine job offer, sponsorship or charter enquiry called spam (a false negative
-   costs a lead).
+4. **Residency or cost becomes a requirement again.** Then `decision-1-eu` (EU, cheapest) is the
+   answer for a boolean/choice-only lane; see the first 2026-10-13 section.
+5. **The lane adds a score question.** PPLX handled urgency at 100%. Decision-1 is the one to avoid
+   there.
+6. **A bench re-run moves the pick.** Any miss on `contact-form-verdict`, `email-triage` or
+   `hard-verdict`, in particular a genuine job offer, sponsorship or charter enquiry called spam (a
+   false negative costs a lead).
 
 ## Consumers
 
@@ -229,5 +298,5 @@ and checked by `bun run verify-deployments`:
 
 | slot | model | wired in |
 |-|-|-|
-| `decision-lane` | `decision-1-eu` | `vps/apps/email-gateway/compose.yml` `DECISION_MODEL` |
+| `decision-lane` | `pplx-decider-v1-27b` | `vps/apps/email-gateway/compose.yml` `DECISION_MODEL` |
 | `spam-classifier`, `enrichment`, `thread-summary`, `draft-reply` | `gpt-6-luna` (chat) | `compose.yml` `LLM_MODEL` — one env var, four lanes |
