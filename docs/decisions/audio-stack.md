@@ -2,9 +2,10 @@
 
 > **Current verdict (2026-09-12):** TTS runs ElevenLabs via the IU Replicate route
 > (`elevenlabs/flash-v2.5` chat, `elevenlabs/v3` briefings, voice `Mark`), with Gemini 3.1
-> Flash TTS kept served as the EU-resident fallback. STT stays `gpt-4o-transcribe` (US-routed)
-> with `whisper` for EU/diarization gaps — the primary STT's US routing is still an open
-> residency question.
+> Flash TTS kept served as the EU-resident fallback. STT is `gpt-transcribe` since 2026-10-15
+> (US-routed, like the `gpt-4o-transcribe` it replaces) with `whisper` for EU/diarization gaps —
+> the primary STT's US routing is still an open residency question. See
+> [STT re-pick (2026-10-15)](#stt-re-pick-2026-10-15-gpt-transcribe).
 > **Status of this record:** partly superseded — see §TTS re-pick (2026-08-26): ElevenLabs via
 > Replicate, which moved the top-level 2026-05-25 TTS decision (Gemini 3.1 Flash default).
 > Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
@@ -196,6 +197,34 @@ by ear (2026-08-26) over Roger, Drew, Paul, Bradford, James and Clyde on both mo
 route, but it is URL-in/JSON-out and Hermes' native ElevenLabs STT needs a vendor key — a gateway
 adapter later, only if transcripts show real errors. One Hermes bug fixed on the way: upstream
 defaults `stt.language: en`, which was forced onto every German voice message; now auto-detect.
+
+## STT re-pick (2026-10-15): gpt-transcribe
+
+**Why now:** on 2026-08-26 OpenAI announced that `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`,
+`gpt-4o-transcribe-diarize` and `whisper-1` shut down on **2027-02-26**; the named successor for
+file transcription is `gpt-transcribe` (released 2026-07-28, $0.0045/min vs $0.006). It is live on
+the IU OpenAI leg (routed through the OpenAI vendor key, so the same US routing as before).
+
+**Measured on the IU endpoint (German voice memo, 16 kHz mono mp3):**
+
+| Clip | Model | chars/s | unique sentences | longest repeat |
+|-|-|-|-|-|
+| 240 s | gpt-4o-transcribe | 19.3 | 100% | 1 |
+| 240 s | gpt-transcribe | 19.3 | 100% | 1 |
+| 480 s | gpt-transcribe | 19.8 | 98% | 1 |
+| 900 s | gpt-transcribe | 19.4 | 100% | 1 |
+| 1500 s | gpt-transcribe | 19.1 | 100% | 1 |
+
+Word-level diff between the two models on the 240 s clip: 3.6%, mostly hyphenation
+(`Private-Equity-Partner`) and punctuation. No repetition collapse (gpt-4o-transcribe loops past
+~300 s) and no truncation or 1400 s cap up to 1500 s; 1500 s took 40 s wall clock. The response is
+`{text, languages:[{code}], usage:{type:"duration",seconds}}`; `verbose_json`/`srt` are rejected
+(503, "use json or text"), so the gateway keeps synthesizing the envelope and `whisper` stays the
+native-timestamp model until its own shutdown. audio-gateway keeps its 240 s chunk ceiling for
+concurrency within its 255 s socket budget, not for quality.
+
+**Not settled:** no published German WER for `gpt-transcribe`; diarization has no successor on
+this endpoint yet.
 
 ## Superseded: local Fish S2 Pro + Parakeet (2026-04-29)
 

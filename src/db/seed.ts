@@ -145,9 +145,10 @@ const MY_STACK: StackChoiceInsert[] = [
   },
   {
     category: "stt",
-    model_id: "gpt-4o-transcribe",
-    rationale: "Most accurate IU STT; Whisper kept only for timestamps/verbose_json.",
-    decided_at: "2026-05-25",
+    model_id: "gpt-transcribe",
+    rationale:
+      "Successor to gpt-4o-transcribe, which OpenAI shuts down 2027-02-26 (with whisper-1 and gpt-4o-mini-transcribe). Measured on German voice memos 2026-10-15: matches gpt-4o-transcribe on a 240 s clip (3.6% word diff, mostly hyphenation), no repetition collapse or truncation up to 1500 s, $0.0045/min vs $0.006. json/text only — Whisper kept for native timestamps until its own shutdown. See docs/decisions/audio-stack.md.",
+    decided_at: "2026-10-15",
   },
   // Manual categories — no leaderboard scores these, so there is no algorithmic
   // recommendation and no drift flag. Rationale is research-backed; refresh via
