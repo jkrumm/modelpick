@@ -120,7 +120,9 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
   if (degraded.length > 0) console.error(`[refresh] degraded sources: ${degraded.join(", ")}`);
   const allOk = probe.ok && collect.ok && recommend.ok && degraded.length === 0;
   const okCount = [probe, collect, recommend].filter((s) => s.ok).length;
-  console.log(`[refresh] summary: ${okCount}/3 steps ok`);
+  console.log(
+    `[refresh] summary: ${okCount}/3 steps ok${degraded.length > 0 ? `, ${degraded.length} degraded source(s)` : ""}`,
+  );
 
   return { probe, collect, recommend, degraded, allOk };
 }

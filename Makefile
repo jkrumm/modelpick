@@ -37,6 +37,7 @@ build:
 
 refresh-setup: ## Install + load the 06:00 daily refresh LaunchAgent (mini only)
 	@test "$$(cat ~/.config/secrets/backend 2>/dev/null)" = cache || { echo "refresh-setup: dev host only (secrets backend is not 'cache')"; exit 1; }
+	@test -x "$(HOME)/.local/bin/jobrun" || { echo "refresh-setup: $(HOME)/.local/bin/jobrun missing — run 'make setup' in dotfiles"; exit 1; }
 	@mkdir -p "$(HOME)/Library/LaunchAgents" "$(HOME)/Library/Logs"
 	@sed -e 's|__HOME__|$(HOME)|g' -e 's|__REPO__|$(CURDIR)|g' "$(REFRESH_TMPL)" > "$(REFRESH_PLIST)"
 	@plutil -lint "$(REFRESH_PLIST)" >/dev/null
@@ -51,7 +52,7 @@ refresh-check: ## Is the daily refresh agent loaded, and how did its last run en
 	@launchctl print "gui/$$(id -u)/$(REFRESH_LABEL)" 2>/dev/null | grep -E 'state =|last exit code|pid =' || { echo "✗ $(REFRESH_LABEL) not loaded — make refresh-setup"; exit 1; }
 	@tail -n 3 "$(HOME)/Library/Logs/modelpick-refresh.log" 2>/dev/null || true
 
-refresh-teardown: ## Unload + remove the daily refresh LaunchAgent (logs kept)
+refresh-teardown: ## Unload + remove the daily refresh LaunchAgent and its jobrun state (logs kept)
 	@launchctl bootout "gui/$$(id -u)/$(REFRESH_LABEL)" 2>/dev/null || true
 	@rm -f "$(REFRESH_PLIST)" "$(HOME)/.local/state/jobs/$(REFRESH_LABEL).json"
 	@echo "✓ $(REFRESH_LABEL) removed"
