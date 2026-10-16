@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { VxThemeProvider, useVxTheme } from "../theme";
 import { ChartCard } from "../primitives/ChartCard";
@@ -238,17 +239,24 @@ describe("BarSparkline", () => {
   });
 });
 
+function ThemeCapture({ onLine }: { onLine: (v: string) => void }) {
+  const theme = useVxTheme();
+  useEffect(() => {
+    onLine(theme.line);
+  }, [onLine, theme.line]);
+  return null;
+}
+
 describe("VxThemeProvider theme resolution", () => {
   it("resolves dark theme line color", () => {
     let capturedLine = "";
-    function ThemeCapture() {
-      const theme = useVxTheme();
-      capturedLine = theme.line;
-      return null;
-    }
     render(
       <DarkWrapper>
-        <ThemeCapture />
+        <ThemeCapture
+          onLine={(v) => {
+            capturedLine = v;
+          }}
+        />
       </DarkWrapper>,
     );
     expect(capturedLine).toBe("#c9d1d9");
@@ -256,14 +264,13 @@ describe("VxThemeProvider theme resolution", () => {
 
   it("resolves light theme line color", () => {
     let capturedLine = "";
-    function ThemeCapture() {
-      const theme = useVxTheme();
-      capturedLine = theme.line;
-      return null;
-    }
     render(
       <LightWrapper>
-        <ThemeCapture />
+        <ThemeCapture
+          onLine={(v) => {
+            capturedLine = v;
+          }}
+        />
       </LightWrapper>,
     );
     expect(capturedLine).toBe("#57606a");

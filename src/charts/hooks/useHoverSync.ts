@@ -1,5 +1,5 @@
 import { localPoint } from "@visx/event";
-import { useCallback, useContext } from "react";
+import { useCallback, useContext, useEffect } from "react";
 import { DEFAULT_NO_OP_SET_HOVER, HoverContext } from "../hover-context";
 import { useChartTooltip } from "./useChartTooltip";
 
@@ -34,13 +34,15 @@ export function useHoverSync<T>({
 }) {
   const ctx = useContext(HoverContext);
 
-  if (import.meta.env.DEV && ctx.setHover === DEFAULT_NO_OP_SET_HOVER && !warnedMissingProvider) {
+  const missingProvider = ctx.setHover === DEFAULT_NO_OP_SET_HOVER;
+  useEffect(() => {
+    if (!import.meta.env.DEV || !missingProvider || warnedMissingProvider) return;
     warnedMissingProvider = true;
     // eslint-disable-next-line no-console
     console.warn(
       "[charts] useHoverSync used outside <HoverContext.Provider>. Cross-chart cursor sync will not work.",
     );
-  }
+  }, [missingProvider]);
 
   const { tip, show, hide, tooltipRef, lastDateRef } = useChartTooltip<T>();
 

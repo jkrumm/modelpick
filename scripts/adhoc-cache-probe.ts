@@ -9,7 +9,7 @@
 // (does cache_read advance past the system block, or stay stuck there?).
 //
 //   secrets-run run --env-file=.env.tpl -- bun run scripts/adhoc-cache-probe.ts <model-id> [...]
-import { rawFetch } from "../src/server/iu/client.js";
+export {}; // module marker: top-level await below needs this file to be a module
 
 const ANTHROPIC_VERSION = "2023-06-01";
 const SLEEP_MS = 2000;

@@ -1,5 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { VX } from "../tokens";
+
+const subscribeNoop = () => () => {};
 
 /**
  * Gates a visx chart to the client-only render pass.
@@ -20,11 +22,13 @@ export function ClientOnly({
   fallbackHeight: number;
   children: ReactNode;
 }) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // Server snapshot (and the hydration pass) is false; the client switches to true
+  // right after hydration without a setState-in-effect.
+  const mounted = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
 
   if (!mounted) {
     // VX.grid / VX.axisStrokeDark are scheme-neutral alpha tokens, so the
