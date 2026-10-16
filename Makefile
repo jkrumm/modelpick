@@ -41,6 +41,8 @@ refresh-setup: ## Install + load the 06:00 daily refresh LaunchAgent (mini only)
 	@sed -e 's|__HOME__|$(HOME)|g' -e 's|__REPO__|$(CURDIR)|g' "$(REFRESH_TMPL)" > "$(REFRESH_PLIST)"
 	@plutil -lint "$(REFRESH_PLIST)" >/dev/null
 	@launchctl bootout "gui/$$(id -u)/$(REFRESH_LABEL)" 2>/dev/null || true
+	@# bootout returns before teardown finishes; bootstrapping too early fails with error 5.
+	@for _ in $$(seq 20); do launchctl print "gui/$$(id -u)/$(REFRESH_LABEL)" >/dev/null 2>&1 || break; sleep 0.5; done
 	@launchctl bootstrap "gui/$$(id -u)" "$(REFRESH_PLIST)"
 	@echo "✓ $(REFRESH_LABEL) loaded — 06:00 daily; logs ~/Library/Logs/modelpick-refresh.{log,err}"
 	@echo "  run once now: launchctl kickstart gui/$$(id -u)/$(REFRESH_LABEL)"
@@ -60,6 +62,8 @@ web-setup: build ## Build, then install + load the always-on dashboard LaunchAge
 	@sed -e 's|__HOME__|$(HOME)|g' -e 's|__REPO__|$(CURDIR)|g' "$(WEB_TMPL)" > "$(WEB_PLIST)"
 	@plutil -lint "$(WEB_PLIST)" >/dev/null
 	@launchctl bootout "gui/$$(id -u)/$(WEB_LABEL)" 2>/dev/null || true
+	@# bootout returns before teardown finishes; bootstrapping too early fails with error 5.
+	@for _ in $$(seq 20); do launchctl print "gui/$$(id -u)/$(WEB_LABEL)" >/dev/null 2>&1 || break; sleep 0.5; done
 	@launchctl bootstrap "gui/$$(id -u)" "$(WEB_PLIST)"
 	@$(MAKE) --no-print-directory web-check
 
