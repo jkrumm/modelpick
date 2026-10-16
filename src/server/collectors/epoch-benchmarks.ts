@@ -813,6 +813,33 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "score_ceiling": 1,
     "release_date": "2026-09-18",
     "superseded_by": null
+  },
+  {
+    "benchmark": "SpireClimb (Slay the Spire 1, Ascension 20 Heart)",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2026-10-14",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "SpireClimb (Slay the Spire 2, Ascension 10)",
+    "metric": null,
+    "in_eci": false,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2026-10-14",
+    "superseded_by": null
+  },
+  {
+    "benchmark": "SpireClimb",
+    "metric": "spireclimb",
+    "in_eci": true,
+    "random_baseline": 0,
+    "score_ceiling": 1,
+    "release_date": "2026-10-14",
+    "superseded_by": null
   }
 ];
 
