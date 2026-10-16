@@ -9,6 +9,8 @@ export interface RefreshResult {
   probe: RefreshStepResult;
   collect: RefreshStepResult;
   recommend: RefreshStepResult;
+  /** Collectors that failed or returned 0 rows. Their metrics are still persisted; the run is not allOk. */
+  degraded: string[];
   allOk: boolean;
 }
 
@@ -42,6 +44,7 @@ async function runStep(name: string, fn: () => Promise<string>): Promise<Refresh
  * Within collect, individual collector failures are isolated via Promise.allSettled.
  */
 export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
+  const degraded: string[] = [];
   const probe = await runStep("probe", async () => {
     const results = await deps.probe();
     const accessible = results.filter((r) => r.accessible).length;
@@ -57,6 +60,17 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
         deps.collectEqbench(),
         deps.collectLmarena(),
       ]);
+
+    const sources = [
+      ["openrouter", orSettled],
+      ["artificialanalysis", aaSettled],
+      ["epoch", epochSettled],
+      ["eqbench", eqbenchSettled],
+      ["lmarena", lmarenaSettled],
+    ] as const;
+    for (const [name, settled] of sources) {
+      if (settled.status === "rejected" || settled.value.metrics.length === 0) degraded.push(name);
+    }
 
     const metrics: NormalizedMetric[] = [];
     if (orSettled.status === "fulfilled") {
@@ -103,9 +117,10 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
     return "done";
   });
 
-  const allOk = probe.ok && collect.ok && recommend.ok;
+  if (degraded.length > 0) console.error(`[refresh] degraded sources: ${degraded.join(", ")}`);
+  const allOk = probe.ok && collect.ok && recommend.ok && degraded.length === 0;
   const okCount = [probe, collect, recommend].filter((s) => s.ok).length;
   console.log(`[refresh] summary: ${okCount}/3 steps ok`);
 
-  return { probe, collect, recommend, allOk };
+  return { probe, collect, recommend, degraded, allOk };
 }

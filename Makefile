@@ -53,7 +53,7 @@ refresh-check: ## Is the daily refresh agent loaded, and how did its last run en
 
 refresh-teardown: ## Unload + remove the daily refresh LaunchAgent (logs kept)
 	@launchctl bootout "gui/$$(id -u)/$(REFRESH_LABEL)" 2>/dev/null || true
-	@rm -f "$(REFRESH_PLIST)"
+	@rm -f "$(REFRESH_PLIST)" "$(HOME)/.local/state/jobs/$(REFRESH_LABEL).json"
 	@echo "✓ $(REFRESH_LABEL) removed"
 
 web-setup: build ## Build, then install + load the always-on dashboard LaunchAgent (mini only)

@@ -219,6 +219,10 @@ verifies real access and residency.
 `bun run refresh` runs `scripts/refresh.ts` locally: probe access → collect external
 metrics (OpenRouter, ArtificialAnalysis, Epoch AI, EQ-Bench, LMArena) → recommend (re-score + persist picks +
 rationale). Steps are independent; one failure doesn't abort the rest, but the exit is 1.
+A collector that fails or returns 0 rows is a *degraded source*: its siblings' metrics are still
+persisted, the run exits 1 (`RefreshResult.degraded`). The agent runs under `jobrun`
+(dotfiles: `--every 86400 --timeout 3600`, state in `~/.local/state/jobs/`), so a red run becomes
+a warden `job` item for this repo.
 Green tests ≠ working pipeline — confirm against live data after changes. On the mini the
 `com.jkrumm.modelpick-refresh` LaunchAgent (`make refresh-setup`, 06:00, no `KeepAlive` —
 a failed step must not retry all day) runs it; `make refresh-check` shows the last exit.

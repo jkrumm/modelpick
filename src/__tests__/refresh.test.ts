@@ -13,10 +13,10 @@ const baseMetric = {
 const makeDeps = (overrides: Partial<RefreshDeps> = {}): RefreshDeps => ({
   probe: vi.fn().mockResolvedValue([{ accessible: true }, { accessible: false }]),
   collectOpenRouter: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
-  collectArtificialAnalysis: vi.fn().mockResolvedValue({ metrics: [], unmatched: [] }),
-  collectEpoch: vi.fn().mockResolvedValue({ metrics: [], unmatched: [] }),
-  collectEqbench: vi.fn().mockResolvedValue({ metrics: [], unmatched: [] }),
-  collectLmarena: vi.fn().mockResolvedValue({ metrics: [], unmatched: [] }),
+  collectArtificialAnalysis: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
+  collectEpoch: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
+  collectEqbench: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
+  collectLmarena: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
   insertMetrics: vi.fn().mockResolvedValue(undefined),
   runRecommender: vi.fn().mockResolvedValue(undefined),
   ...overrides,
@@ -62,7 +62,7 @@ describe("runRefresh", () => {
   });
 
   it("collect step handles partial collector failure via allSettled", async () => {
-    // OR throws but AA succeeds — collect step itself stays ok
+    // OR throws but the rest succeed — collect step stays ok, the run is degraded
     const deps = makeDeps({
       collectOpenRouter: vi.fn().mockRejectedValue(new Error("OR timeout")),
       collectArtificialAnalysis: vi.fn().mockResolvedValue({
@@ -74,9 +74,22 @@ describe("runRefresh", () => {
 
     // collect step is still ok because allSettled catches OR failure
     expect(result.collect.ok).toBe(true);
-    expect(result.allOk).toBe(true);
-    // insertMetrics called with AA metrics only
-    expect(deps.insertMetrics).toHaveBeenCalledWith([baseMetric]);
+    expect(result.degraded).toEqual(["openrouter"]);
+    expect(result.allOk).toBe(false);
+    // the surviving sources are still persisted
+    expect(deps.insertMetrics).toHaveBeenCalledWith([baseMetric, baseMetric, baseMetric, baseMetric]);
+  });
+
+  it("a source returning 0 rows degrades the run (rc!=0) but still persists the rest", async () => {
+    const deps = makeDeps({
+      collectLmarena: vi.fn().mockResolvedValue({ metrics: [], unmatched: [] }),
+    });
+    const result = await runRefresh(deps);
+
+    expect(result.collect.ok).toBe(true);
+    expect(result.degraded).toEqual(["lmarena"]);
+    expect(result.allOk).toBe(false);
+    expect(deps.insertMetrics).toHaveBeenCalledOnce();
   });
 
   it("marks collect failed when insertMetrics throws", async () => {
@@ -92,15 +105,20 @@ describe("runRefresh", () => {
   });
 
   it("skips insertMetrics when no metrics are collected", async () => {
+    const empty = vi.fn().mockResolvedValue({ metrics: [], unmatched: [] });
     const deps = makeDeps({
-      collectOpenRouter: vi.fn().mockResolvedValue({ metrics: [], unmatched: [] }),
-      collectArtificialAnalysis: vi.fn().mockResolvedValue({ metrics: [], unmatched: [] }),
+      collectOpenRouter: empty,
+      collectArtificialAnalysis: empty,
+      collectEpoch: empty,
+      collectEqbench: empty,
+      collectLmarena: empty,
     });
     const result = await runRefresh(deps);
 
     expect(deps.insertMetrics).not.toHaveBeenCalled();
     expect(result.collect.ok).toBe(true);
-    expect(result.allOk).toBe(true);
+    expect(result.degraded).toHaveLength(5);
+    expect(result.allOk).toBe(false);
   });
 
   it("probe message includes accessible/total count", async () => {

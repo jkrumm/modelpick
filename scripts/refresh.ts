@@ -46,10 +46,10 @@ const result = await runRefresh({
 await commitSnapshot(createSnapshotCommitDeps(join(import.meta.dirname, "..")));
 
 if (!result.allOk) {
-  const failed = (Object.entries(result) as Array<[string, { ok: boolean } | boolean]>)
-    .filter(([k, v]) => k !== "allOk" && typeof v === "object" && !v.ok)
-    .map(([k]) => k);
-  console.error(`[refresh] failed steps: ${failed.join(", ")}`);
+  const failed = (["probe", "collect", "recommend"] as const).filter((k) => !result[k].ok);
+  console.error(
+    `[refresh] not ok — failed steps: ${failed.join(", ") || "none"}; degraded sources: ${result.degraded.join(", ") || "none"}`,
+  );
   await client.end();
   process.exit(1);
 }
