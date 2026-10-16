@@ -14,7 +14,9 @@
  * naming retired ids in comments and constants, so a substring match passes
  * falsely. Their model_id is compared with `routes[slot].model` of the live
  * routing table instead (`agw routing --json`); when `agw` is unavailable they
- * fall back to the substring check, with a notice.
+ * fall back to the substring check, with a notice. The reverse drift is caught
+ * too: a live route with no agent-gateway row is reported as `unrecorded` and
+ * fails the run like a broken row.
  *
  * Rows with `literal_id: false` are skipped, not failed: a tier alias
  * ("sonnet"), an inherited value, or a deliberate unset that falls through to
@@ -110,6 +112,8 @@ const rows: Row[] = DEPLOYMENTS.map((d) => {
 
 const by = (o: Outcome): Row[] => rows.filter((r) => r.outcome === o);
 const broken = [...by("mismatch"), ...by("no-file")];
+const recorded = new Set(DEPLOYMENTS.filter((d) => d.service === LIVE_SERVICE).map((d) => d.slot));
+const unrecorded = [...(live?.keys() ?? [])].filter((route) => !recorded.has(route));
 
 const ICON: Record<Outcome, string> = {
   match: "✓",
@@ -123,11 +127,15 @@ for (const r of [...broken, ...by("indirect")]) {
   console.log(`    ${r.path}${r.note === "" ? "" : ` — ${r.note}`}`);
 }
 
+for (const route of unrecorded) {
+  console.log(`✗ ${LIVE_SERVICE}/${route} — live route has no deployment row`);
+}
+
 console.log(
-  `\n${by("match").length} verified · ${by("indirect").length} indirect · ${broken.length} broken (of ${rows.length})`,
+  `\n${by("match").length} verified · ${by("indirect").length} indirect · ${broken.length} broken · ${unrecorded.length} unrecorded (of ${rows.length})`,
 );
 
-if (UPDATE && broken.length === 0) {
+if (UPDATE && broken.length === 0 && unrecorded.length === 0) {
   // Only stamp when nothing is broken: a partial stamp would mark the healthy
   // rows fresh and leave the broken ones looking merely stale, which is the
   // less alarming of the two states and therefore the wrong one to show.
@@ -141,4 +149,4 @@ if (UPDATE && broken.length === 0) {
   }
 }
 
-process.exit(broken.length === 0 ? 0 : 1);
+process.exit(broken.length === 0 && unrecorded.length === 0 ? 0 : 1);

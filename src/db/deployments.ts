@@ -190,6 +190,24 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
   },
   {
     service: "agent-gateway",
+    slot: "triage",
+    // SINGLE_SHOT, same tier and model as review_router below.
+    follows_recommendation: false,
+    label: "triage — work-item triage (SINGLE_SHOT tier)",
+    model_id: "deepseek-v4.1-flash",
+    category: "coding",
+    thinking: "default",
+    params:
+      "backend iu; NO fallback; transport iu-openai (one tool-less JSON completion via singleShotJson, no runSession), harness inert; override AGENT_GATEWAY_MODEL_TRIAGE",
+    config_ref: "agent-gateway/server/lib/routing.ts:278-284,289",
+    rationale:
+      "2026-10-02 (5063a2a): a single-shot JSON completion instead of a claude -p session — the session was pure overhead, 20-100x the cost of one call. Same deepseek-v4.1-flash id as review_router and review_ocr, over the iu-openai transport. Stayed on it through the 2026-10-14 Wave 5 Haiku 5.5 EU moves, which cover session routes only.",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
+    decided_at: "2026-10-02",
+    verified_at: VERIFIED,
+  },
+  {
+    service: "agent-gateway",
     slot: "review_router",
     // SINGLE_SHOT: one tool-less JSON completion, no session, no Max lane.
     follows_recommendation: false,
@@ -222,6 +240,78 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
       "2026-10-15 (Wave 10): review's synthesis and keyless angles moved off Sonnet on Max — on two real ranges Haiku 5.5 EU found the same top blocking findings in ~0.5-0.65x the wall time (298 s vs 585 s, 473 s vs 705 s). The 2026-09-11 'cheap model fails on synthesis' measurement was GLM looping on a large diff. Sonnet on Max stays as the reverse lane after an IU failure.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-10-15",
+    verified_at: VERIFIED,
+  },
+  {
+    service: "agent-gateway",
+    slot: "review_angle_senior_dev",
+    // Angle reviewer on the cheap OpenCode shape shared with the other ANGLE_OC angles.
+    follows_recommendation: false,
+    label: "review_angle_senior_dev — senior-dev review angle (ANGLE_OC tier)",
+    model_id: "claude-haiku-5-5-eu",
+    category: "coding",
+    thinking: "default",
+    params:
+      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none; override AGENT_GATEWAY_MODEL_REVIEW_ANGLE_SENIOR_DEV",
+    config_ref: "agent-gateway/server/lib/routing.ts:233-239,293",
+    rationale:
+      "2026-10-05 (Wave 4 A/B, one blinded Sonnet judge): cheap angle model 87.0% recall vs Sonnet 28.3%, 0% false positives, ~1/25th the cost, adopted. 2026-10-14 (4a013b0, Wave 5): deepseek-v4.1-flash -> Haiku 5.5 EU on OpenCode, 12/12 vs 10/12 implement + investigate passes, ~6x faster, 100% cache reads. Sonnet on Max stays the reverse lane.",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
+    decided_at: "2026-10-14",
+    verified_at: VERIFIED,
+  },
+  {
+    service: "agent-gateway",
+    slot: "review_angle_typescript",
+    // Angle reviewer on the cheap OpenCode shape shared with the other ANGLE_OC angles.
+    follows_recommendation: false,
+    label: "review_angle_typescript — typescript review angle (ANGLE_OC tier)",
+    model_id: "claude-haiku-5-5-eu",
+    category: "coding",
+    thinking: "default",
+    params:
+      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none; override AGENT_GATEWAY_MODEL_REVIEW_ANGLE_TYPESCRIPT",
+    config_ref: "agent-gateway/server/lib/routing.ts:233-239,294",
+    rationale:
+      "2026-10-05 (Wave 4 A/B, one blinded Sonnet judge): cheap angle model 90.0% recall vs Sonnet 25.0%, 5.3% false positives, ~1/25th the cost, adopted. 2026-10-14 (4a013b0, Wave 5): deepseek-v4.1-flash -> Haiku 5.5 EU on OpenCode, 12/12 vs 10/12 implement + investigate passes, ~6x faster, 100% cache reads. Sonnet on Max stays the reverse lane.",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
+    decided_at: "2026-10-14",
+    verified_at: VERIFIED,
+  },
+  {
+    service: "agent-gateway",
+    slot: "review_angle_frontend",
+    // Moved off JUDGE (Sonnet on Max) in Wave 11, 2026-10-15, after the senior-dev/typescript/qa angles.
+    follows_recommendation: false,
+    label: "review_angle_frontend — frontend review angle (ANGLE_OC tier)",
+    model_id: "claude-haiku-5-5-eu",
+    category: "coding",
+    thinking: "default",
+    params:
+      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none; override AGENT_GATEWAY_MODEL_REVIEW_ANGLE_FRONTEND",
+    config_ref: "agent-gateway/server/lib/routing.ts:233-239,295",
+    rationale:
+      "Last angle to leave Sonnet on Max: the 2026-10-05 flash A/B failed the false-positive clause (12.5% vs 0%). 2026-10-15 (Wave 11, bench-frontend.ts): re-measured on three real weatherorb commits, Haiku 5.5 EU on OpenCode named the defects the repo's own fix commit corrected at least as often as Sonnet in ~18 s vs 107-169 s. It files roughly twice the findings, mostly improvement/discussion nits; n=3 commits is thin. Revert is three env vars (docs/routing-and-quota.md Wave 11).",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
+    decided_at: "2026-10-15",
+    verified_at: VERIFIED,
+  },
+  {
+    service: "agent-gateway",
+    slot: "review_angle_qa",
+    // Angle reviewer on the cheap OpenCode shape shared with the other ANGLE_OC angles.
+    follows_recommendation: false,
+    label: "review_angle_qa — qa review angle (ANGLE_OC tier)",
+    model_id: "claude-haiku-5-5-eu",
+    category: "coding",
+    thinking: "default",
+    params:
+      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none; override AGENT_GATEWAY_MODEL_REVIEW_ANGLE_QA",
+    config_ref: "agent-gateway/server/lib/routing.ts:233-239,296",
+    rationale:
+      "2026-10-05 (Wave 4 A/B, one blinded Sonnet judge): cheap angle model 81.6% recall vs Sonnet 55.1%, 0% false positives, ~1/25th the cost, adopted. 2026-10-14 (4a013b0, Wave 5): deepseek-v4.1-flash -> Haiku 5.5 EU on OpenCode, 12/12 vs 10/12 implement + investigate passes, ~6x faster, 100% cache reads. Sonnet on Max stays the reverse lane.",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
+    decided_at: "2026-10-14",
     verified_at: VERIFIED,
   },
   {
@@ -317,6 +407,43 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
       "2026-10-14 (4a013b0): same move and evidence as dispatch — Haiku 5.5 EU on OpenCode, 12/12 implement passes vs 10/12 for deepseek-v4.1-flash, ~6x faster, 100% cache reads. The escalation seat stays on DeepSeek-V4-Pro for attempt 3+, so a stalled Haiku attempt escalates to a different model family rather than retrying itself.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-10-14",
+    verified_at: VERIFIED,
+  },
+  {
+    service: "agent-gateway",
+    slot: "dispatch_implement_escalation",
+    // The attempt-3+ retry seat, deliberately a different model family from the
+    // Haiku attempts it escalates from.
+    follows_recommendation: false,
+    label: "dispatch_implement_escalation — attempt 3+ implement seat (AGENT_OC_ESCALATION tier)",
+    model_id: "DeepSeek-V4-Pro",
+    category: "coding",
+    thinking: "max",
+    params:
+      "backend iu; NO fallback (a gateway id cannot run on Max, so the caller retries instead); transport session; harness opencode (opencode run, NOT claude -p); variant max; override AGENT_GATEWAY_MODEL_DISPATCH_IMPLEMENT_ESCALATION. Used by warden implement attempts >= 3 (core.ESCALATION_ATTEMPT): warden reads routes.dispatch_implement_escalation.model from GET /api/routing",
+    config_ref: "agent-gateway/server/lib/routing.ts:219-226,315",
+    rationale:
+      "2026-10-05 (b2a3884): chosen over gpt-6.1-sol on two replayed real implement briefs, one run each — DeepSeek-V4-Pro passed both reference tests in 8/5 turns, 51 s/70 s, $0.061/$0.067; gpt-6.1-sol passed both at 18/19 turns, 1330 s (one run hit the 300 s idle watchdog)/594 s, $0.32/$0.39. Stayed here through the 2026-10-14 Wave 5 Haiku 5.5 EU moves so a stalled Haiku attempt escalates to a different model family rather than retrying itself.",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
+    decided_at: "2026-10-05",
+    verified_at: VERIFIED,
+  },
+  {
+    service: "agent-gateway",
+    slot: "dispatch_editorial",
+    // Shares dispatch_implement's route object (AGENT_OC_IMPLEMENT) and evidence.
+    follows_recommendation: false,
+    label: "dispatch_editorial — prose/docs episode in a named repo (AGENT_OC_IMPLEMENT tier)",
+    model_id: "claude-haiku-5-5-eu",
+    category: "writing",
+    thinking: "default",
+    params:
+      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant; override AGENT_GATEWAY_MODEL_DISPATCH_EDITORIAL (still pins a Claude model if wanted). `kind: \"editorial\"` on a dispatch selects this route",
+    config_ref: "agent-gateway/server/lib/routing.ts:212-218,316",
+    rationale:
+      "2026-10-15 (Wave 10, 7bb7015): moved from Sonnet on Max (Claude harness, since 2026-10-10) to Haiku 5.5 EU on OpenCode — it matched Sonnet on two editorial briefs (README fold-in 1 of 2 complete on both, numbered-checklist rewrite 3 of 3 on both) at ~14 s vs ~30 s and ~$0.003 vs ~$0.13, so prose briefs no longer need a Claude route.",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
+    decided_at: "2026-10-15",
     verified_at: VERIFIED,
   },
   {
