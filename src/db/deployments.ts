@@ -79,29 +79,6 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
   },
   {
     service: "claude-code",
-    slot: "worker-dispatch",
-    // ccbench governs this role, not the leaderboard-scored `coding` profile.
-    // glm-5.3-flash is not a smaller glm-5.3 — it is a separately trained
-    // 320B-A18B base that Z.ai positions for agentic/tool-calling coding, at
-    // 9x less in and 8.8x less out with 2x the decode rate. 0.966 over 46
-    // graded ccbench runs; glm-5.3 has never been run at all.
-    // See docs/decisions/claude-code-model.md.
-    follows_recommendation: false,
-    label: "agent-dispatch — unattended local worker",
-    model_id: "glm-5.3-flash",
-    category: "coding",
-    thinking: "default",
-    params:
-      "ANTHROPIC_MODEL + all four ANTHROPIC_DEFAULT_*; API_TIMEOUT_MS=3000000; context 1M via _ca_ctx; MAX_THINKING_TOKENS 8192 via _ca_thinking (config/zsh/iu-models.sh:38)",
-    config_ref: "dotfiles/scripts/agent-dispatch.sh:177,196",
-    rationale:
-      "ccbench unattended-worker pick: 10/10 on every task at 32x less than claude-sonnet-5, once the per-task clock stops being the experiment. Requesty hop, residency 'global' — non-sensitive code only. Implementation work now defaults to agw dispatch (config/global.CLAUDE.md) rather than this launcher for live-tree edits. NOTE: dotfiles/CLAUDE.md:213 still claims this is claude-sonnet-5[1m]; the code is the truth.",
-    decision_doc: "docs/decisions/claude-code-model.md",
-    decided_at: "2026-09-11",
-    verified_at: VERIFIED,
-  },
-  {
-    service: "claude-code",
     slot: "wave",
     // Runs on the Max plan, where the category's cost term is meaningless.
     follows_recommendation: false,
@@ -110,27 +87,11 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     model_id: "claude-sonnet-5",
     category: "coding",
     thinking: "default",
-    params: "RD_WAVE_MODEL=sonnet",
-    config_ref: "dotfiles/scripts/remote-dev.sh:488",
+    params:
+      "RD_WAVE_MODEL, default sonnet on the claude kind; the opencode kind defaults to iu/deepseek-v4.1-flash",
+    config_ref: "dotfiles/scripts/remote-dev.sh:601-606,703-708",
     rationale:
       "Runs on the Max plan through herdr panes, so the ccbench cost argument does not apply.",
-    decision_doc: "docs/decisions/execution-modes.md",
-    decided_at: "2026-08-02",
-    verified_at: VERIFIED,
-  },
-  {
-    service: "claude-code",
-    slot: "bg",
-    // Runs on the Max plan, where the category's cost term is meaningless.
-    follows_recommendation: false,
-    literal_id: false,
-    label: "rd bg — steerable background colleague",
-    model_id: "claude-sonnet-5",
-    category: "coding",
-    thinking: "default",
-    params: "RD_BG_MODEL=sonnet",
-    config_ref: "dotfiles/scripts/remote-dev.sh:581",
-    rationale: "Same Max-plan argument as the wave lane.",
     decision_doc: "docs/decisions/execution-modes.md",
     decided_at: "2026-08-02",
     verified_at: VERIFIED,
@@ -185,80 +146,82 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
   },
 
   // ── agent-gateway ──────────────────────────────────────────────────────────────
+  // The model_id of every row below is checked against the LIVE routing table
+  // (`agw routing --json`) by scripts/verify-deployments.ts, not against routing.ts
+  // text — a substring grep let these rows pass for weeks after the 2026-10-14/15
+  // move to Haiku 5.5 EU, because routing.ts still names the old ids in comments.
   {
     service: "agent-gateway",
     slot: "check",
-    // CLASSIFY moved off glm-5.3-flash 2026-09-23 (GLM retired from this
-    // server entirely) onto DeepSeek-V4-Flash — the same in-loop-speed
-    // complaint that moved dispatch off glm applies here too, plus glm
-    // stalling an 84-minute dispatch episode on 2026-09-15. No separate
-    // CLASSIFY-tier measurement was run: this is the id dispatch's old AGENT
-    // tier already carried, at a lower thinking budget, on easier work.
+    // CLASSIFY moved off DeepSeek-V4-Flash (rejected by IU from 2026-10-04,
+    // unrecognized_model) onto Haiku 5.5 EU over the OpenCode harness in the
+    // Wave 10 bench (2026-10-15). A deliberately cheap tier, not the category winner.
     follows_recommendation: false,
     label: "check — format · lint · tsc · test (CLASSIFY tier)",
-    model_id: "DeepSeek-V4-Flash",
+    model_id: "claude-haiku-5-5-eu",
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; fallback claude-haiku-4-5 on max; transport session; thinkingTokens 2048 (MAX_THINKING_TOKENS, the only effort control on this leg); override AGENT_GATEWAY_THINKING_TOKENS_CHECK",
-    config_ref: "agent-gateway/server/lib/routing.ts:281-288,312",
+      "backend iu; fallback claude-sonnet-5[1m] on max; transport session; harness opencode (agw-check profile, selected by the handler); no effort variant — Haiku 5.5 exposes none; override AGENT_GATEWAY_MODEL_CHECK",
+    config_ref: "agent-gateway/server/lib/routing.ts:256-262,287",
     rationale:
-      "Reading tool output and deciding pass/fail — the cheapest tier that holds an agent loop. 2026-09-23: moved off glm-5.3-flash (GLM retired) onto DeepSeek-V4-Flash; thinkingTokens stays capped at 2048 so a classify-shaped call can't default to a gateway model's uncapped `max` reasoning.",
+      "Reading tool output and deciding pass/fail — the cheapest tier that holds an agent loop. 2026-10-15 (Wave 10 bench, 7bb7015): moved onto Haiku 5.5 EU on OpenCode; before, Haiku 4.5 over `claude -p` took 45-718 s per check run and gave one wrong verdict, at ~20x the cost.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-09-23",
+    decided_at: "2026-10-15",
     verified_at: VERIFIED,
   },
   {
     service: "agent-gateway",
     slot: "overview",
-    // CLASSIFY moved off glm-5.3-flash 2026-09-23 (GLM retired) onto
-    // DeepSeek-V4-Flash — see the check row's comment for the evidence.
+    // Same CLASSIFY move as check — see its comment.
     follows_recommendation: false,
     label: "overview (CLASSIFY tier)",
-    model_id: "DeepSeek-V4-Flash",
+    model_id: "claude-haiku-5-5-eu",
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; fallback claude-haiku-4-5 on max; thinkingTokens 2048; override AGENT_GATEWAY_THINKING_TOKENS_OVERVIEW",
-    config_ref: "agent-gateway/server/lib/routing.ts:281-288,313",
-    rationale: "Same CLASSIFY tier as check.",
+      "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode (tool-less profile); no effort variant; override AGENT_GATEWAY_MODEL_OVERVIEW",
+    config_ref: "agent-gateway/server/lib/routing.ts:256-262,288",
+    rationale:
+      "Same CLASSIFY tier as check (Wave 10 bench, 2026-10-15). Before: Haiku 4.5 over `claude -p`, 170-180 s per overview.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-09-23",
+    decided_at: "2026-10-15",
     verified_at: VERIFIED,
   },
   {
     service: "agent-gateway",
     slot: "review_router",
-    // CLASSIFY moved off glm-5.3-flash 2026-09-23 (GLM retired) onto
-    // DeepSeek-V4-Flash — see the check row's comment for the evidence.
+    // SINGLE_SHOT: one tool-less JSON completion, no session, no Max lane.
     follows_recommendation: false,
-    label: "review_router (CLASSIFY tier)",
-    model_id: "DeepSeek-V4-Flash",
+    label: "review_router (SINGLE_SHOT tier)",
+    model_id: "deepseek-v4.1-flash",
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; fallback claude-haiku-4-5 on max; thinkingTokens 2048; override AGENT_GATEWAY_THINKING_TOKENS_REVIEW_ROUTER",
-    config_ref: "agent-gateway/server/lib/routing.ts:281-288,314",
-    rationale: "Same CLASSIFY tier as check.",
+      "backend iu; NO fallback; transport iu-openai (one tool-less JSON completion, no runSession), harness inert; override AGENT_GATEWAY_MODEL_REVIEW_ROUTER",
+    config_ref: "agent-gateway/server/lib/routing.ts:278-284,290",
+    rationale:
+      "Picks which review angles run — one short structured completion. 2026-10-02 (5063a2a): moved off the worker-session CLASSIFY tier onto the single-shot iu-openai transport shared with triage. Unaffected by the 2026-10-14/15 Haiku 5.5 EU moves, which cover session routes only.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-09-23",
+    decided_at: "2026-10-02",
     verified_at: VERIFIED,
   },
   {
     service: "agent-gateway",
     slot: "review",
-    // Runs on the Max plan, where the category's cost term is meaningless.
+    // A deliberately cheap tier — the synthesis no longer needs Max.
     follows_recommendation: false,
-    label: "review — multi-angle code review (JUDGE tier)",
-    model_id: "claude-sonnet-5",
+    label: "review — multi-angle code review synthesis (CLASSIFY tier)",
+    model_id: "claude-haiku-5-5-eu",
     category: "coding",
     thinking: "default",
-    params: "backend max (fallback: same model on iu); [1m] context",
-    config_ref: "agent-gateway/server/lib/routing.ts:289-295,316",
+    params:
+      "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode; no effort variant; override AGENT_GATEWAY_MODEL_REVIEW. Angle reviewers are separate routes: review_angle_{senior_dev,typescript,frontend,qa} also run claude-haiku-5-5-eu (ANGLE_OC)",
+    config_ref: "agent-gateway/server/lib/routing.ts:256-262,292",
     rationale:
-      "Judging a diff is the one agent-gateway job where a miss is expensive and the Max plan charges nothing — so it does not follow the cheap CLASSIFY tier.",
+      "2026-10-15 (Wave 10): review's synthesis and keyless angles moved off Sonnet on Max — on two real ranges Haiku 5.5 EU found the same top blocking findings in ~0.5-0.65x the wall time (298 s vs 585 s, 473 s vs 705 s). The 2026-09-11 'cheap model fails on synthesis' measurement was GLM looping on a large diff. Sonnet on Max stays as the reverse lane after an IU failure.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-09-11",
+    decided_at: "2026-10-15",
     verified_at: VERIFIED,
   },
   {
@@ -266,16 +229,17 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     slot: "narrative",
     // A deliberately different tier from the category winner.
     follows_recommendation: false,
-    label: "narrative (PROSE tier)",
-    model_id: "claude-sonnet-5",
+    label: "narrative (CLASSIFY tier)",
+    model_id: "claude-haiku-5-5-eu",
     category: "writing",
     thinking: "default",
-    params: "backend max; fallback same model on iu",
-    config_ref: "agent-gateway/server/lib/routing.ts:296-302,315",
+    params:
+      "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode (tool-less profile); no effort variant; override AGENT_GATEWAY_MODEL_NARRATIVE",
+    config_ref: "agent-gateway/server/lib/routing.ts:256-262,291",
     rationale:
-      "Prose tier. Note the writing stack pick is claude-opus-4-6 — this slot deliberately runs a cheaper model because the output is a summary, not authored prose.",
+      "Short-prose summary tier, moved from Sonnet on Max to Haiku 5.5 EU on OpenCode in Wave 10 (2026-10-15). The writing stack pick is claude-opus-4-6 — this slot deliberately runs a cheaper model because the output is a summary, not authored prose.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-09-11",
+    decided_at: "2026-10-15",
     verified_at: VERIFIED,
   },
   {
@@ -286,7 +250,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: null,
     thinking: "default",
     params: "backend iu; NO fallback; transport iu-openai (direct fetch, never runSession)",
-    config_ref: "agent-gateway/server/lib/routing.ts:329-335",
+    config_ref: "agent-gateway/server/lib/routing.ts:306-312",
     rationale:
       "Structural, not scored: the value is that it is a different family from the model that produced the finding. No category recommendation can express 'not the same vendor'.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
@@ -310,9 +274,9 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend iu; NO fallback; transport external-iu (the `ocr` CLI over IU's OpenAI chat route, ocrProtocolFor); ocr --effort low; override AGENT_GATEWAY_MODEL_REVIEW_OCR",
-    config_ref: "agent-gateway/server/lib/routing.ts:317-335",
+    config_ref: "agent-gateway/server/lib/routing.ts:299-305",
     rationale:
-      "Structural: measured inside ocr's own tool loop, which no leaderboard scores. v4.1-flash at --effort low finds the cross-file and config drift the Sonnet angle reviewers miss, in ~2.5-3 min, parallel to the angle phase.",
+      "Structural: measured inside ocr's own tool loop, which no leaderboard scores. v4.1-flash at --effort low finds the cross-file and config drift the angle reviewers miss, in ~2.5-3 min, parallel to the angle phase. Unchanged by the 2026-10-14/15 Haiku moves: an external CLI that only consumes `.model`, so the OpenCode Haiku route does not apply.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-09-25",
     verified_at: VERIFIED,
@@ -320,39 +284,39 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
   {
     service: "agent-gateway",
     slot: "dispatch",
-    // Investigate/author tier only — implement runs the same route at a
-    // higher reasoning_effort variant, see the dispatch_implement row below.
+    // Investigate/author tier only — implement runs the same model on its own
+    // route, see the dispatch_implement row below.
     follows_recommendation: false,
     label: "dispatch — investigate/author episode in a named repo (AGENT_OC tier)",
-    model_id: "deepseek-v4.1-flash",
+    model_id: "claude-haiku-5-5-eu",
     category: "coding",
-    thinking: "high",
+    thinking: "default",
     params:
-      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode (opencode run, NOT claude -p — this id has no code path through claude -p at all); variant high (opencode's reasoning-effort knob; MAX_THINKING_TOKENS has no effect on this harness); override AGENT_GATEWAY_MODEL_DISPATCH / AGENT_GATEWAY_HARNESS_DISPATCH / AGENT_GATEWAY_VARIANT_DISPATCH",
-    config_ref: "agent-gateway/server/lib/routing.ts:237-244,336",
+      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode (opencode run, NOT claude -p — Haiku 5.5 EU ran 4x slower than Haiku 4.5 on claude -p, so it only ever serves OpenCode); NO effort variant (Haiku 5.5 exposes none); override AGENT_GATEWAY_MODEL_DISPATCH / AGENT_GATEWAY_HARNESS_DISPATCH. Warden's investigate episodes inherit this route",
+    config_ref: "agent-gateway/server/lib/routing.ts:192-211,313",
     rationale:
-      "2026-09-24: moved off DeepSeek-V4-Flash on claude -p (the retired AGENT tier) onto OpenCode running deepseek-v4.1-flash over the IU OpenAI-compatible route — a different id and transport claude -p cannot reach at all. Evidence: three implement briefs re-run from DeepSeek-V4-Pro's base commits favored OpenCode on cost by 1-2 orders of magnitude (vps $0.06/5min vs $2.46/10min; research-gateway #21 $0.10/5min vs $11.01/28min; weatherorb $0.06/5min vs $5.39/21min), and a blind diff review preferred OpenCode's output on 2 of 3 (lost vps: inverted volume-floor logic in a HyperDX config — not a clean sweep, recorded honestly). Cache hits 95-98% on this route vs 8% for V4-Pro on the Anthropic route.",
+      "2026-10-14 (4a013b0, Wave 5 bench): moved off deepseek-v4.1-flash onto Haiku 5.5 EU — 12/12 vs 10/12 implement + investigate passes, ~6x faster, lower cost, 100% cache reads. Caveat: Haiku bills 5x above 100K prompt tokens PER REQUEST (measured mean 38-64K), so a long episode costs more than the registry rate says. Chain: DeepSeek-V4-Flash on claude -p (retired) -> deepseek-v4.1-flash on OpenCode (2026-09-24) -> Haiku 5.5 EU on OpenCode.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-09-24",
+    decided_at: "2026-10-14",
     verified_at: VERIFIED,
   },
   {
     service: "agent-gateway",
     slot: "dispatch_implement",
-    // Shares AGENT_OC's model/route/evidence with dispatch above; only the
-    // reasoning_effort variant differs for the higher-stakes write tier.
+    // Shares AGENT_OC's model and evidence with dispatch above; only the route
+    // object (and its override keys) is separate for the higher-stakes write tier.
     follows_recommendation: false,
     label: "dispatch_implement — write episode in a named repo (AGENT_OC_IMPLEMENT tier)",
-    model_id: "deepseek-v4.1-flash",
+    model_id: "claude-haiku-5-5-eu",
     category: "coding",
-    thinking: "max",
+    thinking: "default",
     params:
-      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode (opencode run, NOT claude -p); variant max (opencode's reasoning-effort knob, one step above dispatch's 'high'); override AGENT_GATEWAY_MODEL_DISPATCH_IMPLEMENT / AGENT_GATEWAY_HARNESS_DISPATCH_IMPLEMENT / AGENT_GATEWAY_VARIANT_DISPATCH_IMPLEMENT",
-    config_ref: "agent-gateway/server/lib/routing.ts:245-252,337",
+      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode (opencode run, NOT claude -p); NO effort variant — the former variant max went with deepseek-v4.1-flash; override AGENT_GATEWAY_MODEL_DISPATCH_IMPLEMENT / AGENT_GATEWAY_HARNESS_DISPATCH_IMPLEMENT. Warden implement attempts 1-2 inherit this route; attempt 3+ use the dispatch_implement_escalation route (DeepSeek-V4-Pro, opencode, variant max, no Max fallback). dispatch_editorial shares this route object",
+    config_ref: "agent-gateway/server/lib/routing.ts:192-218,314",
     rationale:
-      "2026-09-24: split off dispatch's AGENT_OC tier onto its own AGENT_OC_IMPLEMENT tier for the higher-stakes write path, mirroring the old AGENT_IMPLEMENT split — same model and route as dispatch, variant raised from 'high' to 'max'. See the dispatch row above for the underlying cost/quality evidence; this tier shares it rather than repeating a separate measurement.",
+      "2026-10-14 (4a013b0): same move and evidence as dispatch — Haiku 5.5 EU on OpenCode, 12/12 implement passes vs 10/12 for deepseek-v4.1-flash, ~6x faster, 100% cache reads. The escalation seat stays on DeepSeek-V4-Pro for attempt 3+, so a stalled Haiku attempt escalates to a different model family rather than retrying itself.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-09-24",
+    decided_at: "2026-10-14",
     verified_at: VERIFIED,
   },
   {
@@ -361,13 +325,14 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     // Runs on the Max plan, where the category's cost term is meaningless.
     follows_recommendation: false,
     label: "otel — observability queries (JUDGE tier, synchronous)",
-    model_id: "claude-sonnet-5",
+    model_id: "claude-sonnet-5[1m]",
     category: "coding",
     thinking: "default",
     params:
-      "backend max; runs inline via runSession, never queued — the one tool exempt from the job contract",
-    config_ref: "agent-gateway/server/lib/routing.ts:289-295,338",
-    rationale: "Interactive debugging: a jobId round-trip would cost more than the query.",
+      "backend max (fallback: iu, same route); harness claude; runs inline via runSession, never queued — the one tool exempt from the job contract",
+    config_ref: "agent-gateway/server/lib/routing.ts:263-269,317",
+    rationale:
+      "Interactive debugging: a jobId round-trip would cost more than the query. The only route left on Claude/Max by default — it needs a per-session MCP server, which OpenCode v2 has only at server scope (Wave 10).",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-09-11",
     verified_at: VERIFIED,
@@ -375,16 +340,17 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
   {
     service: "agent-gateway",
     slot: "excalidraw",
-    label: "excalidraw_diagram (PROSE tier)",
-    model_id: "claude-sonnet-5",
+    label: "excalidraw_diagram (CLASSIFY tier)",
+    model_id: "claude-haiku-5-5-eu",
     category: null,
     thinking: "default",
-    params: "backend max; fallback same model on iu",
-    config_ref: "agent-gateway/server/lib/routing.ts:296-302,339",
+    params:
+      "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode; no effort variant; override AGENT_GATEWAY_MODEL_EXCALIDRAW",
+    config_ref: "agent-gateway/server/lib/routing.ts:256-262,318",
     rationale:
-      "Structural: generating valid Excalidraw JSON is a format-fidelity job no category scores.",
+      "Structural: generating valid Excalidraw JSON is a format-fidelity job no category scores. Moved from Sonnet on Max to Haiku 5.5 EU on OpenCode in Wave 10 (2026-10-15).",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-09-11",
+    decided_at: "2026-10-15",
     verified_at: VERIFIED,
   },
   {
@@ -395,7 +361,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: null,
     thinking: "n/a",
     params: "backend iu; NO fallback; transport iu-openai",
-    config_ref: "agent-gateway/server/lib/routing.ts:303-309,340",
+    config_ref: "agent-gateway/server/lib/routing.ts:270-276,319",
     rationale:
       "Vision is a manual stack category — no leaderboard scores document/diagram reading, so there is no algorithmic recommendation to drift against.",
     decision_doc: "docs/decisions/vision-and-image.md",
@@ -410,7 +376,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: null,
     thinking: "n/a",
     params: "backend iu; NO fallback; transport iu-openai",
-    config_ref: "agent-gateway/server/lib/routing.ts:303-309,341",
+    config_ref: "agent-gateway/server/lib/routing.ts:270-276,320",
     rationale: "Same VISION tier as read_image.",
     decision_doc: "docs/decisions/vision-and-image.md",
     decided_at: "2026-06-17",
@@ -418,82 +384,63 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
   },
 
   // ── warden ────────────────────────────────────────────────────────────────
+  // Warden carries NO model id of its own since the 2026-10-04 split of triage.py into
+  // scripts/loop + scripts/lifecycle: every slot below inherits an agent-gateway route.
+  // `literal_id: false` — there is no id in warden's files to grep. Changing
+  // agent-gateway routing silently changes all three.
   {
     service: "warden",
     slot: "investigate",
-    // ccbench governs this role, not the leaderboard-scored `coding` profile.
-    // glm-5.3-flash is not a smaller glm-5.3 — it is a separately trained
-    // 320B-A18B base that Z.ai positions for agentic/tool-calling coding, at
-    // 9x less in and 8.8x less out with 2x the decode rate. 0.966 over 46
-    // graded ccbench runs; glm-5.3 has never been run at all.
-    // See docs/decisions/claude-code-model.md.
     follows_recommendation: false,
+    literal_id: false,
     label: "auto investigate episode",
-    model_id: "glm-5.3-flash",
+    model_id: "claude-haiku-5-5-eu",
     category: "coding",
     thinking: "default",
-    params: "TRIAGE_AUTO_DISPATCH_MODEL; guard warns if a Claude id is set",
-    config_ref: "warden/scripts/triage.py:1176,3036",
+    params:
+      "inherited: submits no model, so it runs agent-gateway's `dispatch` route (backend iu, harness opencode, fallback claude-sonnet-5[1m] on max). Changing agent-gateway's dispatch route silently changes this slot",
+    config_ref: "warden/scripts/loop/work.py:2168-2172",
     rationale:
-      "Unattended work on a ledger — the ccbench worker pick, for the ccbench worker reasons.",
-    decision_doc: "docs/decisions/claude-code-model.md",
-    decided_at: "2026-09-11",
+      "Warden defers: it sends no model, so the model is whatever agent-gateway's `dispatch` route says — claude-haiku-5-5-eu since 2026-10-14 (before: deepseek-v4.1-flash). The earlier glm-5.3-flash pin (TRIAGE_AUTO_DISPATCH_MODEL) died with triage.py in the 2026-10-04 split. Verify against `agw routing --json`, not warden's files.",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
+    decided_at: "2026-10-14",
     verified_at: VERIFIED,
   },
   {
     service: "warden",
     slot: "implement",
-    // ccbench governs this role, not the leaderboard-scored `coding` profile.
-    // glm-5.3-flash is not a smaller glm-5.3 — it is a separately trained
-    // 320B-A18B base that Z.ai positions for agentic/tool-calling coding, at
-    // 9x less in and 8.8x less out with 2x the decode rate. 0.966 over 46
-    // graded ccbench runs; glm-5.3 has never been run at all.
-    // See docs/decisions/claude-code-model.md.
     follows_recommendation: false,
+    literal_id: false,
     label: "auto implement episode",
-    model_id: "glm-5.3-flash",
+    model_id: "claude-haiku-5-5-eu",
     category: "coding",
     thinking: "default",
-    params: "TRIAGE_AUTO_DISPATCH_MODEL (same knob as investigate)",
-    config_ref: "warden/scripts/triage.py:1176,4894",
-    rationale: "Same knob, same reasoning as the investigate phase.",
-    decision_doc: "docs/decisions/claude-code-model.md",
-    decided_at: "2026-09-11",
+    params:
+      "inherited: attempts 1-2 submit no model and run agent-gateway's `dispatch_implement` route (backend iu, harness opencode, fallback claude-sonnet-5[1m] on max); attempt core.ESCALATION_ATTEMPT onward sends agent-gateway's escalation model — today DeepSeek-V4-Pro from `dispatch_implement_escalation` (opencode, variant max, no Max fallback). Changing either agent-gateway route silently changes this slot",
+    config_ref: "warden/scripts/loop/work.py:2168-2172",
+    rationale:
+      "Warden defers: implement_model(attempt) sends None for attempts 1-2 and agent-gateway's registry escalation model from attempt 3, never an id of its own. The recorded model is the attempt-1/2 default (claude-haiku-5-5-eu since 2026-10-14, before: deepseek-v4.1-flash); a stalled item escalates to DeepSeek-V4-Pro.",
+    decision_doc: "docs/decisions/agent-gateway-tiers.md",
+    decided_at: "2026-10-14",
     verified_at: VERIFIED,
   },
   {
     service: "warden",
     slot: "review",
-    // Runs on the Max plan, where the category's cost term is meaningless.
+    // A deliberately cheap tier — inherited, not pinned.
     follows_recommendation: false,
     literal_id: false,
     label: "step-7 review validation",
-    model_id: "claude-sonnet-5",
+    model_id: "claude-haiku-5-5-eu",
     category: "coding",
     thinking: "default",
     params:
-      "TRIAGE_VALIDATION_DISPATCH_MODEL is deliberately unset — falls through to agent-gateway's JUDGE tier (claude-sonnet-5[1m] on max)",
-    config_ref: "warden/scripts/triage.py:1207,4965",
+      "inherited: submit_review() passes model=None, so the review runs agent-gateway's `review` route (backend iu, harness opencode, fallback claude-sonnet-5[1m] on max). Changing agent-gateway's review route silently changes this slot",
+    config_ref: "warden/scripts/lifecycle/dispatch.py:224",
     rationale:
-      "Unset on purpose so the gate inherits agent-gateway's JUDGE routing rather than pinning a second copy of it. Changing agent-gateway's JUDGE tier silently changes this slot.",
+      "Unset on purpose so the gate inherits agent-gateway's review routing rather than pinning a second copy of it. 2026-10-15 (Wave 10): that route moved from Sonnet on Max to Haiku 5.5 EU, which moved this slot with it.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-09-11",
-    verified_at: VERIFIED,
-  },
-  {
-    service: "warden",
-    slot: "propose-mappings",
-    label: "propose_mappings — single chat_completions call",
-    model_id: "deepseek-v4.1-flash",
-    category: "fast",
-    thinking: "high",
-    params:
-      "chat_completions only (/responses 404s); reasoning_effort high; max_completion_tokens 16000 (not 2000 — this model's thinking expands to fill the budget and returns empty below ~1000); no temperature",
-    config_ref: "warden/scripts/triage.py:1122-1165,5880",
-    rationale:
-      "2026-09-13 estate-wide rollout: `fast` moved to deepseek-v4.1-flash at reasoning_effort high. A once-a-day batched maintenance call, not latency-sensitive, so there is no reason to trade quality for speed here.",
-    decision_doc: "docs/decisions/hermes-brain.md",
-    decided_at: "2026-09-13",
+    decided_at: "2026-10-15",
     verified_at: VERIFIED,
   },
 
@@ -536,19 +483,19 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
   {
     service: "hermes",
     slot: "compression",
-    // Same override as brain — the recommender still names gpt-5.6-luna for `fast`.
+    // Same override as brain — the recommender scores `fast` on leaderboards and does not name this pick.
     follows_recommendation: false,
     label: "context compression",
-    model_id: "deepseek-v4.1-flash",
+    model_id: "gpt-6-luna",
     category: "fast",
     thinking: "high",
     params:
-      "api_mode chat_completions, reasoning_effort high, context_length 850000 (load-bearing: the aux model's own context_length clamps the 240k compaction trigger). NO max_tokens by design — context_compressor.py:646 forbids a wire cap, a truncated summary poisons the whole downstream session.",
-    config_ref: "hermes-agent/config.yaml:204-217",
+      "provider custom, api_mode chat_completions, reasoning_effort high, context_length 850000 (load-bearing: the aux model's own context_length clamps the 240k compaction trigger), timeout 1800 (a hang guard, not a budget — a high-effort summary of a long thread can legitimately think past 120s). NO max_tokens by design — context_compressor.py:646 forbids a wire cap, a truncated summary poisons the whole downstream session.",
+    config_ref: "hermes-agent/config.yaml:182-193",
     rationale:
-      "2026-09-13 rollout moved this off gpt-5.6-luna onto the estate default, same owner decision as brain. The earlier rejection (deepseek-v4.1-flash starving at an 8k budget on five of six long-generation attempts) does not apply here — this slot deliberately carries no output cap, which is exactly what that failure mode needed.",
+      "2026-10-09 (hermes-agent 241f9d2, 'compression on gpt-6-luna, DeepSeek no longer routed'): moved off deepseek-v4.1-flash onto gpt-6-luna, the same model as the brain failover and title generation, so DeepSeek is no longer routed from hermes at all. Compression sends no tools, so luna's tools+effort 503 does not apply.",
     decision_doc: "docs/decisions/hermes-brain.md",
-    decided_at: "2026-09-13",
+    decided_at: "2026-10-09",
     verified_at: VERIFIED,
   },
   {

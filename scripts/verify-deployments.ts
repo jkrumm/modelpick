@@ -10,17 +10,25 @@
  * `config_ref` and asks the only question that matters: does that file still
  * contain that model id?
  *
+ * agent-gateway rows are the exception: their `config_ref` (routing.ts) keeps
+ * naming retired ids in comments and constants, so a substring match passes
+ * falsely. Their model_id is compared with `routes[slot].model` of the live
+ * routing table instead (`agw routing --json`); when `agw` is unavailable they
+ * fall back to the substring check, with a notice.
+ *
  * Rows with `literal_id: false` are skipped, not failed: a tier alias
  * ("sonnet"), an inherited value, or a deliberate unset that falls through to
  * another service's routing cannot be confirmed by substring. They are reported
  * separately so the count of unverifiable claims stays visible rather than
  * quietly passing.
  */
+import { spawnSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { DEPLOYMENTS } from "../src/db/deployments.js";
 
+const LIVE_SERVICE = "agent-gateway";
 const ROOT = join(homedir(), "SourceRoot");
 const TODAY = new Date().toISOString().slice(0, 10);
 const UPDATE = process.argv.includes("--update");
@@ -42,6 +50,32 @@ function pathOf(configRef: string): string {
   return colon === -1 ? configRef : configRef.slice(0, colon);
 }
 
+/** Route name → live model id from `agw routing --json`, or null when agw cannot answer. */
+function liveRoutes(): Map<string, string> | null {
+  try {
+    const res = spawnSync("agw", ["routing", "--json"], { encoding: "utf8" });
+    if (res.status !== 0) return null;
+    const parsed = JSON.parse(res.stdout) as {
+      routes?: Record<string, { model?: string }>;
+    };
+    if (parsed.routes === undefined) return null;
+    const routes = new Map<string, string>();
+    for (const [name, route] of Object.entries(parsed.routes)) {
+      if (route.model !== undefined) routes.set(name, route.model);
+    }
+    return routes;
+  } catch {
+    return null;
+  }
+}
+
+const live = liveRoutes();
+if (live === null) {
+  console.log(
+    `notice: agw routing unavailable — ${LIVE_SERVICE} rows fall back to the routing.ts substring check\n`,
+  );
+}
+
 const rows: Row[] = DEPLOYMENTS.map((d) => {
   const rel = pathOf(d.config_ref);
   const abs = join(ROOT, rel);
@@ -54,6 +88,16 @@ const rows: Row[] = DEPLOYMENTS.map((d) => {
 
   if (d.literal_id === false) {
     return { ...base, outcome: "indirect", note: "alias / inherited / unset — check by hand" };
+  }
+  const liveModel = d.service === LIVE_SERVICE ? live?.get(d.slot) : undefined;
+  if (liveModel !== undefined) {
+    return liveModel === d.model_id
+      ? { ...base, outcome: "match", note: "" }
+      : {
+          ...base,
+          outcome: "mismatch",
+          note: `live routing runs ${liveModel}, row claims ${d.model_id}`,
+        };
   }
   if (!existsSync(abs)) {
     return { ...base, outcome: "no-file", note: "config_ref points at a file that is not there" };
