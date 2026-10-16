@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { runRefresh } from "../src/server/refresh.js";
 import { runProbe } from "../src/server/iu/probe.js";
 import { collectOpenRouter } from "../src/server/collectors/openrouter.js";
@@ -5,6 +6,7 @@ import { collectArtificialAnalysis } from "../src/server/collectors/artificialan
 import { collectEpoch } from "../src/server/collectors/epoch.js";
 import { collectEqbench } from "../src/server/collectors/eqbench.js";
 import { collectLmarena } from "../src/server/collectors/lmarena.js";
+import { commitSnapshot, createSnapshotCommitDeps } from "../src/server/snapshot-commit.js";
 import { runRecommender } from "../src/server/scoring/recommend.js";
 import { createIdResolver } from "../src/server/collectors/normalize.js";
 import { db, client } from "../src/db/index.js";
@@ -38,6 +40,10 @@ const result = await runRefresh({
   },
   runRecommender,
 });
+
+// collectEpoch rewrites a tracked file; ship it so the unattended checkout stays clean.
+// Never throws — a git problem must not fail the refresh.
+await commitSnapshot(createSnapshotCommitDeps(join(import.meta.dirname, "..")));
 
 if (!result.allOk) {
   const failed = (Object.entries(result) as Array<[string, { ok: boolean } | boolean]>)

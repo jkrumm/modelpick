@@ -222,6 +222,11 @@ rationale). Steps are independent; one failure doesn't abort the rest, but the e
 Green tests ≠ working pipeline — confirm against live data after changes. On the mini the
 `com.jkrumm.modelpick-refresh` LaunchAgent (`make refresh-setup`, 06:00, no `KeepAlive` —
 a failed step must not retry all day) runs it; `make refresh-check` shows the last exit.
+After the run, `src/server/snapshot-commit.ts` commits and pushes ONLY the regenerated
+`epoch-benchmarks.ts` to `origin master` (`git commit --only`) when it differs from HEAD, so the
+mini's checkout never stays dirty; it skips with a log line off `master`, mid merge/rebase/
+cherry-pick, or when the file has someone else's staged changes; it pushes only when the snapshot commit is the sole unpushed one, and a failed push leaves the
+local commit. It never fails the refresh.
 
 ## Epoch AI benchmark collector
 
