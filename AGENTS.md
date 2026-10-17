@@ -136,6 +136,17 @@ be before a faster decoder that starts later finishes first. It spends real mone
 costs nothing. Give every candidate >=16,000 tokens — two retracted verdicts in this repo came
 from budget starvation being scored as failure.
 
+`bun run bench:writing` (`scripts/bench-writing.ts`, tasks + rubric in
+`src/server/bench/writing-tasks.ts`, lint and aggregation in `writing-metrics.ts`) compares
+writing models on six of my real communication jobs (German vault page, English article section,
+landing copy, UI strings, a rewrite, a German briefing), each written from raw facts with
+`brain/voice.md` as the system prompt (`--voice <path>` overrides). Cross-lab LLM judges (a judge
+never scores its own lab) score a nine-criterion rubric next to a mechanical lint; judges build a
+shortlist, the human blind read in `blind.md` decides. It spends real money (~$7 typical, `--yes`
+required non-interactively); `--dry-run` prints the call plan and cost estimate and spends nothing.
+Output lands in `docs/experiments/writing/<date>/` (`report.md`, `blind.md`, `key.json`,
+`raw.json`); nothing goes to the DB.
+
 
 ## Validate
 
