@@ -1,10 +1,31 @@
 # Writing Model — Opus 4.6 holds, and the LLM judge is the one that's wrong
 
-> **Current verdict (2026-09-12):** `claude-opus-4-6` holds for English/German long-form prose,
+> **Current verdict (2026-09-12, re-checked 2026-10-17 — pending blind read):** `claude-opus-4-6` holds for English/German long-form prose,
 > but is explicitly under-evidenced for German — no public benchmark scores German prose
 > quality.
 > **Status of this record:** current
 > Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
+
+## 2026-10-17 — re-check: Arena moved, the judges call it a tie
+
+- **LMArena `creative_writing` (2026-10-15):** `claude-opus-5-5` #1, `gemini-4-argon` #2,
+  `claude-opus-4-6` #4. The #2 that backed this pick is stale. Best Grok is #25. Grok isn't
+  routed on IU (`not_routed` since 2026-09-24) and xAI has no EU residency, so it is out.
+- **`bun run bench:writing`** (six communication tasks, voice.md v2 as system prompt, cross-lab
+  judges, n=1 per task — [report](../experiments/writing/2026-10-17/report.md)):
+
+| model | overall | median wall | cost / 6 tasks |
+|-|-|-|-|
+| gpt-6-astra | 4.16 | 22.5s | $0.51 |
+| claude-opus-5-5 | 4.10 | 17.6s | $0.34 |
+| claude-fable-5-1 | 4.02 | 18.7s | $0.78 |
+| claude-opus-4-6 | 3.96 | 10.6s | $0.24 |
+| gemini-4-argon | 3.93 | 62.1s | $0.22 |
+
+A 0.23 spread on one sample per task is no signal, and LLM judges are the instrument this record
+already distrusts. The pick holds until the owner's blind read of
+[`blind.md`](../experiments/writing/2026-10-17/blind.md) (labels in `key.json`). If that read
+prefers `claude-opus-5-5`, switch: it is cheaper ($4/$20 vs $5/$25 per M) and leads Arena.
 
 **Current:** `claude-opus-4-6`, for English and German long-form prose written against
 `brain/voice.md`. This record exists because the two writing leaderboards pulled in on

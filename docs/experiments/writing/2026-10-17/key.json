@@ -1,0 +1,44 @@
+{
+  "de-tech": {
+    "A": "claude-opus-4-6",
+    "B": "gemini-4-argon",
+    "C": "gpt-6-astra",
+    "D": "claude-fable-5-1",
+    "E": "claude-opus-5-5"
+  },
+  "en-article": {
+    "A": "claude-opus-5-5",
+    "B": "claude-fable-5-1",
+    "C": "gpt-6-astra",
+    "D": "gemini-4-argon",
+    "E": "claude-opus-4-6"
+  },
+  "landing": {
+    "A": "claude-fable-5-1",
+    "B": "claude-opus-5-5",
+    "C": "gpt-6-astra",
+    "D": "gemini-4-argon",
+    "E": "claude-opus-4-6"
+  },
+  "ui-copy": {
+    "A": "gpt-6-astra",
+    "B": "claude-opus-5-5",
+    "C": "gemini-4-argon",
+    "D": "claude-fable-5-1",
+    "E": "claude-opus-4-6"
+  },
+  "rewrite": {
+    "A": "claude-opus-5-5",
+    "B": "claude-fable-5-1",
+    "C": "gpt-6-astra",
+    "D": "gemini-4-argon",
+    "E": "claude-opus-4-6"
+  },
+  "de-briefing": {
+    "A": "claude-opus-5-5",
+    "B": "gemini-4-argon",
+    "C": "gpt-6-astra",
+    "D": "claude-opus-4-6",
+    "E": "claude-fable-5-1"
+  }
+}
