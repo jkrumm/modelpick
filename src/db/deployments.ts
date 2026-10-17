@@ -327,10 +327,42 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
       "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode (tool-less profile); no effort variant; override AGENT_GATEWAY_MODEL_NARRATIVE",
     config_ref: "agent-gateway/server/lib/routing.ts:256-262,291",
     rationale:
-      "Short-prose summary tier, moved from Sonnet on Max to Haiku 5.5 EU on OpenCode in Wave 10 (2026-10-15). The writing stack pick is claude-opus-4-6 — this slot deliberately runs a cheaper model because the output is a summary, not authored prose.",
+      "Short-prose summary tier, moved from Sonnet on Max to Haiku 5.5 EU on OpenCode in Wave 10 (2026-10-15). The writing stack pick is claude-opus-5-5 — this slot deliberately runs a cheaper model because the output is a summary, not authored prose.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-10-15",
     verified_at: VERIFIED,
+  },
+  {
+    service: "agent-gateway",
+    slot: "prose_write",
+    label: "prose writer (voice owner)",
+    model_id: "claude-opus-5-5",
+    category: "writing",
+    thinking: "high",
+    params:
+      "backend iu; no fallback; transport iu-anthropic (one native Messages call); adaptive thinking, output_config.effort high; max_tokens 32000; voice.md as system prompt; override AGENT_GATEWAY_MODEL_PROSE_WRITE",
+    config_ref: "agent-gateway/server/lib/routing.ts:298-313",
+    rationale:
+      "The prose tool's rewrite seat follows the writing stack pick. Opus 5.5 over Opus 4.6 on 2026-10-17: LMArena creative_writing #1 vs #4, bench:writing judges 4.10 vs 3.96, cheaper ($4/$20 vs $5/$25 per M). Gemini 4 Argon is ruled out by wire: the seat is anthropic-wire only.",
+    decision_doc: "docs/decisions/writing-model.md",
+    decided_at: "2026-10-17",
+    verified_at: "2026-10-17",
+  },
+  {
+    service: "agent-gateway",
+    slot: "prose_review",
+    label: "prose reviewer (cross-lab, notes only)",
+    model_id: "deepseek-v4.1-flash",
+    category: null,
+    thinking: "default",
+    params:
+      "backend iu; no fallback; transport iu-openai (single-shot chat completions, json_object); notes and rubric scores only, never rewrites; override AGENT_GATEWAY_MODEL_PROSE_REVIEW",
+    config_ref: "agent-gateway/server/lib/routing.ts:314-320",
+    rationale:
+      "Structural: the reviewer must come from a different lab than the writer (cross-model review beats same-model on documents, F1 30-42% vs 17-25%) and must be chat-wire, since the single-shot JSON path speaks chat completions only. DeepSeek V4.1 Flash is the verified non-Anthropic id on that path; gpt-6.1-sol is Responses-only.",
+    decision_doc: "docs/decisions/writing-model.md",
+    decided_at: "2026-10-17",
+    verified_at: "2026-10-17",
   },
   {
     service: "agent-gateway",

@@ -1,8 +1,10 @@
 # Writing Model — Opus 4.6 holds, and the LLM judge is the one that's wrong
 
-> **Current verdict (2026-09-12, re-checked 2026-10-17 — pending blind read):** `claude-opus-4-6` holds for English/German long-form prose,
-> but is explicitly under-evidenced for German — no public benchmark scores German prose
-> quality.
+> **Current verdict (2026-10-17):** `claude-opus-5-5` replaces `claude-opus-4-6` as the writing
+> pick — LMArena `creative_writing` #1 (4.6 dropped to #4), level or better with the cross-lab judges
+> on `bench:writing`, and cheaper. Owner decision without the blind read; German stays
+> under-evidenced. The podcast voice owner is a separate slot and still runs `claude-opus-4-6`.
+> First consumer: agent-gateway's `prose` tool (`prose_write`).
 > **Status of this record:** current
 > Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
 
@@ -26,6 +28,12 @@ A 0.23 spread on one sample per task is no signal, and LLM judges are the instru
 already distrusts. The pick holds until the owner's blind read of
 [`blind.md`](../experiments/writing/2026-10-17/blind.md) (labels in `key.json`). If that read
 prefers `claude-opus-5-5`, switch: it is cheaper ($4/$20 vs $5/$25 per M) and leads Arena.
+
+**Switched the same day (owner decision).** The judges cannot separate the two, Arena can, and 5.5
+costs less — so the blind read became a confirmation step, not a gate. First live job on agent-gateway's
+`prose` tool: a convoluted German vault paragraph came back as a verdict sentence plus a table in 19 s,
+lint findings 3 → 0, the URL and the code block intact. One flaw worth watching: it turned "observed
+twice" into "tried twice" — a small fact shift the keep gate cannot see.
 
 **Current:** `claude-opus-4-6`, for English and German long-form prose written against
 `brain/voice.md`. This record exists because the two writing leaderboards pulled in on
