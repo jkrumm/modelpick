@@ -69,10 +69,17 @@ export function deriveProvider(id: string): string {
   return seg ? seg.toLowerCase() : "other";
 }
 
+/** A trailing release stamp (`-2024-11-20`, `-20250929`, `-2512`), shown in parentheses so dated
+ *  snapshots stay distinguishable from their alias. */
+const DATE_SUFFIX = /[-_]((?:19|20)\d{2}-\d{2}-\d{2}|(?:19|20)\d{6}|2\d(?:0[1-9]|1[0-2]))$/;
+
 /** Builds a readable display name from a raw model id. */
 export function prettifyName(id: string): string {
   const base = id.includes("/") ? id.split("/").slice(1).join("/") : id;
-  return base
+  const stamp = DATE_SUFFIX.exec(base)?.[1];
+  const name = (stamp ? base.slice(0, -stamp.length - 1) : base)
+    // `opus-5-5` / `sonnet-4-5` are versions, not two numbers.
+    .replace(/(?<![\d.])(\d{1,2})[-_](\d)(?![\d.])/g, "$1.$2")
     .replace(/[-_]+/g, " ")
     .replace(/\bgpt\b/gi, "GPT")
     .replace(/\bllm\b/gi, "LLM")
@@ -81,6 +88,7 @@ export function prettifyName(id: string): string {
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (c) => c.toUpperCase());
+  return stamp ? `${name} (${stamp})` : name;
 }
 
 function extractModels(raw: unknown): IuModelRaw[] {
