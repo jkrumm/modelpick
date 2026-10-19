@@ -123,7 +123,7 @@ const MY_STACK: StackChoiceInsert[] = [
     category: "writing",
     model_id: "claude-opus-5-5",
     env_note:
-      "Voice owner for prose: agent-gateway's prose tool (prose_write) and the default for long-form writing against brain/voice.md. The podcast voice owner (audio-gateway PODCAST_WRITE_MODEL) is a separate slot and still runs claude-opus-4-6.",
+      "Voice owner for prose: agent-gateway's prose tool (prose_write) and the default for long-form writing against brain/voice.md. The podcast voice owner (audio-gateway PODCAST_WRITE_MODEL) runs it too, on the native Anthropic wire with adaptive thinking (2026-10-19).",
     rationale: "See docs/decisions/writing-model.md.",
     decided_at: "2026-10-17",
   },

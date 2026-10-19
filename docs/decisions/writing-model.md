@@ -3,8 +3,8 @@
 > **Current verdict (2026-10-17):** `claude-opus-5-5` replaces `claude-opus-4-6` as the writing
 > pick — LMArena `creative_writing` #1 (4.6 dropped to #4), level or better with the cross-lab judges
 > on `bench:writing`, and cheaper. Owner decision without the blind read; German stays
-> under-evidenced. The podcast voice owner is a separate slot and still runs `claude-opus-4-6`.
-> First consumer: agent-gateway's `prose` tool (`prose_write`).
+> under-evidenced. Consumers: agent-gateway's `prose` tool (`prose_write`) and, since 2026-10-19, the
+> podcast writer (audio-gateway `PODCAST_WRITE_MODEL`) — see the podcast A/B below.
 > **Status of this record:** current
 > Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
 
@@ -39,6 +39,28 @@ twice" into "tried twice" — a small fact shift the keep gate cannot see.
 `brain/voice.md`. This record exists because the two writing leaderboards pulled in on
 2026-09-11 disagree about it by roughly eighteen ranks, and because the one that ranks it
 low is the one that shouldn't be trusted here.
+
+## 2026-10-19 — the podcast writer follows, on the native wire
+
+audio-gateway called Opus through the IU chat-completions shim, which gives Claude no thinking
+control. The writer now uses the native Anthropic Messages route with adaptive thinking and
+`output_config.effort: "high"`, and `brain/voice.md` precedes the show bible. One same-input A/B
+(a stored 12-minute German episode, its own brief and dossier, script only, no TTS):
+
+| | claude-opus-4-6 | claude-opus-5-5 |
+|-|-|-|
+| Wall time | 936 s | 482 s |
+| Output tokens (all writer calls) | 199k | 64k |
+| Turns / words | 68 / 2,620 | 54 / 2,605 |
+| Failures | segment 1 invalid JSON twice (German `„…"` closed with an ASCII quote) | none |
+| Factual slips | none seen | one: port 7719 spelled out as "siebentausendeinhundertneunzehn" |
+
+Read side by side, 5.5 has shorter sentences, real back-and-forth between the hosts, and uses a
+sourced anecdote (the port collision) that 4.6 skipped; 4.6 runs to longer monologues. Half the
+time, a third of the output tokens (4.6's count includes its aborted first run). One sample, read
+side by side, not blind-judged — not a benchmark. The JSON failure was fixed in code (a quote
+repair used only when the original fails to parse), so it no longer decides between models. The
+spelled-out number slip is the thing to watch in the next real episodes. Rollback: `PODCAST_WRITE_MODEL=claude-opus-4-6`.
 
 ## The disagreement
 

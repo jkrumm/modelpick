@@ -324,7 +324,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "writing",
     thinking: "default",
     params:
-      "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode (tool-less profile); no effort variant; override AGENT_GATEWAY_MODEL_NARRATIVE",
+      "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode (tool-less profile); no effort variant; override AGENT_GATEWAY_MODEL_NARRATIVE. The rendered page is then polished in-process by the prose pipeline (prose_write/prose_review slots; polish:false skips)",
     config_ref: "agent-gateway/server/lib/routing.ts:256-262,291",
     rationale:
       "Short-prose summary tier, moved from Sonnet on Max to Haiku 5.5 EU on OpenCode in Wave 10 (2026-10-15). The writing stack pick is claude-opus-5-5 — this slot deliberately runs a cheaper model because the output is a summary, not authored prose.",
@@ -880,15 +880,16 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     service: "audio",
     slot: "podcast-write",
     label: "podcast script writing — the voice owner",
-    model_id: "claude-opus-4-6",
+    model_id: "claude-opus-5-5",
     category: "writing",
-    thinking: "default",
-    params: "used by podcasts.ts:664",
-    config_ref: "audio-gateway/src/config.ts:391",
+    thinking: "high",
+    params:
+      "native Anthropic Messages wire, adaptive thinking + output_config effort high, 32k max_tokens floor; brain/voice.md (PODCAST_VOICE_PATH) ahead of the show bible; used by podcasts.ts:665",
+    config_ref: "audio-gateway/src/config.ts:426",
     rationale:
-      "The one slot the writing category actually scores. Arena's 12,678 human votes put Opus 4.6 at #2; EQ-Bench ranks it ~18 places lower on a Claude-judged rubric and is not the signal used.",
+      "Follows the writing pick (claude-opus-5-5: LMArena creative_writing #1, level or better on bench:writing). Moved off the chat-completions shim, which gave Opus no thinking control, onto the native wire with adaptive thinking; a same-input script A/B against claude-opus-4-6 preceded the switch. claude-opus-4-6 stays a one-line PODCAST_WRITE_MODEL rollback.",
     decision_doc: "docs/decisions/writing-model.md",
-    decided_at: "2026-09-11",
+    decided_at: "2026-10-19",
     verified_at: VERIFIED,
   },
   {
