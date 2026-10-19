@@ -86,8 +86,10 @@ the Wave 5 field. Evidence: `docs/experiments/routes-2026-10-19/summary.md`.
 | claude-haiku-5-5-eu | 6/6 | 6/6 | 12/12 | 29 / 21 | 3.3 | $0.0103 |
 
 1017 closed the pass gap (Wave 5: 10/12 vs 12/12) but not the speed gap: it takes 2-5x the
-turns, which cancels its ~3-4x lower token price — implement costs the same, review costs
-twice as much. Review hint recall is level (17/24 vs 16/24). **No move.** dispatch,
+turns. It has no price edge either — Haiku 5.5 lists at $0.10/$0.50 per MTok (cache read $0.01,
+5x above 100K prompt tokens; agent-gateway's registry, matching Requesty's bedrock rate) vs
+DeepSeek's $0.30/$1.20 — so implement costs the same and review costs twice as much. Haiku 5.5 EU
+reaches Bedrock EU through IU's own LiteLLM, not Requesty, and returns no `usage.cost`. Review hint recall is level (17/24 vs 16/24). **No move.** dispatch,
 dispatch_implement, check, overview, review and the four angles stay on Haiku 5.5 EU; warden
 inherits them. 1017 is now a credible same-harness fallback, and stays the pick on the
 single-shot routes (triage, review_router, prose_review, review_ocr) where turn count is 1.
