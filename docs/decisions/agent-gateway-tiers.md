@@ -69,3 +69,27 @@ cost verdicts they fed stand unchanged; only the caching reading was wrong.
 CLASSIFY (`check`/`overview`/`review_router`) is unaffected by this move but was itself
 re-pointed 2026-09-23 from `glm-5.3-flash` to `DeepSeek-V4-Flash` when GLM retired from this
 server entirely — recorded here since the table above still names the old model.
+
+## 2026-10-19 — DeepSeek V4.1 Flash 1017 re-bench: Haiku 5.5 EU stays on the OpenCode routes
+
+`deepseek-v4.1-flash` on IU forwards through Requesty to DeepSeek's first-party unversioned
+id, whose Requesty entry was updated on 2026-10-17 in the same minute the `-1017` snapshot
+appeared — so the IU id now serves 1017 with no id change. Dated ids (`…-1017`) are not on
+the IU allowlist (404); the `-eu` variants route to Lyceum, which has not moved.
+
+Re-ran agent-gateway's `scripts/bench-routes.ts` (OpenCode, production path, 2 reps) against
+the Wave 5 field. Evidence: `docs/experiments/routes-2026-10-19/summary.md`.
+
+| model | implement | investigate | review | median s (impl / review) | mean turns (review) | mean cost (review) |
+|-|-|-|-|-|-|-|
+| deepseek-v4.1-flash (1017) | 6/6 | 6/6 | 12/12 | 43 / 97 | 15.1 | $0.0218 |
+| claude-haiku-5-5-eu | 6/6 | 6/6 | 12/12 | 29 / 21 | 3.3 | $0.0103 |
+
+1017 closed the pass gap (Wave 5: 10/12 vs 12/12) but not the speed gap: it takes 2-5x the
+turns, which cancels its ~3-4x lower token price — implement costs the same, review costs
+twice as much. Review hint recall is level (17/24 vs 16/24). **No move.** dispatch,
+dispatch_implement, check, overview, review and the four angles stay on Haiku 5.5 EU; warden
+inherits them. 1017 is now a credible same-harness fallback, and stays the pick on the
+single-shot routes (triage, review_router, prose_review, review_ocr) where turn count is 1.
+Hermes brain is unaffected — it is a latency job and `bench:fast`
+(`docs/experiments/fast-2026-10-19/`) shows no TTFT advantage for 1017.
