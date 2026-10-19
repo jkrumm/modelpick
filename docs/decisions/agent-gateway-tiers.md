@@ -95,3 +95,26 @@ inherits them. 1017 is now a credible same-harness fallback, and stays the pick 
 single-shot routes (triage, review_router, prose_review, review_ocr) where turn count is 1.
 Hermes brain is unaffected — it is a latency job and `bench:fast`
 (`docs/experiments/fast-2026-10-19/`) shows no TTFT advantage for 1017.
+
+### 2026-10-19 (later) — real-review replay confirms it
+
+The bench-routes tasks were too easy to separate the two (24/24 each), so the question was re-run
+on real work: 30 of the 111 frozen agent-gateway reviews (2026-10-18/19, mostly argo), replayed
+through the live pipeline once per arm under the new verdict calibration (agent-gateway d3c86a1).
+Only angles + synthesis vary; router, OCR and adversary stay on their routes. 23 items finished
+in both arms (7 failed identically: their IuRoot worktrees no longer exist). Blocking findings
+were judged blind by `gpt-6.1-sol` (cross-lab to both arms) against the frozen diff —
+`bun run bench:review-judge`; the corpus and results stay local (they contain work diffs).
+
+| arm | clean | blocking | confirmed | false blocking | unverifiable | p50 / p90 | angle+synthesis cost / review |
+|-|-|-|-|-|-|-|-|
+| Haiku 5.5 EU (no effort set) | 52% | 16 | 12 | 1 | 3 | 3.4 / 5.3 min | $0.020 |
+| deepseek-v4.1-flash 1017 (high) | 57% | 17 | 10 | 1 | 6 | 5.5 / 10.0 min | $0.060 |
+
+Both arms caught a confirmed blocker on exactly the same items — neither found a real defect the
+other missed. Quality is a tie at this n (12 items with blocking findings); Haiku is ~1.6x faster
+at p50, ~2x at p90, and a third of the cost (DeepSeek at peak rate; off-peak would halve it, still
+1.5x). Cost is matched from usage-tracker's session sink by project/model/time window, which can
+only over-count the Haiku arm (live reviews run Haiku), so the gap is if anything larger.
+**Haiku 5.5 EU stays on review, dispatch and warden.** Re-open when ArtificialAnalysis or a new
+snapshot moves the quality gap, not on price.
