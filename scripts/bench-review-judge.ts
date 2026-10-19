@@ -46,6 +46,13 @@ interface CorpusItem {
 }
 
 const BASELINE_MODEL = "claude-haiku-5-5-eu";
+// USD per MTok (in/out) for the judge when IU reports no usage.cost (the Azure-routed GPT ids do
+// not). Requesty list, 2026-10-19.
+const JUDGE_RATES: Record<string, { in: number; out: number }> = {
+  "gpt-6.1-sol": { in: 2, out: 10 },
+  "gemini-3.8-flash": { in: 0.75, out: 3.75 },
+  "gpt-6-luna": { in: 0.1, out: 0.5 },
+};
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -73,11 +80,16 @@ async function judge(model: string, prompt: string): Promise<{ text: string; cos
   if (!resp.ok) throw new Error(`judge HTTP ${resp.status}: ${(await resp.text()).slice(0, 300)}`);
   const body = (await resp.json()) as {
     choices?: { message?: { content?: string }; finish_reason?: string }[];
-    usage?: { cost?: number };
+    usage?: { cost?: number; prompt_tokens?: number; completion_tokens?: number };
   };
   const text = body.choices?.[0]?.message?.content ?? "";
   if (!text) throw new Error(`judge returned empty content (finish_reason ${body.choices?.[0]?.finish_reason})`);
-  return { text, costUsd: typeof body.usage?.cost === "number" ? body.usage.cost : null };
+  if (typeof body.usage?.cost === "number") return { text, costUsd: body.usage.cost };
+  const rate = JUDGE_RATES[model];
+  const estimate = rate
+    ? ((body.usage?.prompt_tokens ?? 0) * rate.in + (body.usage?.completion_tokens ?? 0) * rate.out) / 1e6
+    : null;
+  return { text, costUsd: estimate };
 }
 
 interface SessionRow {
@@ -221,7 +233,7 @@ async function main(): Promise<void> {
   const md = [
     `# Review replay — judged by ${judgeModel}`,
     "",
-    `${items.length} items where every arm finished; ${toJudge.length} had blocking findings. Judge cost $${judgeCost.toFixed(2)}.`,
+    `${items.length} items where every arm finished; ${toJudge.length} had blocking findings. Judge cost $${judgeCost.toFixed(2)} (IU usage.cost, else estimated from tokens at list rate).`,
     "",
     "| arm | reviews | clean | blocking | confirmed | not blocking | not a defect | unverifiable | precision | improvements/review | p50 | p90 | cost (angle+synthesis) | per review |",
     "|-|-|-|-|-|-|-|-|-|-|-|-|-|-|",
