@@ -375,6 +375,30 @@ describe("collectArtificialAnalysis — free language endpoint", () => {
     expect(urls[1]).toContain("page=2");
     expect(result.metrics.length).toBe(8);
   });
+
+  it("takes a pinned id's scores from its pinned snapshot, never the undated slug", async () => {
+    const snapshot = (slug: string, quality: number): unknown => ({
+      id: slug,
+      slug,
+      name: slug,
+      evaluations: { artificial_analysis_intelligence_index: quality },
+    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        aaPage(
+          [snapshot("deepseek-v4-1-flash", 39.5), snapshot("deepseek-v4-1-flash-1017", 45.1)],
+          false,
+        ),
+      ),
+    );
+    const result = await collectArtificialAnalysis(createIdResolver(["deepseek-v4.1-flash"]));
+
+    const quality = result.metrics.filter(
+      (m) => m.model_id === "deepseek-v4.1-flash" && m.metric === "quality",
+    );
+    expect(quality.map((m) => m.value)).toEqual([45.1]);
+    expect(result.unmatched).toHaveLength(0);
+  });
 });
 
 describe("collectArtificialAnalysis — error handling", () => {

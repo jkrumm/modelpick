@@ -37,6 +37,15 @@ const AA_MODELS_URL = "https://artificialanalysis.ai/api/v2/language/models/free
 // 4 pages of 200 today; the cap only guards against a has_more that never turns false.
 const MAX_PAGES = 20;
 
+// Local id → the dated AA slug its route verifiably serves. The resolver never strips a
+// 4-digit snapshot suffix (`-1017`) — that would collapse every DeepSeek snapshot onto one
+// id — so a route that silently moved to a new snapshot needs an explicit pin.
+// deepseek-v4.1-flash: IU → Requesty deepseek/deepseek-v4.1-flash, updated to 1017 on
+// 2026-10-17 (docs/decisions/agent-gateway-tiers.md, 2026-10-19).
+export const SNAPSHOT_PINS: Readonly<Record<string, string>> = {
+  "deepseek-v4.1-flash": "deepseek-v4-1-flash-1017",
+};
+
 async function fetchAllModels(key: string): Promise<AAModel[]> {
   const models: AAModel[] = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
@@ -90,10 +99,15 @@ export async function collectArtificialAnalysis(resolve: IdResolver): Promise<Co
   const metrics: NormalizedMetric[] = [];
   const unmatched: { externalId: string; name: string }[] = [];
 
+  const pinnedSlugs = new Map(Object.entries(SNAPSHOT_PINS).map(([local, slug]) => [slug, local]));
+
   for (const model of models) {
     // AA's `id` is a UUID; the human-readable identifier is `slug` (fall back to name).
     const externalId = model.slug ?? model.name;
-    const localId = resolve(externalId);
+    const localId = pinnedSlugs.get(externalId) ?? resolve(externalId);
+    // A pinned id takes its metrics from the pinned snapshot only — the undated slug
+    // resolving to the same id would otherwise write the superseded scores beside it.
+    if (localId && SNAPSHOT_PINS[localId] && SNAPSHOT_PINS[localId] !== externalId) continue;
     if (!localId) {
       unmatched.push({ externalId, name: model.name });
       continue;
