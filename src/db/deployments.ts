@@ -607,21 +607,21 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
   {
     service: "hermes",
     slot: "brain",
-    // The `fast` recommender scores on leaderboards; this pick rests on bench-fast plus
-    // the tools+thinking constraint below — an explicit owner override, not unnoticed drift.
+    // The `fast` recommender scores on leaderboards; this pick rests on bench-fast plus a live
+    // trial — an explicit owner override, not unnoticed drift.
     follows_recommendation: false,
     label: "brain — the agent loop",
-    model_id: "claude-haiku-5-5-eu",
+    model_id: "deepseek-v4.1-flash",
     category: "fast",
     thinking: "high",
     params:
-      "native Anthropic leg: provider custom, api_mode anthropic_messages in BOTH model (:6) and providers.custom (:18) — resolve_runtime_provider() reads the named-provider block; base_url/api_key ${ANTHROPIC_BASE_URL}/${ANTHROPIC_API_KEY}; agent.reasoning_effort high (:69) reaches the wire as output_config.effort ONLY via patches/anthropic-adapter-haiku-5.patch (upstream sends nothing for any 'haiku' id → silent medium); context_length 1000000; tool_use_enforcement true. -eu = Bedrock eu-west-1; the bare claude-haiku-5-5 is us-east-1. Input price jumps 5x above 100k tokens while compaction triggers at 240k (owner decision pending, hermes-agent docs/model-context-reasoning.md)",
-    config_ref: "hermes-agent/config.yaml:3,6,18,69",
+      "OpenAI-compat leg: provider custom, api_mode chat_completions in BOTH model (:9) and providers.custom (:21); base_url/api_key ${OPENAI_BASE_URL}/${OPENAI_API_KEY}; agent.reasoning_effort high (:75) goes out as reasoning_effort with tools on the same request (patches/transport-iu-reasoning-effort.patch leaves DeepSeek's effort untouched; tests/test_iu_reasoning_effort.py asserts it), max_completion_tokens 65536; context_length 1000000. The id is DeepSeek first-party via Requesty — the 1017 snapshot (same system_fingerprint as the explicit -1017 id, 2026-10-19). Flat $0.30/$1.20, no 100k cliff",
+    config_ref: "hermes-agent/config.yaml:6,9,21,75",
     rationale:
-      "2026-10-08: bench-fast on the native Anthropic leg — high effort 15/15 at ~1.6s median, EU equal or faster than US; medium dropped a task, xhigh/max think 50-100s+ on long outputs. The OpenAI-compat leg is ~3x slower to first token and ignores effort. gpt-6-luna is level on bench-fast (15/15 at every effort) but 503s on tools with any effort key, so as a brain it runs tool turns at effort none; Haiku keeps high-effort thinking inside the tool loop and gets native cache_control (100% cache read on call 2, live). Replaces deepseek-v4.1-flash (3x the per-token price, effort accepted-but-ignored on its route). Live-verified in session 20261008_122217_14a838: effort high on the wire, 2-turn tool loop, no fallback.",
+      "2026-10-20 (trial, owner call): back from Haiku 5.5 EU to deepseek-v4.1-flash now that the id serves 1017 on DeepSeek's own route — AA 45.1 vs Haiku high 37.8, effort honoured (bench-fast 15/15 at every effort, high 1.4 s median), no 5x price step between 100k and the 240k compaction trigger. Live-verified 2026-10-20 over the gateway API: effort high on the wire, 104 reasoning tokens on a multi-step question (correct), 99% cache read from call 2, 1.2-2.3 s per call, usage-tracker prices the rows (computed, off-peak aware). Revert: the anthropic_messages block from hermes-agent bfa33c3. Haiku 5.5 EU stays the approval lane.",
     decision_doc: "docs/decisions/hermes-brain.md",
-    decided_at: "2026-10-08",
-    verified_at: "2026-10-08",
+    decided_at: "2026-10-20",
+    verified_at: "2026-10-20",
   },
   {
     service: "hermes",

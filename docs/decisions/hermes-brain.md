@@ -1028,3 +1028,29 @@ single-shot JSON planning, `response_format: json_object` probed live at high/me
 other DeepSeek and Luna slots stay — writing slots lack Arena data for either challenger, argo is
 on AI SDK v5 (its Anthropic provider predates Haiku 5.5), and research-gateway moves only after
 a research-quality eval.
+
+## 2026-10-20: trial — the brain moves back to `deepseek-v4.1-flash` (the 1017 snapshot), effort `high`
+
+Owner call after the 1017 release. The plain IU id forwards to DeepSeek's own API through
+Requesty and serves 1017: it returns the same `system_fingerprint` as the explicit
+`deepseek-v4.1-flash-1017` id, with byte-identical temperature-0 outputs (2026-10-19). The
+`-eu` id is still September (Lyceum). Why this differs from the agent-gateway verdict, where
+Haiku stayed: there the job is short review loops where turn count and speed decide, and the
+replay tied on quality. Hermes is a long conversation where reasoning depth matters more,
+and every call between 100k and the 240k compaction trigger pays Haiku's 5x price.
+DeepSeek is flat. ArtificialAnalysis: 1017 at 45.1 vs Haiku 5.5 high at 37.8.
+
+Live verification (gateway API, 2026-10-20):
+
+| check | result |
+|-|-|
+| model / route | `deepseek-v4.1-flash`, IU `/openai/v1`, `chat_completions` |
+| effort on the wire | `reasoning_effort: high` with tools (asserted by `tests/test_iu_reasoning_effort.py` in `make check`) |
+| reasoning | 104 reasoning tokens on a multi-step arithmetic question, correct answer; 0 on a trivial one |
+| caching | 99% cache read from the second call (`cache=18176/18322`) |
+| latency | 1.2-2.3 s per call |
+| cost reporting | `session_model_usage` → usage-tracker, `computed` at $0.30/$1.20 (off-peak aware) |
+
+Judge after a few days of real use: owner feel, p50 call latency and tool-loop length from
+`agent.log`, cost per session from usage-tracker, compared with Haiku's 2026-10-08 to 10-20
+window. Revert = restore the `anthropic_messages` block from hermes-agent `bfa33c3`.
