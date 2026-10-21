@@ -27,7 +27,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "metric": "gpqa_diamond",
     "in_eci": true,
     "random_baseline": 0.25,
-    "score_ceiling": 1,
+    "score_ceiling": 0.97,
     "release_date": "2023-11-20",
     "superseded_by": null
   },
@@ -54,7 +54,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
     "metric": "frontiermath_tiers_1_3_v2",
     "in_eci": true,
     "random_baseline": 0,
-    "score_ceiling": 1,
+    "score_ceiling": 0.95,
     "release_date": "2026-06-12",
     "superseded_by": null
   },
@@ -321,8 +321,8 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
   },
   {
     "benchmark": "ScienceQA",
-    "metric": "science_qa_external",
-    "in_eci": true,
+    "metric": null,
+    "in_eci": false,
     "random_baseline": 0.25,
     "score_ceiling": 1,
     "release_date": "2022-09-20",
@@ -420,8 +420,8 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
   },
   {
     "benchmark": "HLE",
-    "metric": "hle_external",
-    "in_eci": true,
+    "metric": null,
+    "in_eci": false,
     "random_baseline": 0.048,
     "score_ceiling": 1,
     "release_date": "2025-01-23",
@@ -537,8 +537,8 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
   },
   {
     "benchmark": "DeepSWE",
-    "metric": "deepswe_external",
-    "in_eci": true,
+    "metric": null,
+    "in_eci": false,
     "random_baseline": 0,
     "score_ceiling": 1,
     "release_date": "2026-05-26",
@@ -807,10 +807,10 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
   },
   {
     "benchmark": "WeirdML v3",
-    "metric": null,
-    "in_eci": false,
+    "metric": "weirdml_v3_external",
+    "in_eci": true,
     "random_baseline": 0,
-    "score_ceiling": 1,
+    "score_ceiling": 0.9,
     "release_date": "2026-09-18",
     "superseded_by": null
   },
