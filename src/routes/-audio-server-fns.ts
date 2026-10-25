@@ -11,6 +11,7 @@ import {
 import { generateTts, generateStt, writeDemoAudio, getDemosDir } from "~/server/audio/generate";
 import type { Demo, Model } from "~/db/schema";
 import { readCompareManifest } from "~/server/audio/compare";
+import { readSttResults, readSttTestset } from "~/server/audio/stt-compare";
 import {
   TTS_PRESETS,
   TTS_CANDIDATE_VOICES,
@@ -189,3 +190,8 @@ export const toggleVoicePublicFn = createServerFn({ method: "POST" })
 export const getTtsCompareFn = createServerFn({ method: "GET" }).handler(async () =>
   readCompareManifest(),
 );
+
+export const getSttCompareFn = createServerFn({ method: "GET" }).handler(async () => ({
+  testset: await readSttTestset(),
+  results: await readSttResults(),
+}));

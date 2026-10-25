@@ -22,12 +22,14 @@ import {
   runSttDemoFn,
   toggleDemoPublicFn,
   getAllDemosFn,
+  getSttCompareFn,
   EU_STT_MODELS,
 } from "./-audio-server-fns";
 import type { Demo, Model } from "~/db/schema";
+import { SttCompare } from "./-stt-compare";
 
 export const Route = createFileRoute("/stt")({
-  loader: async () => getSttPlaygroundData(),
+  loader: async () => ({ ...(await getSttPlaygroundData()), compare: await getSttCompareFn() }),
   component: SttPage,
 });
 
@@ -199,7 +201,7 @@ function GenerateSttPanel({ models, ttsAudioDemos, onGenerated }: GenerateSttPan
 }
 
 function SttPage() {
-  const { models, demos: initialDemos, ttsAudioDemos } = Route.useLoaderData();
+  const { models, demos: initialDemos, ttsAudioDemos, compare } = Route.useLoaderData();
   const [demos, setDemos] = useState(initialDemos);
 
   const refreshDemos = async () => {
@@ -225,6 +227,8 @@ function SttPage() {
         Compare speech-to-text transcription models on the same audio. EU-hosted models (Azure
         Sweden Central) are highlighted in blue.
       </Text>
+
+      <SttCompare testset={compare.testset} results={compare.results} />
 
       {demos.length === 0 ? (
         <Paper withBorder p="xl" ta="center">
