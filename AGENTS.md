@@ -216,6 +216,12 @@ syncs to the SQLite file with `bun run db:push` (`drizzle-kit push`, dialect `sq
   gitignored) and are served at request time by `/api/tts-audio/<file>`, so new samples need no rebuild.
   Regenerate with `secrets-run run --env-file=.env.tpl -- bun scripts/tts-compare.ts [--only <model>]
   [--skip-existing] [--dry-run]` (spends IU money, estimates and caps at $2.5). Record: `docs/decisions/audio-stack.md`.
+- German STT comparison on `/stt`: `data/stt-compare/` (`testset.json` + `results.json` tracked, `audio/` gitignored; served
+  at request time by `/api/stt-audio/<file>`). Build the public test set with `bun scripts/stt-testset.ts --src <dir>` (inputs
+  listed in its header), run with `secrets-run run --env-file=.env.tpl -- bun scripts/stt-compare.ts [--only <substr>]
+  [--skip-existing] [--cloud-only|--local-only] [--dry-run]` (caps IU spend at $1; local engines go through
+  `ssh iumac mw transcribe`, audio rsynced to the MacBook). Scoring is `src/server/audio/stt-score.ts`. Record:
+  `docs/decisions/audio-stack.md` §German STT comparison.
 - SQLite has no native enums — they're `text({ enum: [...] })` with value tuples (`MODALITY`,
   `CATEGORY`, …) exported from `schema.ts`. Booleans are `integer({ mode: "boolean" })`;
   timestamps are text (`CURRENT_TIMESTAMP`), which sort lexically.
