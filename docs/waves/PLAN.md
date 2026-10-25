@@ -1,54 +1,55 @@
-# German STT comparison in /stt
-**Goal:** `/stt` on :7727 shows a measured German speech-to-text comparison — every IU-reachable cloud STT plus
-the local MacWhisper engines on the MacBook — with WER against reference transcripts, punctuation/casing
-quality, long-form robustness, diarization, latency and $/min, and `docs/decisions/audio-stack.md` carries a
-per-use recommendation (Hermes voice messages, MacWhisper dictation, long recordings) pending Johannes' verdict.
-**Gate:** `make check`, then `make deploy` + `make verify`. IU spend cap **$1**.
+# /tts as a listening workbench
+**Goal:** Johannes opens `/tts` on :7727 and immediately knows what each sample is, what to compare it with,
+and which question his ears are answering — then records a pick per question. Today the page is three
+sections of wide metric tables keyed by ids like `w5__english__Charon__b-style`; he can't tell what differs.
+**Gate:** `make check`, then `make deploy` + `make verify`. **No IU spend** — reuse the existing audio and
+`data/tts-compare/manifest.json`; generate nothing.
 
 ## Established — do not re-derive
-- Current setup: **remote** = audio-gateway STT `gpt-transcribe` (US-routed OpenAI leg; `whisper` (EU) kept for
-  timestamps); **local** = MacWhisper on the MacBook with `qwen3-asr-1.7b` (also downloaded: `nvidia_parakeet-v3`,
-  WhisperKit `openai_whisper-large-v3-v20240930`). MacWhisper's "custom" cloud provider still points at an MLX
-  Whisper endpoint on the MacBook's tailnet host — likely stale (retired audio-proxy); report whether it works.
-  MacWhisper CLI: `ssh iumac /Applications/MacWhisper.app/Contents/MacOS/mw` (docs: docs.macwhisper.com
-  article 57). Use it for the local engines; do not change MacWhisper settings.
-- IU-reachable (today's `capability_probe`): `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-transcribe-diarize`,
-  `whisper` (EU), `elevenlabs/scribe-v2` (Replicate, URL-in), `voxtral-small-transcribe-3-0`,
-  `voxtral-mini-transcribe-3-0` (Mistral La Plateforme, launched 2026-10-20), `xai/grok-speech-to-text`.
-  `gemini-3.5-transcribe` timed out in the probe — find the right request shape (Gemini transcribe guide) and
-  include it if it works. OpenAI shuts down `gpt-4o-*transcribe*` and `whisper-1` on 2027-02-26.
-- Research (2026-10-25, research-gateway job f80b9661): the only German leaderboard number is Scribe v2 2.27% vs
-  Whisper large-v3 4.26% (Open ASR German = MCV-de + FLEURS-de, normalised: no punctuation/casing).
-  gpt-transcribe: $0.0045/min, no German WER, no diarization, no word timestamps, prompt-only formatting.
-  Voxtral Small Transcribe 3: $0.0040/min, FLEURS-45 macro 4.1%, best diarization cpWER (18.4%), EU-hosted.
-  gemini-3.5-transcribe: ~$0.005/min, ITN + punctuation, diarization ≤8 speakers, 30-min cap with diarization.
-  Scribe v2: word timestamps + diarization, price unverified. Local ranking (Qwen3-ASR vs Parakeet v3 vs
-  WhisperKit large-v3 for German) is NOT researched — measure it.
-- Residency rule (audio-stack.md): recorded **personal** voice should stay EU. Therefore use **public German
-  test audio with reference transcripts** only — no personal recordings.
+- Data: `data/tts-compare/manifest.json` (`texts` + 126 `samples`; fields id, preset, model, voice, gender,
+  file, mode, set ∈ {none, audition, wave5}, request, latency_ms, first_audio_ms, duration_s, chars,
+  cost_per_min, cost_source, verbatim, diff, streaming, aa_rank). Audio served by `src/routes/api.tts-audio.$name.ts`.
+  UI today: `src/routes/-tts-compare.tsx` (`TtsCompare`, `CompareSection`, `SampleTable`), mounted in
+  `src/routes/tts.tsx`; loader in `src/server/audio/compare.ts`.
+- Decisions already made (show as "settled", not as open questions): Gemini 3.8 everywhere — chat
+  `gemini-3.8-flash-lite-tts`, briefings + podcasts `gemini-3.8-flash-tts`; voices **Charon** (main/male host)
+  and **Erinome** (female co-host). Chunking: briefing chunks ~1,100 chars, podcast multi-speaker runs ≤3,000
+  chars — W5 found no drift 1,000–3,000. Numbers: production prep spells numbers out and rounds statistics
+  (variants b + d). English terms: nothing shipped yet (production = variant a, plain).
+- **Open questions for his ears** (the reason for this wave):
+  1. English terms in German speech — `w5__english__<voice>__{a-plain,b-style,c-rule,d-rule+style}`:
+     a = text as written; b = style hint telling the model to pronounce English terms in English;
+     c = writer rule: English compounds written open, no hyphens ("Pull-Request" → "Pull Request", "Deployment-Pipeline"
+     → "Deployment Pipeline"; texts `w5_english_a` vs `w5_english_c`);
+     d = c + b. Same model (flash), same text otherwise, per voice Charon and Erinome.
+  2. Numbers and data — `w5__numbers__<voice>__{a-digits-normalized,b-spelled,c-spelled-slow,d-rounded}`:
+     a = digits, symbols normalised (€ → Euro, % → Prozent; `w5_numbers_raw`); b = every number spelled out;
+     c = b with style "speaking slowly and clearly"; d = rounded and spelled ("rund dreizehnhundert Euro", "Mitte November").
+  3. (Check, not a choice) chunk length — `w5__chunks__{mono,duo}-{1000,1500,2000,3000}`: same material at
+     different chars per request; listen for drift at the end of long chunks.
+- Reference material (collapsed by default): the German cross-model comparison (set none; chat/briefing/
+  podcast × 10 models) and the Gemini voice audition (set audition). Keep blind mode for the model comparison.
+- Each sample's exact input is in `request` — use it to show what text/style the variant actually sent.
 
-## Wave 1 — Measure and present            <!-- status: done -->
-- [x] Test set (public, with references): ~15 FLEURS-de / Common Voice-de clips (short, dictation-like), one
-      ~10–15 min long-form German recording with an official transcript (e.g. a Bundestag plenary excerpt —
-      multi-speaker, for diarization and drift), one noisy/phone-quality clip. Record sources + licences
-- [x] Run every reachable cloud model (sensible German settings: language `de`, diarization where offered) and
-      the three local MacWhisper engines. Metrics: normalised WER (Open ASR-style) AND raw WER with
-      punctuation/casing, number/date formatting, long-form repetition/truncation, diarization (speaker
-      count / cpWER where possible), latency (RTF), $/min (cite source), residency
-- [x] `/stt` page section: per-model table + per-clip transcript diff view (reference vs hypothesis), audio
-      playable. Reuse the request-time audio route pattern from `/tts`
-- [x] "How to call it" per model (request shape, language/diarization params, limits, traps)
-- [x] Decision record section in `docs/decisions/audio-stack.md`: results table + recommendation per use
-      (Hermes voice messages via audio-gateway; MacWhisper dictation local; long multi-speaker recordings),
-      marked pending the owner's verdict; note whether audio-gateway could swap STT by config alone
-- [x] Gate green, committed, pushed, deployed, verified; report actual spend
-**Left behind:** stopped: plan complete. Pushed and deployed; `/stt` live on :7727 (`make verify` green). IU spend ≈ $0.83
-of $1 (list-price estimate). Recommendation in `docs/decisions/audio-stack.md` is pending Johannes' verdict; nothing changed in audio-gateway.
-- Deviations: long-form is a single-narrator LibriVox reading (Schimmelreiter, Gutenberg text), not a multi-speaker Bundestag excerpt
-  (no scriptable audio+transcript source found); diarization is scored on the synthetic two-host `/tts` clip. Noisy clips are
-  FLEURS clips degraded with ffmpeg. Short set is 244 words, noisy 44 — differences under ~1 point are ties.
-- `gpt-4o-transcribe-diarize` failed the 12-min clip (HTTP 500); `gemini-3.5-transcribe` works only on the Gemini route with no speaker labels.
-  whisper latencies include rate-limit backoff and are blanked where obvious.
-- Pre-existing, untouched: `make check` lint fails on master in `scripts/tts-audition.ts` (unused import) and `scripts/tts-wave5.ts`
-  (2 errors); tests (884) and typecheck pass. `fallow audit` flags complexity in the new `-stt-compare.tsx` / `stt-compare.ts` and old `stt.tsx`.
-- Review items not done: shared Levenshtein table across `wer`/`alignHyp`/`diffTokens`; `score()` options object; runner has no unit tests.
+## Wave 1 — Rebuild /tts around questions            <!-- status: active -->
+- [ ] An experiments definition (typed, in code, e.g. `src/server/audio/experiments.ts`) mapping manifest ids
+      to: question (plain language), what is held constant, the axis that varies, a human label + one-line
+      description per variant (A "As written", B "Style hint: English terms in English", …), which variant is
+      in production now, and rows (voice). No id strings in the UI
+- [ ] Layout top to bottom: (1) "Your picks" summary — one line per open question with the chosen variant,
+      plus a "copy as text" button so he can paste the verdict into chat; (2) open-question cards;
+      (3) "Check" card for chunk length; (4) collapsed "Reference: settled decisions" with the model
+      comparison (blind mode) and the voice audition, each with a one-line note on what was decided
+- [ ] Question card: question as title; one sentence "same: model, voice, text — differs: …"; the spoken text
+      once, with the differing span highlighted per variant where the input text differs (english a vs c,
+      numbers raw vs spelled); a grid rows = voice, columns = variants; each cell: big play/pause button,
+      label, duration, "in production" badge where applicable, and a "pick" toggle (one pick per question,
+      persisted in localStorage)
+- [ ] Playback: one global player — starting a sample stops any other; keyboard 1–4 plays variant A–D of the
+      focused card row, space pauses. Metrics (latency, $/min, AA rank, streaming, transcript diff) only in the
+      reference model comparison, compact, with plain-language column tooltips
+- [ ] Keep it in the repo's UI conventions (Mantine, existing components; read AGENTS.md). Remove the old
+      `CompareSection` tables for set audition/wave5 once the new view covers them
+- [ ] Gate green; `make deploy` + `make verify`; confirm `/tts` returns 200 and every referenced audio file
+      resolves (script or curl loop over the manifest); commit per concern, push
+**Left behind:**
