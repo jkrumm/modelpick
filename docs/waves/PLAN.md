@@ -27,19 +27,28 @@ per-use recommendation (Hermes voice messages, MacWhisper dictation, long record
 - Residency rule (audio-stack.md): recorded **personal** voice should stay EU. Therefore use **public German
   test audio with reference transcripts** only — no personal recordings.
 
-## Wave 1 — Measure and present            <!-- status: active -->
-- [ ] Test set (public, with references): ~15 FLEURS-de / Common Voice-de clips (short, dictation-like), one
+## Wave 1 — Measure and present            <!-- status: done -->
+- [x] Test set (public, with references): ~15 FLEURS-de / Common Voice-de clips (short, dictation-like), one
       ~10–15 min long-form German recording with an official transcript (e.g. a Bundestag plenary excerpt —
       multi-speaker, for diarization and drift), one noisy/phone-quality clip. Record sources + licences
-- [ ] Run every reachable cloud model (sensible German settings: language `de`, diarization where offered) and
+- [x] Run every reachable cloud model (sensible German settings: language `de`, diarization where offered) and
       the three local MacWhisper engines. Metrics: normalised WER (Open ASR-style) AND raw WER with
       punctuation/casing, number/date formatting, long-form repetition/truncation, diarization (speaker
       count / cpWER where possible), latency (RTF), $/min (cite source), residency
-- [ ] `/stt` page section: per-model table + per-clip transcript diff view (reference vs hypothesis), audio
+- [x] `/stt` page section: per-model table + per-clip transcript diff view (reference vs hypothesis), audio
       playable. Reuse the request-time audio route pattern from `/tts`
-- [ ] "How to call it" per model (request shape, language/diarization params, limits, traps)
-- [ ] Decision record section in `docs/decisions/audio-stack.md`: results table + recommendation per use
+- [x] "How to call it" per model (request shape, language/diarization params, limits, traps)
+- [x] Decision record section in `docs/decisions/audio-stack.md`: results table + recommendation per use
       (Hermes voice messages via audio-gateway; MacWhisper dictation local; long multi-speaker recordings),
       marked pending the owner's verdict; note whether audio-gateway could swap STT by config alone
-- [ ] Gate green, committed, pushed, deployed, verified; report actual spend
-**Left behind:**
+- [x] Gate green, committed, pushed, deployed, verified; report actual spend
+**Left behind:** stopped: plan complete. Pushed and deployed; `/stt` live on :7727 (`make verify` green). IU spend ≈ $0.83
+of $1 (list-price estimate). Recommendation in `docs/decisions/audio-stack.md` is pending Johannes' verdict; nothing changed in audio-gateway.
+- Deviations: long-form is a single-narrator LibriVox reading (Schimmelreiter, Gutenberg text), not a multi-speaker Bundestag excerpt
+  (no scriptable audio+transcript source found); diarization is scored on the synthetic two-host `/tts` clip. Noisy clips are
+  FLEURS clips degraded with ffmpeg. Short set is 244 words, noisy 44 — differences under ~1 point are ties.
+- `gpt-4o-transcribe-diarize` failed the 12-min clip (HTTP 500); `gemini-3.5-transcribe` works only on the Gemini route with no speaker labels.
+  whisper latencies include rate-limit backoff and are blanked where obvious.
+- Pre-existing, untouched: `make check` lint fails on master in `scripts/tts-audition.ts` (unused import) and `scripts/tts-wave5.ts`
+  (2 errors); tests (884) and typecheck pass. `fallow audit` flags complexity in the new `-stt-compare.tsx` / `stt-compare.ts` and old `stt.tsx`.
+- Review items not done: shared Levenshtein table across `wer`/`alignHyp`/`diffTokens`; `score()` options object; runner has no unit tests.
