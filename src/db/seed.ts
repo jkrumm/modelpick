@@ -138,12 +138,12 @@ const MY_STACK: StackChoiceInsert[] = [
   },
   {
     category: "tts",
-    model_id: "elevenlabs/flash-v2.5",
+    model_id: "gemini-3.8-flash-lite-tts",
     env_note:
-      "Mark voice, via the IU Replicate route. elevenlabs/v3 for briefings (prep LLM + tags).",
+      "Charon, via audio-gateway. Chat = gemini-3.8-flash-lite-tts (streamed PCM, prep off); briefings = gemini-3.8-flash-tts (prep on); podcasts = gemini-3.8-flash-tts multi-speaker (Charon + Erinome). elevenlabs/v3 and flash-v2.5 stay as model-id fallbacks.",
     rationale:
-      "Chat path: ~1.2 s per reply vs ~10 s on Gemini 3.1 Flash TTS once the prep LLM is counted; Hermes streams sentence-by-sentence so per-request latency is what the ear hears. v3 (AA #5, tags, previous/next_text continuity) takes the long-form lane. US-routed — accepted for reply text, not for recorded voice. See docs/decisions/audio-stack.md.",
-    decided_at: "2026-08-26",
+      "Owner decision 2026-10-25 after the TTS field re-check: Gemini 3.8 Flash TTS is AA #5 (lite #8) against ElevenLabs v3 at #21, first audio 0.5-1.1 s streamed, ~$0.009-0.0135/min. One vendor for all three lanes, streaming where the client reads progressively. See docs/decisions/audio-stack.md.",
+    decided_at: "2026-10-25",
   },
   {
     category: "stt",

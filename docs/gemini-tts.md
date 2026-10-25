@@ -83,7 +83,7 @@ one request per speaker), `voiceConfig` and `multiSpeakerVoiceConfig` are mutual
 | Single voice shorthand `voiceConfig.voice` | used in the 3.8 guide | accepted (200) — use `prebuiltVoiceConfig.voiceName`, the canonical form |
 | `speechConfig.languageCode` (`de-DE`) | optional | accepted; not needed, language is auto-detected |
 | Unknown voice name | — | 400 `No matching speaker voice found` |
-| Output, unary | `audio/wav`, 44-byte RIFF header | confirmed: 24 kHz mono s16le WAV. Strip 44 bytes for PCM |
+| Output, unary | `audio/wav`, 44-byte RIFF header | confirmed: 24 kHz mono s16le WAV **plus a trailing ~6 KB `C2PA` content-credentials chunk after `data`** — parse chunks, never slice 44 bytes (the tail plays as ~0.13 s of loud noise). `AUDIO_L16` returns none of this |
 | Output, stream | `audio/l16`, headerless PCM chunks | confirmed (`audio/l16; rate=24000; channels=1`), ~60 chunks for a 5 s clip; both `?alt=sse` and plain array framing work |
 | `generationConfig.responseFormat.audio.mimeType` | `AUDIO_WAV` / `AUDIO_L16` / `AUDIO_MULAW` / `AUDIO_ALAW` + `sampleRate` | **works**: `AUDIO_L16` on unary → raw PCM (`audio/l16`), `AUDIO_MULAW` + 8000 → `audio/mulaw; rate=8000`. `sampleRate: 16000` with L16 still returned 24000 — treat 24 kHz as fixed for PCM |
 | MP3 / OGG / FLAC | not offered | not offered — `audioConfig` → 400. Encode with ffmpeg |
@@ -230,6 +230,7 @@ alternatives and eight female candidates through the chat, briefing and podcast 
 4. Interactions API, voices endpoints and MP3 output do not exist on IU.
 5. Multi-speaker needs per-part `speechMetadata.speaker`; the `Name:` prefix form fails with 400.
 6. Spoken-prefix style (`Style: text`) is read aloud — remove it from any 3.1-era prep.
+7. **C2PA trailing chunk.** Unary WAV = header + `data` + `C2PA`. Strip-44-and-keep-the-rest plays the credentials as noise at the end of every clip (found by ear, 2026-10-25). Ask `AUDIO_L16`, or walk RIFF chunks and keep only `data`.
 
 ## How modelpick wires it
 

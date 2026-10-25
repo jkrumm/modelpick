@@ -48,7 +48,16 @@ const MALE_PARTNER = "Sulafat"; // host B for male alternatives
 const FEMALE_PARTNER = "Charon"; // host A for female candidates
 
 // ── helpers ──────────────────────────────────────────────────────────────────
-const wavPcm = (b: Buffer) => b.subarray(44); // 3.8 unary returns audio/wav, 24 kHz mono s16le, 44-byte header
+// 3.8 unary returns audio/wav, 24 kHz mono s16le, with a trailing C2PA chunk after `data` — walk the chunks, never slice(44).
+const wavPcm = (b: Buffer) => {
+  if (b.toString("latin1", 0, 4) !== "RIFF") return b;
+  for (let at = 12; at + 8 <= b.length; ) {
+    const size = b.readUInt32LE(at + 4);
+    if (b.toString("latin1", at, at + 4) === "data") return b.subarray(at + 8, at + 8 + size);
+    at += 8 + size + (size % 2);
+  }
+  throw new Error("WAV has no data chunk");
+};
 const ONES = ["null","eins","zwei","drei","vier","fünf","sechs","sieben","acht","neun","zehn","elf","zwölf","dreizehn","vierzehn","fünfzehn","sechzehn","siebzehn","achtzehn","neunzehn"];
 const TENS = ["","","zwanzig","dreißig","vierzig","fünfzig","sechzig","siebzig","achtzig","neunzig"];
 function numDe(n: number): string {

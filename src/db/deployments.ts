@@ -744,18 +744,18 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     slot: "tts",
     // audio-stack.md measured the category winner at ~10s per reply once its
     // prep LLM is counted; this path streams into TTS sentence by sentence.
-    follows_recommendation: false,
+    follows_recommendation: true,
     label: "voice replies",
-    model_id: "elevenlabs/flash-v2.5",
+    model_id: "gemini-3.8-flash-lite-tts",
     category: "tts",
     thinking: "n/a",
     params:
-      "voice Mark; via audio-gateway.jkrumm.com/v1; speed 1; max_text_length 32000. NOT elevenlabs/v3 — that is the podcast lane (audio/podcast-tts). There is no `flash-v3` on the IU Replicate route: it serves flash-v2.5, turbo-v2.5, v2-multilingual and v3 only (live catalog refresh 2026-09-12).",
+      "voice Charon; via audio-gateway.jkrumm.com/v1; speed 1. Streaming clients (CLI voice, desktop speak-stream) send response_format pcm and read the stream; Slack/file replies stay whole-file mp3 with X-Audio-Title. ElevenLabs flash-v2.5 / Mark stays a model-id fallback.",
     config_ref: "hermes-agent/config.yaml:343-349",
     rationale:
-      "~1.2s per reply against ~10s on Gemini TTS once the prep LLM is counted; replies stream sentence-by-sentence so per-request latency is what the ear hears. US-routed, accepted for generated reply text.",
+      "Prep off on the lite lane, so first PCM is 0.6-1.5 s per sentence (W3 end-to-end, 2026-10-25) at ~$0.009/min; AA #8 against flash-v2.5 unranked. US-routed, accepted for generated reply text.",
     decision_doc: "docs/decisions/audio-stack.md",
-    decided_at: "2026-08-26",
+    decided_at: "2026-10-25",
     verified_at: VERIFIED,
   },
   {
@@ -818,15 +818,15 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     // A deliberately different tier from the category winner.
     follows_recommendation: false,
     label: "/audio/speech default",
-    model_id: "gemini-3.1-flash-tts-preview",
+    model_id: "gemini-3.8-flash-lite-tts",
     category: "tts",
     thinking: "n/a",
-    params: "gateway owns the choice; a caller's model id is remapped (model-resolution.ts:56-62)",
-    config_ref: "audio-gateway/src/config.ts:142",
+    params: "gateway owns the choice; a caller's model id is remapped (model-resolution.ts:56-62). Prep off; briefings name gemini-3.8-flash-tts (TTS_GEMINI_PREP_MODELS) for prep on.",
+    config_ref: "audio-gateway/src/config.ts:166",
     rationale:
-      "The gateway default for callers that name nothing. Deliberately NOT the tts stack pick — Hermes overrides to elevenlabs/flash-v2.5 per request, so the stack pick and this default legitimately differ.",
+      "The gateway default for callers that name nothing; the same model as the tts stack pick and Hermes' chat lane.",
     decision_doc: "docs/decisions/audio-stack.md",
-    decided_at: "2026-08-26",
+    decided_at: "2026-10-25",
     verified_at: VERIFIED,
   },
   {
@@ -984,15 +984,15 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     // A deliberately different tier from the category winner.
     follows_recommendation: false,
     label: "podcast narration",
-    model_id: "elevenlabs/v3",
+    model_id: "gemini-3.8-flash-tts",
     category: "tts",
     thinking: "n/a",
-    params: "prep LLM pass applies (allowlisted at config.ts:284)",
-    config_ref: "audio-gateway/src/config.ts:404",
+    params: "two-speaker runs (<= 3000 chars) per request, voices Charon + Erinome, per-host style string, inline <short pause>/<laugh>/<sigh> tags; elevenlabs/v3 per turn stays selectable by model id",
+    config_ref: "audio-gateway/src/config.ts:470",
     rationale:
-      "The long-form lane: AA #5, audio tags, previous/next_text continuity. flash-v2.5 takes the chat lane where per-request latency is what the ear hears.",
+      "Owner decision 2026-10-25: one multi-speaker call keeps both voices coherent, 1/7 of v3's cost. The stack pick is the lite chat model; this lane needs the full flash model for expression.",
     decision_doc: "docs/decisions/audio-stack.md",
-    decided_at: "2026-08-26",
+    decided_at: "2026-10-25",
     verified_at: VERIFIED,
   },
 

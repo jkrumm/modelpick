@@ -357,6 +357,23 @@ aborted full run, its rerun, and targeted reruns after voice-enum 422s (ElevenLa
 **Open:** the listening verdict (samples synced to `iumac:tts-bakeoff-2026-10-25/`), Sarah's ElevenLabs
 production voice id is not verifiable here, and a gateway that streams Gemini PCM does not exist yet.
 
+## Verdict (2026-10-25): Gemini 3.8 on every TTS lane
+
+Owner decision: all three lanes run on Gemini 3.8, voice **Charon**; podcast co-host **Erinome**.
+Reference for the request shapes and traps: `docs/gemini-tts.md`. ElevenLabs stays a model-id fallback.
+
+| Lane | Model | Measured (prod, 2026-10-25) |
+|-|-|-|
+| Hermes chat | `gemini-3.8-flash-lite-tts`, prep off, `pcm` streamed | first PCM 0.58 s warm / 1.46 s cold per sentence; 2.4 s whole mp3 for the Slack path; `summarize` path first PCM 1.40 s |
+| Briefing | `gemini-3.8-flash-tts`, prep on | 9.2 s for ~30 s of audio, TTFB 2.7 s (prep LLM ~2 s), `gpt-transcribe` round trip verbatim |
+| Podcast | `gemini-3.8-flash-tts`, two-speaker runs of <= 3000 chars | test episode "Ein Gateway vor den Modellen": 3:07, 14 turns, 3 chapters, $0.78 all-in (writers' room LLMs + TTS + cover), published to Audiobookshelf |
+
+Podcast synth keeps chapter starts exact (runs never span a segment) but levels loudness per run
+rather than per host, and paces through a constant per-host style string plus a "speaking slowly and
+clearly" style on number-dense turns; no `speed` parameter exists. Found on the way: 3.8 unary WAVs
+carry a trailing C2PA chunk that plays as noise if only the 44-byte header is stripped — the gateway
+asks `AUDIO_L16` and parses RIFF chunks as a second line.
+
 ## Superseded: local Fish S2 Pro + Parakeet (2026-04-29)
 
 The prior decision ran both locally on Apple Silicon — TTS **Fish S2 Pro** (8-bit MLX, ~6.7 GB),
