@@ -226,6 +226,51 @@ concurrency within its 255 s socket budget, not for quality.
 **Not settled:** no published German WER for `gpt-transcribe`; diarization has no successor on
 this endpoint yet.
 
+## TTS field re-check (2026-10-25): Gemini 3.8 overtakes ElevenLabs v3
+
+**Trigger:** ElevenLabs v4 / v4 Turbo (2026-09-28) top the AA Speech Arena but are still absent
+from Replicate (the IU route 404s every v4 slug); only OpenRouter hosts them, outside the IU key.
+Replicate's past lag for ElevenLabs models was ~2–4 months (v3: API 2025-08-20 → Replicate
+2025-10-23; Scribe v2: 2026-01-09 → 2026-05-05), so v4 is expected around Dec 2026–Jan 2027.
+
+**AA Provider Voice Arena (page dated 2026-10-24), IU-reachable models only:**
+
+| Model | Rank | Elo |
+|-|-|-|
+| `gemini-3.8-flash-tts` | 5 | 1280 |
+| `inworld/realtime-tts-2` | 6 | — (German board #2 at launch, 1261) |
+| `gemini-3.8-flash-lite-tts` | 8 | 1252 |
+| `gemini-3.1-flash-tts-preview` | 16 | 1213 |
+| `elevenlabs/v3` (current briefing/podcast model) | 21 | — |
+| `minimax/speech-2.8-hd` / `-turbo` | 24 / 27 | 1176 / 1156 |
+| `qwen/qwen3-tts` | 87 | 930 |
+
+`gpt-4o-mini-tts` is unranked and deprecated by OpenAI; `elevenlabs/flash-v2.5` (chat lane) is
+not in AA's top 30. No German WER/MOS exists for any of them.
+
+**Measured on the IU endpoint (German, same text per lane, mini → IU):**
+
+| Model | Short reply (3 runs, finished file) | Streaming first audio | Notes |
+|-|-|-|-|
+| `elevenlabs/flash-v2.5` | 1.5–2.5 s | — (Replicate never streams) | current chat lane |
+| `gemini-3.8-flash-lite-tts` | 2.2–2.7 s | **0.6–0.8 s** (`streamGenerateContent?alt=sse`) | |
+| `gemini-3.8-flash-tts` | 3.5–4.2 s | 0.8–1.1 s | |
+| `inworld/realtime-tts-2`, `xai/grok-text-to-speech`, `minimax/speech-2.8-turbo` | 2.3–3.1 s | — | |
+
+All 17 samples round-tripped through `gpt-transcribe` verbatim (numbers, times, umlauts).
+Gemini 3.8 traps: a `Style: text` prefix (the 3.1 convention) is **read aloud**;
+`systemInstruction` is rejected ("Developer instruction is not enabled for this model");
+`speechConfig.speechMetadata` is an unknown field on the IU route; inline `[friendly]`-style
+tags work. Gemini 3.8 also does 2-speaker synthesis in one request (`multiSpeakerVoiceConfig`).
+
+**Realtime speech-to-speech is not reachable on the IU key:** every `gpt-realtime*` / `gpt-live*`
+id is `not_routed`, the Gemini Live ids 400 on `generateContent`, and the Live WebSocket
+(`BidiGenerateContent`) does not upgrade on any `/gemini/...` path. Voice agents stay a cascade
+(STT → LLM → streaming TTS), which is what Hermes already runs.
+
+**Open:** the blind listening verdict (samples kept outside the repo), then whether chat moves to
+streaming `gemini-3.8-flash-lite-tts` and briefings/podcasts to `gemini-3.8-flash-tts`.
+
 ## Superseded: local Fish S2 Pro + Parakeet (2026-04-29)
 
 The prior decision ran both locally on Apple Silicon — TTS **Fish S2 Pro** (8-bit MLX, ~6.7 GB),
