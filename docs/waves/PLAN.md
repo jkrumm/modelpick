@@ -31,25 +31,30 @@ sections of wide metric tables keyed by ids like `w5__english__Charon__b-style`;
   podcast × 10 models) and the Gemini voice audition (set audition). Keep blind mode for the model comparison.
 - Each sample's exact input is in `request` — use it to show what text/style the variant actually sent.
 
-## Wave 1 — Rebuild /tts around questions            <!-- status: active -->
-- [ ] An experiments definition (typed, in code, e.g. `src/server/audio/experiments.ts`) mapping manifest ids
+## Wave 1 — Rebuild /tts around questions            <!-- status: done -->
+- [x] An experiments definition (typed, in code, e.g. `src/server/audio/experiments.ts`) mapping manifest ids
       to: question (plain language), what is held constant, the axis that varies, a human label + one-line
       description per variant (A "As written", B "Style hint: English terms in English", …), which variant is
       in production now, and rows (voice). No id strings in the UI
-- [ ] Layout top to bottom: (1) "Your picks" summary — one line per open question with the chosen variant,
+- [x] Layout top to bottom: (1) "Your picks" summary — one line per open question with the chosen variant,
       plus a "copy as text" button so he can paste the verdict into chat; (2) open-question cards;
       (3) "Check" card for chunk length; (4) collapsed "Reference: settled decisions" with the model
       comparison (blind mode) and the voice audition, each with a one-line note on what was decided
-- [ ] Question card: question as title; one sentence "same: model, voice, text — differs: …"; the spoken text
+- [x] Question card: question as title; one sentence "same: model, voice, text — differs: …"; the spoken text
       once, with the differing span highlighted per variant where the input text differs (english a vs c,
       numbers raw vs spelled); a grid rows = voice, columns = variants; each cell: big play/pause button,
       label, duration, "in production" badge where applicable, and a "pick" toggle (one pick per question,
       persisted in localStorage)
-- [ ] Playback: one global player — starting a sample stops any other; keyboard 1–4 plays variant A–D of the
+- [x] Playback: one global player — starting a sample stops any other; keyboard 1–4 plays variant A–D of the
       focused card row, space pauses. Metrics (latency, $/min, AA rank, streaming, transcript diff) only in the
       reference model comparison, compact, with plain-language column tooltips
-- [ ] Keep it in the repo's UI conventions (Mantine, existing components; read AGENTS.md). Remove the old
+- [x] Keep it in the repo's UI conventions (Mantine, existing components; read AGENTS.md). Remove the old
       `CompareSection` tables for set audition/wave5 once the new view covers them
-- [ ] Gate green; `make deploy` + `make verify`; confirm `/tts` returns 200 and every referenced audio file
+- [x] Gate green; `make deploy` + `make verify`; confirm `/tts` returns 200 and every referenced audio file
       resolves (script or curl loop over the manifest); commit per concern, push
-**Left behind:**
+**Left behind:** Shipped on master (0cfa039 + fix for `+` in audio names, which 400'd the `d-rule+style` files);
+deployed, `make verify` green, `/tts` 200, all 126 manifest audio files resolve. Experiments live in
+`src/server/audio/experiments.ts` (variant text is read from each sample's `request`); UI in `-tts-workbench.tsx`
+(global player, picks in localStorage key `tts-picks-v1`) and the collapsed reference in `-tts-compare.tsx`.
+Not done: `/review` was not run (local single-user page; diff read by hand); keyboard 1–4 and playback were not
+exercised in a browser.

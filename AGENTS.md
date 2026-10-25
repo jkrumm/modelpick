@@ -216,6 +216,8 @@ syncs to the SQLite file with `bun run db:push` (`drizzle-kit push`, dialect `sq
   gitignored) and are served at request time by `/api/tts-audio/<file>`, so new samples need no rebuild.
   Regenerate with `secrets-run run --env-file=.env.tpl -- bun scripts/tts-compare.ts [--only <model>]
   [--skip-existing] [--dry-run]` (spends IU money, estimates and caps at $2.5). Record: `docs/decisions/audio-stack.md`.
+  `/tts` is a listening workbench: open questions are defined in `src/server/audio/experiments.ts` (manifest ids → question, variants,
+  production flag); picks persist in browser localStorage; the model comparison and voice audition sit in a collapsed reference.
 - German STT comparison on `/stt`: `data/stt-compare/` (`testset.json` + `results.json` tracked, `audio/` gitignored; served
   at request time by `/api/stt-audio/<file>`). Build the public test set with `bun scripts/stt-testset.ts --src <dir>` (inputs
   listed in its header), run with `secrets-run run --env-file=.env.tpl -- bun scripts/stt-compare.ts [--only <substr>]
