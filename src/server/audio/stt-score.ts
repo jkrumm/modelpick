@@ -106,8 +106,8 @@ export interface SpeakerSeg {
 }
 
 /**
- * Share of matched words attributed to the right speaker, under the best mapping of hypothesis labels to reference
- * speakers (greedy over label→speaker counts). `turns` is the reference script with speaker names.
+ * Share of matched words attributed to the right speaker, under the best one-to-one mapping of hypothesis labels to
+ * reference speakers. `turns` is the reference script with speaker names.
  */
 export function speakerAccuracy(turns: SpeakerSeg[], segs: SpeakerSeg[]): number | null {
   const ref: string[] = [];
@@ -134,18 +134,20 @@ export function speakerAccuracy(turns: SpeakerSeg[], segs: SpeakerSeg[]): number
     counts.set(hypSpk[hi]!, row);
   });
   if (!matched) return null;
-  // each hypothesis label claims the reference speaker it overlaps most; labels may not share a speaker.
-  const taken = new Set<string>();
-  let right = 0;
-  const pairs = [...counts].flatMap(([h, row]) => [...row].map(([r, c]) => ({ h, r, c }))).toSorted((a, b) => b.c - a.c);
-  const used = new Set<string>();
-  for (const p of pairs) {
-    if (used.has(p.h) || taken.has(p.r)) continue;
-    used.add(p.h);
-    taken.add(p.r);
-    right += p.c;
-  }
-  return right / matched;
+  // best one-to-one mapping of hypothesis labels to reference speakers (exhaustive; label counts are tiny)
+  const labels = [...counts.keys()];
+  const best = (i: number, taken: Set<string>): number => {
+    if (i === labels.length) return 0;
+    let top = best(i + 1, taken); // this label stays unmapped
+    for (const [r, c] of counts.get(labels[i]!)!) {
+      if (taken.has(r)) continue;
+      taken.add(r);
+      top = Math.max(top, c + best(i + 1, taken));
+      taken.delete(r);
+    }
+    return top;
+  };
+  return best(0, new Set()) / matched;
 }
 
 export interface DiffOp {

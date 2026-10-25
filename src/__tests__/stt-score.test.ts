@@ -41,3 +41,31 @@ describe("speakerAccuracy", () => {
     expect(alignHyp(["a", "b", "c"], ["a", "c"])).toEqual([0, 2]);
   });
 });
+
+describe("wer edge cases", () => {
+  it("counts an inserted word", () => {
+    expect(wer(["a", "b"], ["a", "x", "b"]).errors).toBe(1);
+  });
+  it("reports the scored window", () => {
+    const r = wer("p q a b c r".split(" "), "a x c".split(" "), true);
+    expect([r.refStart, r.refEnd, r.errors]).toEqual([2, 5, 1]);
+  });
+});
+
+describe("speakerAccuracy mapping", () => {
+  const turns = [
+    { speaker: "A", text: "eins zwei drei vier fünf" },
+    { speaker: "B", text: "sechs sieben acht neun" },
+  ];
+  it("uses the best one-to-one mapping, not the greedy one", () => {
+    // greedy pairs h1→A (3) and leaves h2 nothing = 3/9; the best mapping is h1→B (4) + h2→A (2) = 6/9
+    const segs = [
+      { speaker: "h1", text: "eins zwei drei sechs sieben acht neun" },
+      { speaker: "h2", text: "vier fünf" },
+    ];
+    expect(speakerAccuracy(turns, segs)).toBeCloseTo(6 / 9);
+  });
+  it("is null when nothing matches", () => {
+    expect(speakerAccuracy(turns, [{ speaker: "x", text: "zzz" }])).toBeNull();
+  });
+});

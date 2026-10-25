@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Accordion, Badge, Box, Code, Group, Select, Stack, Table, Text, Title } from "@mantine/core";
+import { Accordion, Anchor, Badge, Box, Code, Group, Select, Stack, Table, Text, Title } from "@mantine/core";
 import type { SttClip, SttModelInfo, SttResult, SttResults, SttTestset } from "~/server/audio/stt-compare";
 import { diffTokens, normalizeText, rawTokens, wer } from "~/server/audio/stt-score";
 
@@ -187,9 +187,9 @@ function ClipViewer({ testset, results }: { testset: SttTestset; results: SttRes
               <Table.Td>{r.ref_words}/{r.hyp_words}</Table.Td>
               <Table.Td>
                 {r.ok && (
-                  <Text span size="xs" c="blue" style={{ cursor: "pointer" }} onClick={() => setOpen(open === r.model ? null : r.model)}>
+                  <Anchor component="button" type="button" size="xs" aria-expanded={open === r.model} aria-label={`${open === r.model ? "Hide" : "Show"} diff for ${r.model}`} onClick={() => setOpen(open === r.model ? null : r.model)}>
                     {open === r.model ? "hide" : "show"}
-                  </Text>
+                  </Anchor>
                 )}
               </Table.Td>
             </Table.Tr>

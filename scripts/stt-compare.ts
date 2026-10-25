@@ -6,7 +6,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import {
-  getSttDir, readSttResults, readSttTestset,
+  applyCoverage, getSttDir, readSttResults, readSttTestset,
   type SttClip, type SttModelInfo, type SttResult, type SttResults,
 } from "../src/server/audio/stt-compare";
 import { normalizeText, rawTokens, speakerAccuracy, wer, type SpeakerSeg } from "../src/server/audio/stt-score";
@@ -48,6 +48,7 @@ function openai(model: string, extra: Record<string, string> = {}, diar?: (j: an
     const res = await fetch(`${OAI}/audio/transcriptions`, { method: "POST", headers: auth, body: form, signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 300)}`);
     const j: any = await res.json();
+    if (typeof j.text !== "string") throw new Error(`no text in response ${JSON.stringify(j).slice(0, 200)}`);
     const segs = diarize ? diar?.(j) : undefined;
     return { text: j.text as string, segs, request: `POST /openai/v1/audio/transcriptions model=${model} language=de${Object.entries(fields).map(([k, v]) => ` ${k}=${v}`).join("")}` };
   };
@@ -106,6 +107,7 @@ const ADAPTERS: Adapter[] = [
       const res = await fetch(`${OAI}/audio/transcriptions`, { method: "POST", headers: auth, body: form, signal: AbortSignal.timeout(TIMEOUT_MS) });
       if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 300)}`);
       const j: any = await res.json();
+      if (!Array.isArray(j.segments) || !j.segments.length) throw new Error(`no segments in response ${JSON.stringify(j).slice(0, 200)}`);
       const segs: SpeakerSeg[] = (j.segments ?? []).map((s: any) => ({ speaker: String(s.speaker), text: String(s.text).trim() }));
       return { text: segs.map((s) => s.text).join(" "), segs: diarize ? segs : undefined, request: "POST /openai/v1/audio/transcriptions model=gpt-4o-transcribe-diarize response_format=diarized_json chunking_strategy=auto (no language param)" };
     },
@@ -152,6 +154,7 @@ const ADAPTERS: Adapter[] = [
     howto: "POST /replicate/v1/models/elevenlabs/scribe-v2/predictions, Prefer: wait, input {audio, language_code: \"deu\", diarize: true}. `audio` is a URL or data URI. The proxy blocks the Replicate files API, so use a data URI. Output has words[] with speaker_id. Billed per started minute per call — short clips cost a full minute.",
     run: async (clip, bytes, diarize) => {
       const out = await replicate("elevenlabs/scribe-v2", { audio: `data:${replicateMime(clip.file)};base64,${bytes.toString("base64")}`, language_code: "deu", diarize });
+      if (typeof out?.text !== "string") throw new Error(`no text in output ${JSON.stringify(out).slice(0, 200)}`);
       return { text: out.text, segs: diarize ? wordsToSegs(out.words, (w) => w.speaker_id) : undefined, request: `POST /replicate/v1/models/elevenlabs/scribe-v2/predictions input={audio: data URI, language_code: "deu", diarize: ${diarize}}` };
     },
   },
@@ -161,6 +164,7 @@ const ADAPTERS: Adapter[] = [
     howto: "POST /replicate/v1/models/xai/grok-speech-to-text/predictions, input {audio, language: \"de\", diarize: true, timestamps: true}. diarize alone returns words: null — speaker labels ride on the word list, which needs timestamps: true. Limit 500 MB, no published duration cap. TRAP: Replicate derives the file extension from the data-URI mime — audio/wav yields '' and xAI fails with \"Invalid audio format ''\"; send audio/x-wav (or audio/mpeg).",
     run: async (clip, bytes, diarize) => {
       const out = await replicate("xai/grok-speech-to-text", { audio: `data:${replicateMime(clip.file)};base64,${bytes.toString("base64")}`, language: "de", ...(diarize ? { diarize: true, timestamps: true } : {}) });
+      if (typeof out?.text !== "string") throw new Error(`no text in output ${JSON.stringify(out).slice(0, 200)}`);
       return { text: out.text, segs: diarize ? wordsToSegs(out.words, (w) => (w.speaker === null || w.speaker === undefined ? undefined : String(w.speaker))) : undefined, request: `POST /replicate/v1/models/xai/grok-speech-to-text/predictions input={audio: data URI ${replicateMime(clip.file)}, language: "de"${diarize ? ", diarize: true, timestamps: true" : ""}}` };
     },
   },
@@ -183,6 +187,7 @@ function score(clip: SttClip, model: string, where: "iu" | "local", out: Out | n
   const norm = wer(normalizeText(clip.reference), normalizeText(out.text), win);
   const raw = wer(rawTokens(clip.reference), rawTokens(out.text), win);
   const r: SttResult = { ...base, ok: true, hypothesis: out.text, wer_norm: norm.wer, wer_raw: raw.wer, ref_words: norm.refWords, hyp_words: normalizeText(out.text).length };
+  if (win) Object.assign(r, { window_wer_norm: norm.wer, window_wer_raw: raw.wer, window_ref_words: norm.refWords });
   if (diarOn && clip.turns) {
     r.speakers_detected = out.segs ? new Set(out.segs.map((s) => s.speaker)).size : null;
     r.speaker_acc = out.segs ? speakerAccuracy(clip.turns, out.segs) : null;
@@ -192,7 +197,10 @@ function score(clip: SttClip, model: string, where: "iu" | "local", out: Out | n
 
 async function audioSeconds(path: string): Promise<number> {
   const r = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path], { encoding: "utf8" });
-  return Number(r.stdout.trim());
+  const secs = Number((r.stdout ?? "").trim());
+  // a zero duration would zero the cost estimate and silently disable the spend cap
+  if (r.status !== 0 || !Number.isFinite(secs) || secs <= 0) throw new Error(`ffprobe could not read the duration of ${path}`);
+  return secs;
 }
 
 const dir = getSttDir();
@@ -202,9 +210,11 @@ const durations = new Map<string, number>();
 for (const c of testset.clips) durations.set(c.id, await audioSeconds(join(dir, "audio", c.file)));
 const totalMin = [...durations.values()].reduce((a, b) => a + b, 0) / 60;
 
-const prev: SttResults = skipExisting ? await readSttResults() : { generated_at: "", models: [], results: [], spend_usd: 0 };
+// Always start from the stored results so a partial run (--only, --cloud-only) never drops other models or resets the spend;
+// --skip-existing only decides whether already-successful pairs are requested again.
+const prev: SttResults = await readSttResults();
 const results: SttResult[] = [...prev.results];
-const have = new Set(results.filter((r) => r.ok).map((r) => `${r.model}|${r.clip}`));
+const have = skipExisting ? new Set(results.filter((r) => r.ok).map((r) => `${r.model}|${r.clip}`)) : new Set<string>();
 const cloud = ADAPTERS.filter((a) => !only || a.model.includes(only)).filter(() => !args.includes("--local-only"));
 const local = LOCAL.filter((l) => !only || l.label.toLowerCase().includes(only.toLowerCase())).filter(() => !args.includes("--cloud-only"));
 
@@ -217,7 +227,7 @@ if (dry) process.exit(0);
 let spend = prev.spend_usd;
 async function save() {
   const models: SttModelInfo[] = [...ADAPTERS, ...LOCAL_INFO].map(({ model, where, residency, per_min, cost_source, diarization, word_timestamps, howto }) => ({ model, where, residency, per_min, cost_source, diarization, word_timestamps, howto }));
-  const out: SttResults = { generated_at: new Date().toISOString(), models, results, spend_usd: Number(spend.toFixed(4)) };
+  const out: SttResults = { generated_at: new Date().toISOString(), models, results: applyCoverage(results), spend_usd: Number(spend.toFixed(4)) };
   await writeFile(join(dir, "results.json"), JSON.stringify(out, null, 1));
 }
 function put(r: SttResult) {

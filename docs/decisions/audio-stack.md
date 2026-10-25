@@ -388,22 +388,22 @@ Sources and licences: `data/stt-compare/testset.json`; rebuild with `scripts/stt
 |-|-|-|-|-|-|-|-|
 | `voxtral-mini-transcribe-3-0` | EU (Mistral) | 3.3 / 10.1 | 4.5 | 6.2 / 18.5 | 0.016 | 0.0035 | yes, segment |
 | `voxtral-small-transcribe-3-0` | EU (Mistral) | 3.7 / 12.6 | 4.5 | 6.0 / 18.8 | 0.020 | 0.0040 | yes, segment |
-| `elevenlabs/scribe-v2` | US (Replicate) | 3.7 / 11.9 | 0.0 | 5.9 / 17.3 | 0.015 | 0.0037 | yes, per word |
+| `elevenlabs/scribe-v2` | US (Replicate) | 3.7 / 11.9 | 0.0 | 6.0 / 17.3 | 0.015 | 0.0037 | yes, per word |
 | `gemini-3.5-transcribe` | Google, unverified | 3.7 / 10.7 | 9.1 | 7.7 / 19.2 | 0.015 | ~0.005 | not on this route |
 | `gpt-transcribe` (current) | US (OpenAI) | 4.1 / 9.8 | 9.1 | 6.7 / 18.1 | 0.017 | 0.0045 | no |
-| `whisper` | EU (Azure Sweden) | 4.1 / 12.7 | 6.8 | 8.4 / 19.4 | 0.048 | 0.006 | no |
-| `gpt-4o-transcribe` | US (OpenAI) | 4.5 / 10.3 | 2.3 | 9.7 / 21.1 (loops) | 0.033 | 0.006 | no |
-| `xai/grok-speech-to-text` | US (Replicate) | 6.6 / 13.6 | 9.1 | 7.2 / 17.9 | 0.009 | 0.0017 | yes, per word |
+| `whisper` | EU (Azure Sweden) | 4.1 / 12.7 | 6.8 | 8.6 / 19.6 | 0.048 | 0.006 | no |
+| `gpt-4o-transcribe` | US (OpenAI) | 4.5 / 10.3 | 2.3 | **38.2** / 46.0 (loops, 68 % coverage) | 0.033 | 0.006 | no |
+| `xai/grok-speech-to-text` | US (Replicate) | 6.6 / 13.6 | 9.1 | 7.3 / 18.0 | 0.009 | 0.0017 | yes, per word |
 | `gpt-4o-transcribe-diarize` | US (OpenAI) | 27.9 / 36.2 | 4.5 | **failed** (HTTP 500 at 230 s) | — | 0.006 | yes, segment |
 | MacWhisper Qwen3-ASR 1.7B | on-device | 4.1 / 11.9 | 2.3 | 8.3 / 21.0 | 0.10 | 0 | not run |
 | MacWhisper Parakeet v3 | on-device | 7.0 / 12.3 | 4.5 | 8.3 / 20.9 | 0.005 | 0 | not run |
-| MacWhisper WhisperKit large-v3 Turbo | on-device | 4.1 / 16.7 | 6.8 | 7.3 / 24.9 | 0.09 | 0 | not run |
+| MacWhisper WhisperKit large-v3 Turbo | on-device | 4.1 / 16.7 | 6.8 | 7.5 / 25.1 | 0.09 | 0 | not run |
 
 Read it with the sample size in mind: 244 short words means one word is 0.4 points, so everything between 3.3 and
 4.5 % on short clips is a tie, and the 44-word noisy set only separates the extremes. The long-form column is
-the one with statistical weight (~1,900 words): Scribe v2 5.9, Voxtral small 6.0, Voxtral mini 6.2, gpt-transcribe
-6.7 lead; the Gutenberg text is not the performed text, so the floor is not 0 and only the ordering carries over.
-Raw WER counts casing and attached punctuation; WhisperKit is clearly worst there (24.9 long), Scribe v2 best.
+the one with statistical weight (~1,900 words): Voxtral small 6.0 and Scribe v2 6.0, Voxtral mini 6.2, gpt-transcribe
+6.7 lead; the scorer charges the part of the reference a model never covered as deletions (windowed WER alone rewarded truncation); the Gutenberg text is not the performed text, so the floor is not 0 and only the ordering carries over.
+Raw WER counts casing and attached punctuation; WhisperKit is clearly worst there (25.1 long), Scribe v2 best.
 Duo-clip WER is 4.6 % for every model: the reference spells numbers ("vier Komma zwei") and every model writes digits,
 so that column measures the normaliser, not the models. Diarization on the duo clip: `gpt-4o-transcribe-diarize`,
 both Voxtrals, Scribe v2 and Grok all found 2 speakers and attributed 100 % of matched words correctly;
@@ -414,8 +414,8 @@ Findings that change what you do:
 - **`gpt-4o-transcribe-diarize` is out.** It garbled short clips (57 words out for a 22-word reference on one,
   27.9 % short WER), timed out on 12 minutes, and shuts down 2027-02-26 with no OpenAI successor. Voxtral and
   Scribe v2 replace it.
-- **`gpt-4o-transcribe` loops on long audio** (covered only 1,283 of 1,875 reference words in 12 min); retire it
-  before OpenAI does.
+- **`gpt-4o-transcribe` loops on long audio** (covered only 1,283 of 1,875 reference words in 12 min, so 38 % WER once
+  the uncovered tail counts); retire it before OpenAI does.
 - **Voxtral 3 is the first EU-resident cloud STT that matches the US models.** Same OpenAI-compatible
   `/audio/transcriptions` route; response header `x-middleware-forwarded-server: Mistral La Platforme`. Public
   preview since 2026-10-20; `language` is accepted but echoed as null. Needs `timestamp_granularities[]=segment`
@@ -438,7 +438,7 @@ Recommendation per use (pending your verdict):
 |-|-|-|
 | Hermes voice messages (personal, short) | `voxtral-mini-transcribe-3-0` via audio-gateway; `gpt-transcribe` as fallback | EU-resident, tied-best on short German, 0.45 s median latency, $0.0035/min, closes the open residency question on the primary STT. Risk: public preview, 12 days old. |
 | MacWhisper dictation (local) | keep Qwen3-ASR 1.7B | Ties the best cloud short WER (4.1) at 1.9 s per clip; Parakeet v3 is 7.0 and WhisperKit's raw formatting is worst. Parakeet v3 is the pick for long local files (RTF 0.005 vs 0.10, same 8.3 %). |
-| Long multi-speaker recordings | `voxtral-small-transcribe-3-0` (EU, segment diarization, 60 min cap); `elevenlabs/scribe-v2` when word timestamps or >10 speakers matter and the content is not personal | Scribe 5.9 / Voxtral small 6.0 long WER; both diarized the duo clip perfectly. |
+| Long multi-speaker recordings | `voxtral-small-transcribe-3-0` (EU, segment diarization, 60 min cap); `elevenlabs/scribe-v2` when word timestamps or >10 speakers matter and the content is not personal | Voxtral small 6.0 / Scribe 6.0 long WER; both diarized the duo clip perfectly. |
 
 **Can audio-gateway swap STT by config alone?** Not quite. `STT_MODEL` (default `gpt-transcribe`,
 `audio-gateway/src/config.ts:184`) is only the fallback; `STT_MODELS` in `model-resolution.ts:76` is an allowlist that
