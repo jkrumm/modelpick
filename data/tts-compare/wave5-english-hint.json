@@ -1,0 +1,47 @@
+[
+  {
+    "hint": "long",
+    "rep": 2,
+    "score": 8.5
+  },
+  {
+    "hint": "plain",
+    "rep": 1,
+    "score": 9
+  },
+  {
+    "hint": "plain",
+    "rep": 2,
+    "score": 8.5
+  },
+  {
+    "hint": "long",
+    "rep": 3,
+    "score": 0
+  },
+  {
+    "hint": "short",
+    "rep": 1,
+    "score": 2
+  },
+  {
+    "hint": "plain",
+    "rep": 3,
+    "score": 7.5
+  },
+  {
+    "hint": "long",
+    "rep": 1,
+    "score": 5.5
+  },
+  {
+    "hint": "short",
+    "rep": 3,
+    "score": 5.5
+  },
+  {
+    "hint": "short",
+    "rep": 2,
+    "score": 0
+  }
+]

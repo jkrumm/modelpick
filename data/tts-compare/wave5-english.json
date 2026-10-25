@@ -1,0 +1,50 @@
+[
+  {
+    "voice": "Erinome",
+    "variant": "b-style",
+    "heard": "Gestern haben wir das neue Feature im Meeting vorgestellt. Danach habe ich den Pull Request gemerged und die Deployment-Pipeline hat das Release automatisch in die Cloud gepusht. Mit Claude Code schreibe ich gerade die Release Notes und der Code Review läuft über GitHub. Falls etwas schiefgeht, gibt es ein Rollback und das Monitoring in Grafana schlägt sofort Alarm.",
+    "ear": "{\"Feature\":\"english\",\"Meeting\":\"english\",\"Pull Request\":\"mixed\",\"gemerged\":\"mixed\",\"Deployment Pipeline\":\"english\",\"Release\":\"mixed\",\"Cloud\":\"german\",\"gepusht\":\"mixed\",\"Claude Code\":\"english\",\"Release Notes\":\"mixed\",\"Code Review\":\"mixed\",\"GitHub\":\"english\",\"Rollback\":\"mixed\",\"Monitoring\":\"german\",\"Grafana\":\"german\"}"
+  },
+  {
+    "voice": "Charon",
+    "variant": "a-plain",
+    "heard": "Gestern haben wir das neue Feature im Meeting vorgestellt. Danach habe ich den Pull Request gemerged und die Deployment-Pipeline hat das Release automatisch in die Cloud gepusht. Mit Claude Code schreibe ich gerade die Release Notes und der Code Review läuft über GitHub. Falls etwas schiefgeht, gibt es einen Rollback und das Monitoring in Grafana schlägt sofort Alarm.",
+    "ear": "{\"Feature\":\"german\",\"Meeting\":\"german\",\"Pull Request\":\"mixed\",\"gemerged\":\"mixed\",\"Deployment Pipeline\":\"english\",\"Release\":\"german\",\"Cloud\":\"german\",\"gepusht\":\"german\",\"Claude Code\":\"english\",\"Release Notes\":\"mixed\",\"Code Review\":\"mixed\",\"GitHub\":\"english\",\"Rollback\":\"mixed\",\"Monitoring\":\"german\",\"Grafana\":\"german\"}"
+  },
+  {
+    "voice": "Charon",
+    "variant": "b-style",
+    "heard": "Gestern haben wir das neue Feature im Meeting vorgestellt. Danach habe ich den Pull Request gemerged und die Deployment-Pipeline hat das Release automatisch in die Cloud gepusht. Mit Claude Code schreibe ich gerade die Release Notes und der Code Review läuft über GitHub. Falls etwas schiefgeht, gibt es ein Rollback und das Monitoring in Grafana schlägt sofort Alarm.",
+    "ear": "{\"Feature\":\"mixed\",\"Meeting\":\"english\",\"Pull Request\":\"mixed\",\"gemerged\":\"mixed\",\"Deployment Pipeline\":\"english\",\"Release\":\"mixed\",\"Cloud\":\"mixed\",\"gepusht\":\"mixed\",\"Claude Code\":\"english\",\"Release Notes\":\"mixed\",\"Code Review\":\"mixed\",\"GitHub\":\"english\",\"Rollback\":\"mixed\",\"Monitoring\":\"german\",\"Grafana\":\"german\"}"
+  },
+  {
+    "voice": "Charon",
+    "variant": "d-rule+style",
+    "heard": "Gestern haben wir das neue Feature im Meeting vorgestellt. Danach habe ich den Pull Request gemerged und die Deployment-Pipeline hat das Release automatisch in die Cloud gepusht. Mit Claude Code schreibe ich gerade die Release Notes und das Code Review läuft über GitHub. Falls etwas schiefgeht, gibt es einen Rollback und das Monitoring in Grafana schlägt sofort Alarm.",
+    "ear": "{\"Feature\":\"german\",\"Meeting\":\"german\",\"Pull Request\":\"mixed\",\"gemerged\":\"mixed\",\"Deployment Pipeline\":\"english\",\"Release\":\"german\",\"Cloud\":\"german\",\"gepusht\":\"mixed\",\"Claude Code\":\"german\",\"Release Notes\":\"german\",\"Code Review\":\"german\",\"GitHub\":\"german\",\"Rollback\":\"german\",\"Monitoring\":\"german\",\"Grafana\":\"german\"}"
+  },
+  {
+    "voice": "Erinome",
+    "variant": "d-rule+style",
+    "heard": "Gestern haben wir das neue Feature im Meeting vorgestellt. Danach habe ich den Pull Request gemerged und die Deployment-Pipeline hat das Release automatisch in die Cloud gepusht. Mit Claude Code schreibe ich gerade die Release Notes und das Code Review läuft über GitHub. Falls etwas schiefgeht, gibt es ein Rollback und das Monitoring in Grafana schlägt sofort Alarm.",
+    "ear": "{\n  \"Feature\": \"english\",\n  \"Meeting\": \"english\",\n  \"Pull Request\": \"mixed\",\n  \"gemerged\": \"mixed\",\n  \"Deployment Pipeline\": \"english\",\n  \"Release\": \"mixed\",\n  \"Cloud\": \"english\",\n  \"gepusht\": \"mixed\",\n  \"Claude Code\": \"english\",\n  \"Release Notes\": \"mixed\",\n  \"Code Review\": \"mixed\",\n  \"GitHub\": \"english\",\n  \"Rollback\": \"mixed\",\n  \"Monitoring\": \"germanized\",\n  \"Grafana\": \"germanized\"\n}"
+  },
+  {
+    "voice": "Erinome",
+    "variant": "c-rule",
+    "heard": "Gestern haben wir das neue Feature im Meeting vorgestellt. Danach habe ich den Pull Request gemerged und die Deployment-Pipeline hat das Release automatisch in die Cloud gepusht. Mit Claude Code schreibe ich gerade die Release Notes und das Code Review läuft über GitHub. Falls etwas schiefgeht, gibt es ein Rollback und das Monitoring in Grafana schlägt sofort Alarm.",
+    "ear": "{\n  \"Feature\": \"german\",\n  \"Meeting\": \"german\",\n  \"Pull Request\": \"mixed\",\n  \"gemerged\": \"german\",\n  \"Deployment Pipeline\": \"english\",\n  \"Release\": \"german\",\n  \"Cloud\": \"german\",\n  \"gepusht\": \"german\",\n  \"Claude Code\": \"english\",\n  \"Release Notes\": \"mixed\",\n  \"Code Review\": \"mixed\",\n  \"GitHub\": \"german\",\n  \"Rollback\": \"mixed\",\n  \"Monitoring\": \"german\",\n  \"Grafana\": \"german\"\n}"
+  },
+  {
+    "voice": "Erinome",
+    "variant": "a-plain",
+    "heard": "Gestern haben wir das neue Feature im Meeting vorgestellt. Danach habe ich den Pull Request gemerged und die Deployment-Pipeline hat das Release automatisch in die Cloud gepusht. Mit Claude Code schreibe ich gerade die Release Notes und der Code Review läuft über GitHub. Falls etwas schiefgeht, gibt es ein Rollback und das Monitoring in Grafana schlägt sofort Alarm.",
+    "ear": "{\"Feature\":\"english\",\"Meeting\":\"english\",\"Pull Request\":\"mixed\",\"gemerged\":\"mixed\",\"Deployment Pipeline\":\"english\",\"Release\":\"germanized\",\"Cloud\":\"germanized\",\"gepusht\":\"germanized\",\"Claude Code\":\"english\",\"Release Notes\":\"mixed\",\"Code Review\":\"mixed\",\"GitHub\":\"english\",\"Rollback\":\"mixed\",\"Monitoring\":\"germanized\",\"Grafana\":\"germanized\"}"
+  },
+  {
+    "voice": "Charon",
+    "variant": "c-rule",
+    "heard": "Gestern haben wir das neue Feature im Meeting vorgestellt. Danach habe ich den Pull Request gemerged und die Deployment-Pipeline hat das Release automatisch in die Cloud gepusht. Mit Claude Code schreibe ich gerade die Release Notes und das Code Review läuft über GitHub. Falls etwas schiefgeht, gibt es einen Rollback und das Monitoring in Grafana schlägt sofort Alarm.",
+    "ear": "{\"Feature\":\"english\",\"Meeting\":\"english\",\"Pull Request\":\"mixed\",\"gemerged\":\"german\",\"Deployment Pipeline\":\"english\",\"Release\":\"german\",\"Cloud\":\"english\",\"gepusht\":\"german\",\"Claude Code\":\"english\",\"Release Notes\":\"mixed\",\"Code Review\":\"mixed\",\"GitHub\":\"english\",\"Rollback\":\"mixed\",\"Monitoring\":\"german\",\"Grafana\":\"german\"}"
+  }
+]

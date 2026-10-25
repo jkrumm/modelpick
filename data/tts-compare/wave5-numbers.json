@@ -1,0 +1,82 @@
+[
+  {
+    "voice": "Charon",
+    "variant": "d-rounded",
+    "sec": 18.4,
+    "sent": "Das Update drei Punkt acht erscheint Mitte November, kurz nach halb vier am Nachmittag. Das Abo kostet dann rund dreizehnhundert Euro im Jahr, gut ein Achtel weniger als bisher. Zuletzt hatten wir etwas über viertausend Nutzer in knapp zwanzig Ländern, und die Antwort kommt in einer drittel Sekunde.",
+    "heard": "Das Update 3.8 erscheint Mitte November, kurz nach halb vier am Nachmittag. Das Abo kostet dann rund 1.300 Euro im Jahr, gut ein Achtel weniger als bisher. Zuletzt hatten wir etwas über 4.000 Nutzer in knapp 20 Ländern, und die Antwort kommt in einer Drittelsekunde.",
+    "dropped": 2,
+    "added": 2,
+    "subs": 3
+  },
+  {
+    "voice": "Erinome",
+    "variant": "d-rounded",
+    "sec": 20.8,
+    "sent": "Das Update drei Punkt acht erscheint Mitte November, kurz nach halb vier am Nachmittag. Das Abo kostet dann rund dreizehnhundert Euro im Jahr, gut ein Achtel weniger als bisher. Zuletzt hatten wir etwas über viertausend Nutzer in knapp zwanzig Ländern, und die Antwort kommt in einer drittel Sekunde.",
+    "heard": "Das Update 3.8 erscheint Mitte November, kurz nach halb vier am Nachmittag. Das Abo kostet dann rund 1.300 Euro im Jahr, gut ein Achtel weniger als bisher. Zuletzt hatten wir etwas über 4.000 Nutzer in knapp 20 Ländern, und die Antwort kommt in einer Drittelsekunde.",
+    "dropped": 2,
+    "added": 2,
+    "subs": 3
+  },
+  {
+    "voice": "Charon",
+    "variant": "a-digits-normalized",
+    "sec": 23.9,
+    "sent": "Das Update 3.8.1 erscheint am 14.11.2026 um 15:30 Uhr. Das Abo kostet dann 1.299,50 Euro im Jahr, also 12 Prozent weniger als bisher. Zuletzt hatten wir 4.237 Nutzer in 18 Ländern, und die Antwortzeit liegt bei 0,35 Sekunden.",
+    "heard": "Das Update 3.8.1 erscheint am 14.11.2026 um 15:30 Uhr. Das Abo kostet dann 1.299,50 Euro im Jahr, also 12 Prozent weniger als bisher. Zuletzt hatten wir 4.237 Nutzer in 18 Ländern und die Antwortzeit liegt bei 0,35 Sekunden.",
+    "dropped": 3,
+    "added": 3,
+    "subs": 8
+  },
+  {
+    "voice": "Erinome",
+    "variant": "a-digits-normalized",
+    "sec": 23.1,
+    "sent": "Das Update 3.8.1 erscheint am 14.11.2026 um 15:30 Uhr. Das Abo kostet dann 1.299,50 Euro im Jahr, also 12 Prozent weniger als bisher. Zuletzt hatten wir 4.237 Nutzer in 18 Ländern, und die Antwortzeit liegt bei 0,35 Sekunden.",
+    "heard": "Das Update 3.8.1 erscheint am 14.11.2026 um 15:30 Uhr. Das Abo kostet dann 1.299,50 Euro im Jahr, also 12 Prozent weniger als bisher. Zuletzt hatten wir 4.237 Nutzer in 18 Ländern und die Antwortzeit liegt bei 0,35 Sekunden.",
+    "dropped": 3,
+    "added": 3,
+    "subs": 8
+  },
+  {
+    "voice": "Charon",
+    "variant": "b-spelled",
+    "sec": 24.3,
+    "sent": "Das Update drei Punkt acht Punkt eins erscheint am vierzehnten November zweitausendsechsundzwanzig um fünfzehn Uhr dreißig. Das Abo kostet dann eintausendzweihundertneunundneunzig Euro fünfzig im Jahr, also zwölf Prozent weniger als bisher. Zuletzt hatten wir viertausendzweihundertsiebenunddreißig Nutzer in achtzehn Ländern, und die Antwortzeit liegt bei null Komma drei fünf Sekunden.",
+    "heard": "Das Update 3.8.1 erscheint am 14. November 2026 um 15:30 Uhr. Das Abo kostet dann 1.299,50 Euro im Jahr, also 12 Prozent weniger als bisher. Zuletzt hatten wir 4.237 Nutzer in 18 Ländern und die Antwortzeit liegt bei 0,35 Sekunden.",
+    "dropped": 3,
+    "added": 3,
+    "subs": 7
+  },
+  {
+    "voice": "Erinome",
+    "variant": "b-spelled",
+    "sec": 26.4,
+    "sent": "Das Update drei Punkt acht Punkt eins erscheint am vierzehnten November zweitausendsechsundzwanzig um fünfzehn Uhr dreißig. Das Abo kostet dann eintausendzweihundertneunundneunzig Euro fünfzig im Jahr, also zwölf Prozent weniger als bisher. Zuletzt hatten wir viertausendzweihundertsiebenunddreißig Nutzer in achtzehn Ländern, und die Antwortzeit liegt bei null Komma drei fünf Sekunden.",
+    "heard": "Das Update 3.8.1 erscheint am 14. November 2026 um 15:30 Uhr. Das Abo kostet dann 1.299,50 Euro im Jahr, also 12 Prozent weniger als bisher. Zuletzt hatten wir 4.237 Nutzer in 18 Ländern und die Antwortzeit liegt bei 0,35 Sekunden.",
+    "dropped": 3,
+    "added": 3,
+    "subs": 7
+  },
+  {
+    "voice": "Charon",
+    "variant": "c-spelled-slow",
+    "sec": 38.4,
+    "sent": "Das Update drei Punkt acht Punkt eins erscheint am vierzehnten November zweitausendsechsundzwanzig um fünfzehn Uhr dreißig. Das Abo kostet dann eintausendzweihundertneunundneunzig Euro fünfzig im Jahr, also zwölf Prozent weniger als bisher. Zuletzt hatten wir viertausendzweihundertsiebenunddreißig Nutzer in achtzehn Ländern, und die Antwortzeit liegt bei null Komma drei fünf Sekunden.",
+    "heard": "Das Update 3.8.1 erscheint am 14. November 2026 um 15:30 Uhr. Das Abo kostet dann 1.299,50 Euro im Jahr, also 12 Prozent weniger als bisher. Zuletzt hatten wir 4.237 Nutzer in 18 Ländern und die Antwortzeit liegt bei 0,35 Sekunden.",
+    "dropped": 3,
+    "added": 3,
+    "subs": 7
+  },
+  {
+    "voice": "Erinome",
+    "variant": "c-spelled-slow",
+    "sec": 37.4,
+    "sent": "Das Update drei Punkt acht Punkt eins erscheint am vierzehnten November zweitausendsechsundzwanzig um fünfzehn Uhr dreißig. Das Abo kostet dann eintausendzweihundertneunundneunzig Euro fünfzig im Jahr, also zwölf Prozent weniger als bisher. Zuletzt hatten wir viertausendzweihundertsiebenunddreißig Nutzer in achtzehn Ländern, und die Antwortzeit liegt bei null Komma drei fünf Sekunden.",
+    "heard": "Das Update 3.8.1 erscheint am 14. November 2026 um 15:30 Uhr. Das Abo kostet dann 1.299,50 Euro im Jahr, also 12 Prozent weniger als bisher. Zuletzt hatten wir 4.237 Nutzer in 18 Ländern und die Antwortzeit liegt bei 0,35 Sekunden.",
+    "dropped": 3,
+    "added": 3,
+    "subs": 7
+  }
+]

@@ -166,10 +166,53 @@ spoken, swap it for `<long pause>` or punctuation.
 **Repeating the same paragraph** (a test artefact) made the model skip most of the text (heard 22 of 88
 words, 119 of 176) — never loop identical text through TTS.
 
-**Rule for our lanes:** chunk at sentence boundaries to ≤ ~1,000 chars (≈ 55 s), one request per chunk,
-the same short `style` on every chunk, join with ~250 ms of silence, stitch as PCM before encoding.
-Multi-speaker: ≤ ~3,000 chars per request (field: voice swaps grow with chunk length), keep the
-same style string per speaker across requests.
+**Chunk length, measured (2026-10-25, `scripts/tts-wave5.ts --exp chunks`, flash, same distinct German
+material per row, 250 ms joins; `data/tts-compare/wave5-chunks.json`, samples on `/tts` → Wave 5):**
+
+| Lane | Chars / request | Requests | Audio | Dropped / added / wrong words | Speaker attribution | Loudness spread (10 s windows) | F0 spread |
+|-|-|-|-|-|-|-|-|
+| Two hosts (2,785 chars, 20 turns) | 1,000 | 3 | 157 s | 0 / 0 / 2 | 20/20 | 5.6 dB (max step 4.5) | n/a |
+| | 1,500 | 2 | 156 s | 0 / 0 / 1 | 20/20 | 3.6 dB (2.5) | n/a |
+| | 2,000 | 2 | 157 s | 1 / 0 / 3 | 20/20 | 4.0 dB (3.2) | n/a |
+| | 3,000 | 1 | 158 s | 0 / 0 / 1 | 20/20 | 2.6 dB (2.1) | n/a |
+| One voice, Charon (2,026 chars) | 1,000 | 3 | 118 s | 0 / 0 / 0 | n/a | 2.2 dB | 22 Hz |
+| | 1,500 | 2 | 124 s | 0 / 0 / 1 | n/a | 3.1 dB | 13 Hz |
+| | 2,000 | 2 | 105 s | 0 / 1 / 1 | n/a | 3.7 dB | 25 Hz |
+
+Attribution = `gpt-4o-transcribe-diarize` on IU, every turn mapped to one consistent label per host.
+Read: **no length up to 3,000 chars/158 s drifted, dropped words or swapped a voice** — the whole
+two-host excerpt in one request was the most even (fewest seams, least loudness movement), and every
+request boundary added a level step (largest at 1,000). F0 shows no trend with length (noise ±10 Hz).
+Single-speaker pace varies by request: 155–182 wpm across the three runs, so a speed-sensitive lane
+should not assume a constant rate. Not tested: requests above 3,000 chars/~3 min (the field-reported
+drift zone) and the ~1,900-char internal seam — no seam showed up as a window step at 1,500–3,000.
+
+**Rule for our lanes:** multi-speaker ≤ 3,000 chars per request (measured clean; fewer requests = fewer
+level steps). Single speaker: sentence-aligned chunks ≤ ~1,000 chars, kept for first-byte latency and
+retry cost, not quality (1,500–2,000 measured as clean). The same short `style` per chunk, ~250 ms of
+silence join, stitch as PCM before encoding. Multi-speaker: same style string per speaker across requests.
+
+## English terms in German speech (Wave 5, `--exp english`, `english-hint`)
+
+No language tag exists. Four variants on Charon + Erinome (plain / style hint "English technical terms
+and brand names are pronounced in English" / writer rule: English spelling, separate words, no German
+compounds / both) judged by a `gemini-3.8-flash` listener (per-term english/mixed/german; noisy).
+Repeating plain vs a short vs the long hint three times each (score = english terms out of 15, mixed = 0.5):
+plain 9 / 8.5 / 7.5, long hint 8.5 / 0 / 5.5, short hint 2 / 0 / 5.5. **Run-to-run variance exceeds any
+variant effect and neither hint beat plain** — Gemini already pronounces most terms (Claude Code,
+GitHub, Deployment Pipeline, Pull Request) in English or a blend; the stragglers (Release, Cloud,
+Monitoring, Grafana) stay German-ish whatever we do. Decision: no hint, no writer rule. Samples are on
+`/tts` for the owner's ear; if one wins there, the lever is the style string (a one-line change).
+
+## Numbers (Wave 5, `--exp numbers`)
+
+Normalised digits (`3.8.1`, `14.11.2026 um 15:30 Uhr`, `1.299,50 Euro`, `12 Prozent`) and the fully
+spelled-out form were both transcribed back identically on both voices and ran the same length (23–24
+vs 24–26 s); the style "speaking slowly and clearly" stretched the spelled passage to 37–38 s (+55 %).
+A rounded spoken form ("rund dreizehnhundert Euro", "gut ein Achtel weniger", "etwas über viertausend")
+read correctly and ran 25 % shorter. So: digits are safe for the chat lane (`normalizeForSpeech`), spelling
+out buys no accuracy, slow style is the pacing lever for dense passages (podcasts already use it), and
+the cheapest win for data-dense text is rounding at the writer/prep step — the briefing prep prompt now says so.
 
 ## Pacing without a speed parameter
 

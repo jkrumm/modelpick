@@ -23,7 +23,7 @@ export interface CompareSample {
   streaming: string;
   aa_rank: string | null;
   /** "audition" = the Gemini 3.8 voice audition (real lane pipeline); absent = the cross-model comparison. */
-  set?: "audition";
+  set?: "audition" | "wave5";
   /** The exact request(s) sent, audio omitted: model, style field, tags, voice config. */
   request?: string;
 }

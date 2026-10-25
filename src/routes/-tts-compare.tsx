@@ -159,8 +159,9 @@ function CompareSection({
 }
 
 export function TtsCompare({ manifest }: { manifest: CompareManifest }) {
-  const cross = useMemo(() => manifest.samples.filter((s) => s.set !== "audition"), [manifest]);
+  const cross = useMemo(() => manifest.samples.filter((s) => !s.set), [manifest]);
   const audition = useMemo(() => manifest.samples.filter((s) => s.set === "audition"), [manifest]);
+  const wave5 = useMemo(() => manifest.samples.filter((s) => s.set === "wave5"), [manifest]);
   if (manifest.samples.length === 0) return null;
   return (
     <Stack gap="xl">
@@ -177,6 +178,13 @@ export function TtsCompare({ manifest }: { manifest: CompareManifest }) {
         samples={audition}
         texts={manifest.texts}
         textPrefix="aud_"
+      />
+      <CompareSection
+        title="Gemini 3.8 quality experiments (Wave 5)"
+        note="Chunk length (w5__chunks__*: same material at 1,000 / 1,500 / 2,000 / 3,000 chars per request), English terms in German speech (w5__english__*: plain / style hint / writer rule / both) and number handling (w5__numbers__*: normalised digits / spelled out / slow / rounded). Briefing tab = single speaker, podcast tab = two hosts. Measurements: docs/gemini-tts.md §Limits and chunking. Open 'exact request' per row."
+        samples={wave5}
+        texts={manifest.texts}
+        textPrefix="w5_"
       />
     </Stack>
   );
