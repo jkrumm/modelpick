@@ -31,6 +31,7 @@ function SampleTable({ samples, blind }: { samples: CompareSample[]; blind: bool
           <Table.Th>$/min</Table.Th>
           <Table.Th>Streaming</Table.Th>
           <Table.Th>Transcript</Table.Th>
+          {samples.some((s) => s.request) && <Table.Th>Request</Table.Th>}
         </Table.Tr>
       </Table.Thead>
       <Table.Tbody>
@@ -45,7 +46,7 @@ function SampleTable({ samples, blind }: { samples: CompareSample[]; blind: bool
                 </audio>
               </Table.Td>
               {hidden ? (
-                <Table.Td colSpan={9}>
+                <Table.Td colSpan={samples.some((x) => x.request) ? 10 : 9}>
                   <Button
                     size="compact-xs"
                     variant="subtle"
@@ -86,6 +87,16 @@ function SampleTable({ samples, blind }: { samples: CompareSample[]; blind: bool
                       </Badge>
                     )}
                   </Table.Td>
+                  {s.request && (
+                    <Table.Td maw={260}>
+                      <details>
+                        <summary style={{ cursor: "pointer" }}>exact request</summary>
+                        <Text size="xs" ff="monospace" style={{ whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+                          {s.request}
+                        </Text>
+                      </details>
+                    </Table.Td>
+                  )}
                 </>
               )}
             </Table.Tr>
@@ -96,22 +107,33 @@ function SampleTable({ samples, blind }: { samples: CompareSample[]; blind: bool
   );
 }
 
-export function TtsCompare({ manifest }: { manifest: CompareManifest }) {
+function CompareSection({
+  title,
+  note,
+  samples,
+  texts,
+  textPrefix,
+}: {
+  title: string;
+  note: string;
+  samples: CompareSample[];
+  texts: Record<string, string>;
+  textPrefix: string;
+}) {
   const [blind, setBlind] = useState(false);
   const byPreset = useMemo(
-    () => Object.fromEntries(PRESETS.map((p) => [p, manifest.samples.filter((s) => s.preset === p)])),
-    [manifest],
+    () => Object.fromEntries(PRESETS.map((p) => [p, samples.filter((s) => s.preset === p)])),
+    [samples],
   );
-  if (manifest.samples.length === 0) return null;
+  if (samples.length === 0) return null;
   return (
     <Stack gap="sm">
       <Group justify="space-between">
-        <Title order={3}>German comparison</Title>
+        <Title order={3}>{title}</Title>
         <Switch label="Blind mode" checked={blind} onChange={(e) => setBlind(e.currentTarget.checked)} />
       </Group>
       <Text c="dimmed" size="xs">
-        Same text per preset across models. Latency = finished file; first audio = streamed
-        endpoints only. $/min is list price; hover for the source. Generated {manifest.generated_at}.
+        {note}
       </Text>
       <Tabs defaultValue="chat" keepMounted={false}>
         <Tabs.List>
@@ -124,14 +146,38 @@ export function TtsCompare({ manifest }: { manifest: CompareManifest }) {
         {PRESETS.map((p) => (
           <Tabs.Panel key={p} value={p} pt="sm">
             <Box mb="xs">
-              <Text size="xs" c="dimmed" fs="italic">
-                {manifest.texts[p]}
+              <Text size="xs" c="dimmed" fs="italic" style={{ whiteSpace: "pre-wrap" }}>
+                {texts[`${textPrefix}${p}`]}
               </Text>
             </Box>
             <SampleTable samples={byPreset[p] ?? []} blind={blind} />
           </Tabs.Panel>
         ))}
       </Tabs>
+    </Stack>
+  );
+}
+
+export function TtsCompare({ manifest }: { manifest: CompareManifest }) {
+  const cross = useMemo(() => manifest.samples.filter((s) => s.set !== "audition"), [manifest]);
+  const audition = useMemo(() => manifest.samples.filter((s) => s.set === "audition"), [manifest]);
+  if (manifest.samples.length === 0) return null;
+  return (
+    <Stack gap="xl">
+      <CompareSection
+        title="German comparison"
+        note={`Same text per preset across models. Latency = finished file; first audio = streamed endpoints only. $/min is list price; hover for the source. Generated ${manifest.generated_at}.`}
+        samples={cross}
+        texts={manifest.texts}
+        textPrefix=""
+      />
+      <CompareSection
+        title="Gemini 3.8 voice audition"
+        note="Same German material and same style/tags per voice through the real lane pipeline: chat = raw reply on flash-lite (prep off); briefing = prototype 3.8 prep (spoken numbers, 2 chunks, one short style, point tags) on flash; podcast = one multi-speaker request with per-turn style and tags (male alternatives pair with Sulafat, female candidates with Charon). Open 'exact request' per row. Transcript badge: orange 'diff' on chat is digit/Uhr normalisation, not misreading."
+        samples={audition}
+        texts={manifest.texts}
+        textPrefix="aud_"
+      />
     </Stack>
   );
 }
