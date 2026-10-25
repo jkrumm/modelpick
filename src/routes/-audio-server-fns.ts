@@ -10,6 +10,7 @@ import {
 } from "~/db/queries";
 import { generateTts, generateStt, writeDemoAudio, getDemosDir } from "~/server/audio/generate";
 import type { Demo, Model } from "~/db/schema";
+import { readCompareManifest } from "~/server/audio/compare";
 import {
   TTS_PRESETS,
   TTS_CANDIDATE_VOICES,
@@ -182,3 +183,9 @@ export const toggleVoicePublicFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<void> => {
     await setDemoPublicByVoice(data.modality, data.voice, data.isPublic);
   });
+
+// ── German TTS comparison (data/tts-compare/manifest.json) ─────────────────────
+
+export const getTtsCompareFn = createServerFn({ method: "GET" }).handler(async () =>
+  readCompareManifest(),
+);

@@ -27,15 +27,17 @@ import {
   toggleDemoPublicFn,
   toggleVoicePublicFn,
   getAllDemosFn,
+  getTtsCompareFn,
   TTS_PRESETS,
   TTS_CANDIDATE_VOICES,
   EU_TTS_MODELS,
 } from "./-audio-server-fns";
 import type { Demo, Model } from "~/db/schema";
 import { GeminiTtsDocs } from "./-gemini-tts-docs";
+import { TtsCompare } from "./-tts-compare";
 
 export const Route = createFileRoute("/tts")({
-  loader: async () => getTtsPlaygroundData(),
+  loader: async () => ({ ...(await getTtsPlaygroundData()), compare: await getTtsCompareFn() }),
   component: TtsPage,
 });
 
@@ -319,7 +321,7 @@ function groupLabel(key: string, by: GroupBy): string {
 }
 
 function TtsPage() {
-  const { models, demos: initialDemos } = Route.useLoaderData();
+  const { models, demos: initialDemos, compare } = Route.useLoaderData();
   const [demos, setDemos] = useState(initialDemos);
   const [langFilter, setLangFilter] = useState<"all" | "en" | "de">("all");
   const [presetFilter, setPresetFilter] = useState<string>("all");
@@ -408,6 +410,8 @@ function TtsPage() {
         (what is said + delivery style, with inline expression tags). EU-hosted models are
         highlighted in blue.
       </Text>
+
+      <TtsCompare manifest={compare} />
 
       <GeminiTtsDocs />
 
