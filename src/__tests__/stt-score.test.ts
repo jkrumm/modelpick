@@ -60,8 +60,9 @@ describe("speakerAccuracy mapping", () => {
   it("uses the best one-to-one mapping, not the greedy one", () => {
     // greedy pairs h1→A (3) and leaves h2 nothing = 3/9; the best mapping is h1→B (4) + h2→A (2) = 6/9
     const segs = [
-      { speaker: "h1", text: "eins zwei drei sechs sieben acht neun" },
+      { speaker: "h1", text: "eins zwei drei" },
       { speaker: "h2", text: "vier fünf" },
+      { speaker: "h1", text: "sechs sieben acht neun" },
     ];
     expect(speakerAccuracy(turns, segs)).toBeCloseTo(6 / 9);
   });
