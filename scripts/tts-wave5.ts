@@ -49,7 +49,7 @@ function align(ref: string[], hyp: string[]) {
   for (let i = 1; i <= n; i++)
     for (let j = 1; j <= m; j++)
       d[i]![j] = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + (ref[i - 1] === hyp[j - 1] ? 0 : 1));
-  const map = new Array<number>(n).fill(-1);
+  const map: number[] = Array.from({ length: n }, () => -1);
   let dropped = 0, added = 0, subs = 0;
   for (let i = n, j = m; i > 0 || j > 0; ) {
     if (i > 0 && j > 0 && d[i]![j]! === d[i - 1]![j - 1]! + (ref[i - 1] === hyp[j - 1] ? 0 : 1)) {
@@ -266,7 +266,7 @@ async function chunksExp() {
       for (const p of perTurn) map[p.who]![p.label] = (map[p.who]![p.label] ?? 0) + 1;
       const best = (w: string) => Object.entries(map[w]!).sort((p, q) => q[1] - p[1])[0]?.[0];
       const ok = perTurn.filter((p) => p.label === best(p.who) && best("Mark") !== best("Sarah")).length;
-      attribution = { labels: [...new Set(lab)].length, correctTurns: `${ok}/${perTurn.length}`, wrong: perTurn.map((p, i) => (p.label === best(p.who) ? null : `${i}:${p.who}→${p.label}`)).filter(Boolean) };
+      attribution = { labels: new Set(lab).size, correctTurns: `${ok}/${perTurn.length}`, wrong: perTurn.map((p, i) => (p.label === best(p.who) ? null : `${i}:${p.who}→${p.label}`)).filter(Boolean) };
     } catch (e) { attribution = { error: String(e).slice(0, 160) }; }
     const w = windows(pcm, false);
     const r = {

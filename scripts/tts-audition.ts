@@ -4,7 +4,6 @@
 // Findings behind the request shapes: docs/gemini-tts.md (IU probe matrix).
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
 import { getCompareDir, type CompareManifest, type CompareSample } from "../src/server/audio/compare";
 
 const KEY = process.env.IU_API_KEY!;
