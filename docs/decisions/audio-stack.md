@@ -271,6 +271,92 @@ id is `not_routed`, the Gemini Live ids 400 on `generateContent`, and the Live W
 **Open:** the blind listening verdict (samples kept outside the repo), then whether chat moves to
 streaming `gemini-3.8-flash-lite-tts` and briefings/podcasts to `gemini-3.8-flash-tts`.
 
+## German TTS comparison (2026-10-25): per-lane recommendation, pending the listening verdict
+
+62 samples (chat / briefing / podcast, same German text per preset, 2–3 voices per model) play on
+`/tts` at :7727 with a blind mode; the numbers below come from `data/tts-compare/manifest.json`
+(`scripts/tts-compare.ts` regenerates it, audio is served at request time from `data/tts-compare/audio/`
+by `/api/tts-audio/<file>`, so new samples need no rebuild). Quality is **not decided here** — it
+waits on Johannes' listening; the recommendation is cost/latency/streaming plus the AA ranks.
+
+| Model | Voices | AA rank | Chat (median of 3, finished) | Briefing (finished) | First audio (streamed) | $/min (list) | Transcript verbatim |
+|-|-|-|-|-|-|-|-|
+| `gemini-3.8-flash-tts` | Charon, Rasalgethi, Sulafat | #5 (1280) | 2.7 s | 7.3 s | **0.6 s** | $0.013 | 6/8 |
+| `gemini-3.8-flash-lite-tts` | Charon, Rasalgethi, Sulafat | #8 (1252) | 1.7 s | 4.6 s | **0.5 s** | $0.009 | 4/7 |
+| `inworld/realtime-tts-2` | Dennis, Alex, Ashley | #6 (1261) | 2.8 s | 6.1 s | — | $0.024 | 3/7 |
+| `elevenlabs/v3` | Mark, James, Sarah | #21 | 4.2 s | 10.7 s | — | $0.087 | 4/7 |
+| `elevenlabs/flash-v2.5` | Mark, James, Sarah | not top 30 | 1.4 s | — | — | $0.046 | 2/3 |
+| `minimax/speech-2.8-hd` / `-turbo` | German_FriendlyMan, _PlayfulMan, _SweetLady | #24 / #27 | 2.8 / 2.9 s | 5.4 s | — | $0.093 / $0.055 | 5/9 |
+| `xai/grok-text-to-speech` | rex, leo, ara | n/a | 2.4 s | 3.8 s | — | $0.014 | 4/7 |
+| `qwen/qwen3-tts` | Uncle_fu, Ryan, Serena | #87 | 8.5 s | 25.6 s | — | $0.015 | 5/7 |
+| `gpt-4o-mini-tts-2025-12-15` | cedar, onyx, coral | unranked | 2.0 s | 4.8 s | none (see below) | $0.015 | 4/7 |
+
+Read the table with these caveats: Gemini latency is the full SSE stream; podcast latency for
+non-multi-speaker models is the wall clock of the six turns synthesized **in parallel** (production
+would be sequential or chunked); `$/min` is list price over the measured audio length (Gemini: 25
+audio tokens/s; Replicate models: per input character; sources in each manifest row). The
+"verbatim" column is a `gpt-4o-transcribe` round trip with numbers spelled out on both sides;
+nearly every miss is orthography (`mach`→`mache`, "Uhr" dropped, `stecken bleiben`→`steckenbleiben`).
+Real misreads: MiniMax PlayfulMan "mach"→"maik", Inworld Dennis briefing "Ziel"→"CEO", OpenAI
+onyx briefing "Achtzehn Monate"→"nach zehn Monat". Per-sample diffs are in the manifest.
+
+### Recommendation per lane (pending listening)
+
+| Lane | Pick | Why | Fallback |
+|-|-|-|-|
+| chat | `gemini-3.8-flash-lite-tts` via `streamGenerateContent`, Charon or Rasalgethi | first audio ~0.5 s vs 1.4 s for a finished flash-v2.5 file, $0.009/min vs $0.046, AA #8 vs unranked | keep `elevenlabs/flash-v2.5` Mark if the Gemini voice loses the listen |
+| briefing | `gemini-3.8-flash-tts`, Charon or Rasalgethi, streamed | AA #5, 0.6 s first audio, 1/7 of v3's cost; 3 of 3 voices verbatim except one `habe`→`hab` | `inworld/realtime-tts-2` (AA #6, finished-file only) |
+| podcast | `gemini-3.8-flash-tts` multi-speaker in one request (Charon/Rasalgethi + Sulafat) | one call, both voices, ~9 s for 31 s of audio, verbatim | `elevenlabs/v3` Mark + Sarah turn by turn (current) |
+
+Not worth a slot: `qwen/qwen3-tts` (8–30 s, no German-native speaker), `gpt-4o-mini-tts` (deprecated,
+shuts down 2027-01-06, IU buffers it), MiniMax HD (3–7x the Gemini price, AA #24).
+
+### Streaming and Hermes (read-only, `~/.hermes/hermes-agent`)
+
+Only Gemini streams through IU. `gpt-4o-mini-tts` on `/audio/speech` returns first byte ≈ total
+time (2.0 s vs 2.0 s chat, 4.4 s vs 4.5 s briefing): IU buffers it. Replicate returns a finished URL.
+
+Does streaming Gemini PCM through audio-gateway make Hermes speak earlier? **Yes on one path, no on the other:**
+- `tools/tts_streaming.py:306-316` (CLI voice mode and desktop speak-stream): `with_streaming_response.create(... response_format="pcm")`, then `yield from _capped(response.iter_bytes(), ...)`; `hermes_cli/web_routers/audio.py:821` iterates it and `:891` does `ws.send_bytes(chunk)` per chunk. Progressive, so a gateway that forwards Gemini PCM as it arrives cuts time-to-first-audio per sentence from the full synthesis (1.0–1.9 s today) to the first Gemini chunk (~0.5 s). The sample-rate header must be sent before the body (`tts_streaming.py:310`, read on the first `next()`); PCM must be 24 kHz s16le.
+- `tools/tts_tool_openai.py:155-157` (Slack/file replies via `text_to_speech_tool`): `with_raw_response.create(...)` then `fh.write(raw.content)`. Waits for the whole body, no benefit. It also needs the `X-Audio-Title` header, so it cannot stream anyway.
+
+### How to call it
+
+Gemini 3.8 (`{IU_GEMINI_BASE_URL}/models/<id>:streamGenerateContent?alt=sse`, headers `Authorization: Bearer` and `x-goog-api-key`; each SSE event carries base64 `audio/l16; rate=24000` PCM):
+
+```json
+{"contents":[{"parts":[{"text":"Klar, mach ich."}]}],
+ "generationConfig":{"responseModalities":["AUDIO"],
+  "speechConfig":{"voiceConfig":{"prebuiltVoiceConfig":{"voiceName":"Charon"}}}}}
+```
+Multi-speaker (max 2, prebuilt voices only): replace `voiceConfig` with
+`multiSpeakerVoiceConfig.speakerVoiceConfigs:[{speaker,voiceConfig}…]` **and** give every text part
+`speechMetadata:{speaker:"Mark"}` (without it: 400 "must specify speech_metadata.speaker for each
+text part"). Traps: a `Style:` prefix is read aloud; `systemInstruction` → 400; `speechConfig.speechMetadata`
+is unknown (the per-part one is fine); non-streaming `generateContent` returns a **WAV container**
+(`audio/wav`) while the stream is raw PCM — do not wrap the former again; inline `[friendly]` tags work;
+language is auto-detected, no German-specific voice guidance exists. Charon/Rasalgethi are "Informative"
+males, Sulafat the "Warm" female.
+
+Replicate (`{IU_REPLICATE_BASE_URL}/models/<owner>/<name>/predictions`, header `Prefer: wait`, then poll
+`/predictions/<id>` and fetch `output`; no streaming). Inputs differ per model and voice enums are strict (a bad voice is a 422):
+
+| Model | Input |
+|-|-|
+| `elevenlabs/v3`, `flash-v2.5` | `prompt`, `voice` ∈ Rachel, Drew, Clyde, Paul, Aria, Domi, Dave, Roger, Fin, Sarah, James, Jane, Juniper, Arabella, Hope, Bradford, Reginald, Gaming, Austin, Kuon, Blondie, Priyanka, Alexandra, Monika, Mark, Grimblewood; `language_code:"de"`, `stability`, `similarity_boost`, `style` |
+| `minimax/speech-2.8-{hd,turbo}` | `text`, `voice_id` (German_FriendlyMan / _SweetLady / _PlayfulMan are the only documented German ids), `language_boost:"German"`, `emotion:"auto"` |
+| `inworld/realtime-tts-2` | `text`, `voice_id` (free string; Dennis, Alex, Ashley work), `language:"de"`; steering via `[say calmly]` brackets |
+| `xai/grok-text-to-speech` | `text`, `voice` (rex, leo, ara, …; xAI publishes no gender), `language:"de"` |
+| `qwen/qwen3-tts` | `text`, `speaker` ∈ Aiden, Dylan, Eric, Ono_anna, Ryan, Serena, Sohee, Uncle_fu, Vivian (case-sensitive), `language:"German"`, `style_instruction` |
+
+OpenAI route: `POST {IU_OPENAI_BASE_URL}/audio/speech` `{model:"gpt-4o-mini-tts-2025-12-15", input, voice, instructions, response_format}`
+(voices cedar/marin are OpenAI's pick; German is "optimized for English" only).
+
+**Spend:** about $2.0 of the $3 cap, estimated from list prices (IU reports no cost on these routes): one
+aborted full run, its rerun, and targeted reruns after voice-enum 422s (ElevenLabs `Brian`, Qwen `Uncle_Fu`).
+**Open:** the listening verdict (samples synced to `iumac:tts-bakeoff-2026-10-25/`), Sarah's ElevenLabs
+production voice id is not verifiable here, and a gateway that streams Gemini PCM does not exist yet.
+
 ## Superseded: local Fish S2 Pro + Parakeet (2026-04-29)
 
 The prior decision ran both locally on Apple Silicon — TTS **Fish S2 Pro** (8-bit MLX, ~6.7 GB),

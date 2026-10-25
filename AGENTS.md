@@ -212,6 +212,10 @@ syncs to the SQLite file with `bun run db:push` (`drizzle-kit push`, dialect `sq
   statements interactively and there is no TTY in a tool call. Safe for `deployment`,
   which is delete-then-insert seeded from code on every run.
 - Seed with `bun run db:seed` (models + my stack), demos with `bun run demos:seed`.
+- German TTS comparison on `/tts`: samples live in `data/tts-compare/` (`manifest.json` tracked, `audio/`
+  gitignored) and are served at request time by `/api/tts-audio/<file>`, so new samples need no rebuild.
+  Regenerate with `secrets-run run --env-file=.env.tpl -- bun scripts/tts-compare.ts [--only <model>]
+  [--skip-existing] [--dry-run]` (spends IU money, estimates and caps at $2.5). Record: `docs/decisions/audio-stack.md`.
 - SQLite has no native enums — they're `text({ enum: [...] })` with value tuples (`MODALITY`,
   `CATEGORY`, …) exported from `schema.ts`. Booleans are `integer({ mode: "boolean" })`;
   timestamps are text (`CURRENT_TIMESTAMP`), which sort lexically.

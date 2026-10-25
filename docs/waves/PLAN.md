@@ -7,11 +7,13 @@ reachable model) with latency, first-audio, $/min, streaming and call syntax bes
 Full brief (established facts, voice preferences, budget, done criteria):
 `~/tts-bakeoff-2026-10-25/BRIEF.md` on the mini — read it first.
 
-## Wave 1 — Build, generate, compare            <!-- status: active -->
-- [ ] Research German voices per candidate model; pick 2 male (Mark/Charon-like) + 1 female per model
-- [ ] Demo audio served at request time (no rebuild needed for new samples); schema/page for metrics + blind mode
-- [ ] Generate chat / briefing / podcast samples within budget; transcript check; cost + latency + first-audio per sample
-- [ ] "How to call it" section per model family; Hermes streaming answer (read-only, file:line evidence)
-- [ ] Decision record section + per-lane recommendation; samples synced to `iumac:tts-bakeoff-2026-10-25/`
-- [ ] Gate green, committed, pushed, deployed, verified
-**Left behind:**
+## Wave 1 — Build, generate, compare            <!-- status: done -->
+- [x] Research German voices per candidate model; pick 2 male (Mark/Charon-like) + 1 female per model
+- [x] Demo audio served at request time (no rebuild needed for new samples); schema/page for metrics + blind mode
+- [x] Generate chat / briefing / podcast samples within budget; transcript check; cost + latency + first-audio per sample
+- [x] "How to call it" section per model family; Hermes streaming answer (read-only, file:line evidence)
+- [x] Decision record section + per-lane recommendation; samples synced to `iumac:tts-bakeoff-2026-10-25/`
+- [x] Gate green, committed, pushed, deployed, verified
+**Left behind:** stopped: plan complete. 62 German samples on `/tts` (blind mode), request-time audio route, decision record
+section with per-lane recommendation (Gemini 3.8 lite chat / flash briefing + podcast, pending listening), Hermes streaming
+answer, call syntax. Spend ≈ $2.0 estimated of $3. Samples synced to `iumac:tts-bakeoff-2026-10-25/`. Open: Johannes' listening verdict.
