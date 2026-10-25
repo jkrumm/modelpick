@@ -16,7 +16,7 @@ export const Route = createFileRoute("/api/tts-audio/$name")({
     handlers: {
       GET: async ({ params }) => {
         const name = params.name;
-        if (!/^[\w.-]+$/.test(name) || name.includes("..")) {
+        if (!/^[\w.+-]+$/.test(name) || name.includes("..")) {
           return new Response("bad name", { status: 400 });
         }
         try {
