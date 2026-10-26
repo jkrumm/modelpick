@@ -181,10 +181,14 @@ once that rematch has its verdict. `git add` explicit paths only.
 - `make check`: tsc, lint and 759/760 tests green. The one failure is `collectors.test.ts` (LMArena rows vs filter, ~line 806) from the other implementer's uncommitted `lmarena.ts`/`collectors.test.ts` edits, which I left alone. No `/review` gateway run: self-read.
 
 ## Wave 5 — Close            <!-- status: active -->
-- [ ] Only if audio-gateway's rematch wave is `done` (check its PLAN.md): remove the TTS workbench, or move it
+- [x] (skipped: rematch wave still active, workbench kept) Only if audio-gateway's rematch wave is `done` (check its PLAN.md): remove the TTS workbench, or move it
       to audio-gateway if the owner still uses it. That covers the routes, `src/server/audio/*`, `scripts/tts-*`,
       `data/tts-compare` and `docs/gemini-tts.md`. Otherwise leave it and say so.
-- [ ] Full `make check`, `/review` of the overhaul diff since `97ac178`, fix findings.
+- [x] Full `make check` (green); self-read review of the overhaul diff since `97ac178` (no gateway `/review`).
 - [ ] Delete this PLAN's finished waves (git history keeps them) or replace PLAN.md with a one-line "no active wave".
 - [ ] Hand back for `make deploy` + `make verify` (orchestrator runs it).
-**Left behind:**
+**Left behind:** (2026-10-26)
+- **TTS workbench kept on purpose:** audio-gateway's Wave 3 (rematch) is still `active`. Still to remove once it is `done`: `tts*` routes, `-tts-*`, `-gemini-tts-docs`, `-audio-server-fns` (incl. the dead STT fns), `api.tts-audio.*`, `src/server/audio/*` (incl. `stt-compare.ts`, `stt-coverage.test.ts`), `scripts/tts-*`, `seed-demos`, `data/tts-compare`, `docs/gemini-tts.md`.
+- **stt-default re-verified** against `audio-gateway/src/config.ts:185` and `model-resolution.ts` `STT_MODELS`: default is `voxtral-mini-transcribe-3-0`, fallback chain `gpt-transcribe` then `whisper`. `deployments.ts` row fixed (model, params, config_ref, decided_at 2026-10-25); `make stack` rerun, STT row now shows `voxtral-mini-transcribe-3-0` bound to `audio:stt-default`.
+- `make check` green: 760/760 tests. Overhaul diff since `97ac178`: 103 files, +5,809 / -16,571. No gateway `/review` run; the diff is mostly deletions plus the new catalog/collector/stack modules, self-read.
+- Open for the orchestrator: `make deploy` + `make db-push` (new `models.owned_by`/`legs` columns) + `make verify`; PLAN.md is left in place (Waves 1-4 records) until the TTS removal and the final "no active wave" replacement; status stays `active`. `glm-5.3-flash` (coding) still has no recorded slot; the `cap`/`ca` dotfiles launchers were never checked.
