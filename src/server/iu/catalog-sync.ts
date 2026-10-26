@@ -6,7 +6,7 @@ import { models } from "../../db/schema.js";
 import { DECISION_CATALOG } from "../../db/decision-models.js";
 import { IU_CATALOG } from "../../db/iu-catalog.js";
 import { DEPLOYMENTS } from "../../db/deployments.js";
-import { MY_STACK } from "../../db/seed.js";
+import { MY_STACK } from "../../stack.js";
 import { IU_CATALOG_SNAPSHOT_PATH } from "../snapshot-commit.js";
 import {
   assertLegsNonEmpty,

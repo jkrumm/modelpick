@@ -1,4 +1,4 @@
-.PHONY: dev build db-push db-seed models probe collect refresh refresh-setup refresh-check refresh-teardown \
+.PHONY: dev build db-push db-seed models stack probe collect refresh refresh-setup refresh-check refresh-teardown \
 	web-setup web-check web-teardown web-restart \
 	help check deploy verify logs
 
@@ -38,6 +38,9 @@ probe: ## Probe every catalog model once (cents)
 
 collect: ## Collect leaderboard + price metrics
 	bun run collect
+
+stack: ## Render STACK.md from src/stack.ts + deployments + the latest metrics
+	bun run stack
 
 refresh: ## Full refresh: catalog → probe → collect → recommend (run `make db-push` first after pulling schema changes)
 	bun run refresh

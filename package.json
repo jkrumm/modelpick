@@ -20,6 +20,7 @@
     "demos:seed": "secrets-run run --env-file=.env.tpl -- bun run scripts/seed-demos.ts",
     "probe": "secrets-run run --env-file=.env.tpl -- bun run scripts/probe.ts",
     "collect": "secrets-run run --env-file=.env.tpl -- bun run scripts/collect.ts",
+    "stack": "bun run scripts/stack.ts",
     "recommend": "secrets-run run --env-file=.env.tpl -- bun run scripts/recommend.ts",
     "refresh": "secrets-run run --env-file=.env.tpl -- bun run scripts/refresh.ts",
     "benchmark": "secrets-run run --env-file=.env.tpl -- bun run scripts/benchmark-throughput.ts",
