@@ -16,14 +16,20 @@ export interface ModelScore {
 }
 
 // Default weights per category, modelled on the Haiku / Sonnet / Opus tiers:
-//  - fast: a cheap, responsive, good-enough model for summaries/titles/transforms
-//    → cost-led with a quality floor (uses general intelligence).
+//  - fast: the estate default for summaries/titles/transforms and Hermes' brain.
+//    Capability-led, with cost and speed still counting: the owner decision
+//    (2026-10-26, STACK "Estate default / fast", docs/decisions/hermes-brain.md) is
+//    that capability beats cost, and the old cost-led 0.25/0.40/0.35 split picked
+//    mimo-v2.6-flash (AA 37.9, 51 tok/s, 3.0s) over deepseek-v4.1-flash (AA 45.1,
+//    167 tok/s, 1.2s) purely on $0.28 vs $1.12 per 1M output. Quality is now the
+//    largest term; cost keeps a quarter so a 10x price gap still moves the ranking,
+//    and speed stays near its old weight. Uses general intelligence.
 //  - coding: a cheap *value* coder (Sonnet-like), not the priciest flagship
 //    → coding index balanced against cost.
 //  - orchestrator: max capability (Opus-like), cost almost irrelevant
 //    → quality dominates.
 export const CATEGORY_WEIGHTS: Record<RecommendationCategory, CategoryWeights> = {
-  fast: { quality: 0.25, cost: 0.4, speed: 0.35 },
+  fast: { quality: 0.45, cost: 0.25, speed: 0.3 },
   coding: { quality: 0.5, cost: 0.35, speed: 0.15 },
   // writing: a long-form/creative pick — prose quality dominates, this is not
   // a cheap-utility category.

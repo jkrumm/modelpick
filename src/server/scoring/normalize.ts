@@ -116,15 +116,18 @@ export function normalizeMetrics(rawMetrics: MetricInput[]): ModelMetrics[] {
   const rawThroughput = modelIds.map((id) =>
     weightedAverage(grouped.get(id)?.get("throughput") ?? []),
   );
-  // Latency: prefer our own live time-to-first-token over the leaderboard's
-  // latency_p50. Leaderboards measure their own infra, not IU's, and have been
-  // wrong here by 3-4x (GLM-5.2: AA 141 tok/s vs 37.7 measured) — while a model
-  // we never benchmarked keeps whatever the leaderboard says. ttft_ms is in
-  // milliseconds; latency_p50 is in seconds.
+  // Latency: prefer the leaderboard's latency_p50 (one method across the whole
+  // field) and fall back to our own live time-to-first-token only for a model the
+  // leaderboard does not time. Live ttft_ms exists for the few models a benchmark
+  // shortlist covered, and it is thinking-inclusive at default effort (deepseek-
+  // v4.1-flash: 6.9s live vs 1.2s AA), so preferring it ranked every measured
+  // model against unmeasured ones on a different, harsher clock. Throughput still
+  // blends both sources. ttft_ms is in milliseconds; latency_p50 is in seconds.
   const rawLatency = modelIds.map((id) => {
+    const leaderboard = weightedAverage(grouped.get(id)?.get("latency_p50") ?? []);
+    if (leaderboard !== null) return leaderboard;
     const live = weightedAverage(grouped.get(id)?.get("ttft_ms") ?? []);
-    if (live !== null) return live / 1000;
-    return weightedAverage(grouped.get(id)?.get("latency_p50") ?? []);
+    return live === null ? null : live / 1000;
   });
   const rawArenaCreativeWriting = modelIds.map((id) =>
     weightedAverage(grouped.get(id)?.get("arena_creative_writing") ?? []),

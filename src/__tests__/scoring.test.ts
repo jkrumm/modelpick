@@ -95,6 +95,30 @@ describe("normalizeMetrics", () => {
     expect(quick?.speed).toBeGreaterThan(laggy?.speed ?? Infinity);
   });
 
+  it("reads latency from the leaderboard when present, not a live ttft that only some models have", () => {
+    // Live ttft_ms is thinking-inclusive and exists for a benchmark shortlist only;
+    // preferring it scored the measured model 6.9s against an unmeasured 3.0s, even
+    // though the leaderboard times both (1.2s vs 3.0s).
+    const result = normalizeMetrics([
+      { model_id: "measured", metric: "latency_p50", value: 1.2, confidence: 1.0 },
+      { model_id: "measured", metric: "ttft_ms", value: 6900, confidence: 0.9 },
+      { model_id: "unmeasured", metric: "latency_p50", value: 3.0, confidence: 1.0 },
+    ]);
+    const measured = result.find((m) => m.model_id === "measured");
+    const unmeasured = result.find((m) => m.model_id === "unmeasured");
+    expect(measured?.speed).toBeGreaterThan(unmeasured?.speed ?? Infinity);
+  });
+
+  it("falls back to live ttft_ms for a model the leaderboard does not time", () => {
+    const result = normalizeMetrics([
+      { model_id: "timed", metric: "latency_p50", value: 3.0, confidence: 1.0 },
+      { model_id: "live-only", metric: "ttft_ms", value: 500, confidence: 0.9 },
+    ]);
+    const liveOnly = result.find((m) => m.model_id === "live-only");
+    const timed = result.find((m) => m.model_id === "timed");
+    expect(liveOnly?.speed).toBeGreaterThan(timed?.speed ?? Infinity);
+  });
+
   it("applies confidence-weighted averaging across sources", () => {
     // Two quality measurements: value=80 with confidence=0.9, value=100 with confidence=0.1
     // Weighted avg = (80*0.9 + 100*0.1) / (0.9+0.1) = 82.0
@@ -297,12 +321,32 @@ describe("scoreModels", () => {
     expect(scoreModels(metrics, weights, "coding")[0]?.model_id).toBe("coder");
   });
 
-  it("speed+cost-heavy weights (fast) favor the fast/cheap model", () => {
+  it("fast weights are capability-led: quality is the largest term, cost still counts", () => {
+    const w = CATEGORY_WEIGHTS["fast"];
+    expect(w.quality).toBeGreaterThan(w.cost);
+    expect(w.quality).toBeGreaterThan(w.speed);
+    expect(w.cost).toBeGreaterThan(0);
+  });
+
+  it("fast still lets a model that wins both cost and speed beat a pure-quality one", () => {
     const scored = scoreModels(tradeoffMetrics, CATEGORY_WEIGHTS["fast"]);
-    // model-x: 0.25*1 + 0.40*0 + 0.35*0 = 0.25
-    // model-y: 0.25*0 + 0.40*1 + 0.35*1 = 0.75
+    // model-x: 0.45*1 + 0.25*0 + 0.30*0 = 0.45
+    // model-y: 0.45*0 + 0.25*1 + 0.30*1 = 0.55
     expect(scored[0]?.model_id).toBe("model-y");
-    expect(scored[0]?.score).toBeCloseTo(0.75);
+    expect(scored[0]?.score).toBeCloseTo(0.55);
+  });
+
+  it("fast prefers the capable, pricier model over the cheap, weaker one", () => {
+    // The mimo-v2.6-flash vs deepseek-v4.1-flash shape: the cheap model wins cost
+    // and a little speed, the capable one wins quality by a wide margin.
+    const metrics: ModelMetrics[] = [
+      { model_id: "cheap", quality: 0.6, coding: null, cost: 0.8, speed: 0.5, writing: null },
+      { model_id: "capable", quality: 0.76, coding: null, cost: 0.69, speed: 0.45, writing: null },
+    ];
+    expect(scoreModels(metrics, CATEGORY_WEIGHTS["fast"])[0]?.model_id).toBe("capable");
+    // The previous cost-led split (0.25/0.40/0.35) picked the cheap one.
+    const oldWeights = { quality: 0.25, cost: 0.4, speed: 0.35 };
+    expect(scoreModels(metrics, oldWeights)[0]?.model_id).toBe("cheap");
   });
 
   it("custom weight override changes ranking", () => {
