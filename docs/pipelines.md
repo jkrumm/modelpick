@@ -47,7 +47,7 @@ tiers, parses the stream-json transcript into metrics, and grades the
 resulting files mechanically. Rows land in `bench_run`.
 
 - **It spends real money.** `--yes` is required non-interactively, mirroring
-  `pick`. `--dry-run` exercises the whole pipeline against a synthetic
+  the other spending scripts. `--dry-run` exercises the whole pipeline against a synthetic
   transcript and costs nothing.
 - **Never remove the isolated `CLAUDE_CONFIG_DIR`.** Without it the global
   CLAUDE.md, MCP servers, extra tools and hooks load into every sandbox (71
@@ -66,9 +66,9 @@ resulting files mechanically. Rows land in `bench_run`.
   `fixtures/bench/<task>/.solution/`, plus a negative control. A
   silently-broken grader and a genuinely perfect field produce the same table
   without them.
-- `bun run route-map` surveys where each id physically lands, from the
-  gateway's `x-middleware-forwarded-*` headers — the only place residency is
-  visible.
+- Residency is visible only in the gateway's `x-middleware-forwarded-*`
+  headers; the committed `ROUTE_RESIDENCY` snapshot in `src/server/bench/models.ts`
+  records it (the `route-map` survey script was cut).
 
 ## Why a model looks slower on IU than on the leaderboard (2026-09-11)
 

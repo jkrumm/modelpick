@@ -30,9 +30,8 @@ single SQLite file (`modelpick.db`, gitignored).
   `make models|probe|collect|refresh` (catalog sync, access probe, metrics, full refresh),
   `make check`, `make deploy`, `make verify`, `make logs`,
   `make refresh-setup|refresh-check|refresh-teardown` (the 06:00 LaunchAgent). The
-  picking commands that matter day to day are bun scripts, not Makefile targets:
-  `bun run bench` (ccbench), `bun run route-map`, and the `cap`/`cap --list` shell
-  launchers (read `pick`'s output, spend nothing).
+  one measurement that matters day to day is a bun script, not a Makefile target:
+  `bun run bench` (ccbench).
 
 ## The category model
 
@@ -48,9 +47,7 @@ Two tiers (`schema.ts`):
 - **`decision`** (a manual category, `MODALITY` `decision`) — typed-answer classifiers (Clef,
   Decision-1, Jev, PPLX Decider, Luna's Decisions API: yes/no, choice and score answers with
   probabilities, no text generation). No leaderboard scores them, so the recommender skips them,
-  but they have their **own live eval**: `bun run bench:decision` (`scripts/bench-decision.ts`,
-  suites in `src/server/bench/decision-tasks.ts`, three repeats, `--dry-run` costs nothing, ~$0.09
-  for the full field) writes `decision_*` rows to `metric_snapshot` that rank the `/decision` tab.
+  but the bench that ranked them has been cut (verdict kept in the decision record).
   All but Luna are called on UE's native **systemone** API (`IU_DECISIONS_BASE_URL` +
   `/systemone`); Luna's Decisions route is its own catalog entry, `gpt-6-luna:decisions`, on the
   OpenAI leg. The ids live in `src/db/decision-models.ts`; the probe reads UE's decision list
@@ -130,23 +127,10 @@ The four facts that decide most questions before they are asked:
 - **Match the metric to the job.** A score whose name matches the question is not evidence that
   it measures the question — that error has produced three wrong answers here.
 
-`bun run bench:fast` (`scripts/bench-fast.ts`, tasks in `src/server/bench/fast-tasks.ts`)
-measures the fast tier across the full effort ladder: five mechanically-graded tasks, medians,
-`starved` counted separately from `fail`, and a crossover calculation for how long an output must
-be before a faster decoder that starts later finishes first. It spends real money; `--dry-run`
-costs nothing. Give every candidate >=16,000 tokens — two retracted verdicts in this repo came
-from budget starvation being scored as failure.
-
-`bun run bench:writing` (`scripts/bench-writing.ts`, tasks + rubric in
-`src/server/bench/writing-tasks.ts`, lint and aggregation in `writing-metrics.ts`) compares
-writing models on six of my real communication jobs (German vault page, English article section,
-landing copy, UI strings, a rewrite, a German briefing), each written from raw facts with
-`brain/voice.md` as the system prompt (`--voice <path>` overrides). Cross-lab LLM judges (a judge
-never scores its own lab) score a nine-criterion rubric next to a mechanical lint; judges build a
-shortlist, the human blind read in `blind.md` decides. It spends real money (~$7 typical, `--yes`
-required non-interactively); `--dry-run` prints the call plan and cost estimate and spends nothing.
-Output lands in `docs/experiments/writing/<date>/` (`report.md`, `blind.md`, `key.json`,
-`raw.json`); nothing goes to the DB.
+The fast-tier and writing benches (`bench:fast`, `bench:writing`) were cut in the slim-down; their
+verdicts and numbers live in `docs/decisions/fast-model.md` and `writing-model.md`, the raw runs in
+`docs/experiments/`. Give every future fast-tier candidate >=16,000 tokens — two retracted verdicts
+in this repo came from budget starvation being scored as failure.
 
 
 ## Validate
@@ -223,12 +207,9 @@ syncs to the SQLite file with `bun run db:push` (`drizzle-kit push`, dialect `sq
   [--skip-existing] [--dry-run]` (spends IU money, estimates and caps at $2.5). Record: `docs/decisions/audio-stack.md`.
   `/tts` is a listening workbench: open questions are defined in `src/server/audio/experiments.ts` (manifest ids → question, variants,
   production flag); picks persist in browser localStorage; the model comparison and voice audition sit in a collapsed reference.
-- German STT comparison on `/stt`: `data/stt-compare/` (`testset.json` + `results.json` tracked, `audio/` gitignored; served
-  at request time by `/api/stt-audio/<file>`). Build the public test set with `bun scripts/stt-testset.ts --src <dir>` (inputs
-  listed in its header), run with `secrets-run run --env-file=.env.tpl -- bun scripts/stt-compare.ts [--only <substr>]
-  [--skip-existing] [--cloud-only|--local-only] [--dry-run]` (caps IU spend at $1; local engines go through
-  `ssh iumac mw transcribe`, audio rsynced to the MacBook). Scoring is `src/server/audio/stt-score.ts`. Record:
-  `docs/decisions/audio-stack.md` §German STT comparison.
+- German STT comparison: the `/stt` page, its scripts and scoring were cut; the numbers are in
+  `docs/decisions/audio-stack.md` §German STT comparison. `src/server/audio/stt-compare.ts` stays
+  until the TTS workbench goes because `-audio-server-fns.ts` still imports it (it reads an empty fallback now).
 - SQLite has no native enums — they're `text({ enum: [...] })` with value tuples (`MODALITY`,
   `CATEGORY`, …) exported from `schema.ts`. Booleans are `integer({ mode: "boolean" })`;
   timestamps are text (`CURRENT_TIMESTAMP`), which sort lexically.
@@ -324,17 +305,12 @@ grades the resulting files mechanically. Rows land in `bench_run`; the verdict l
 **never remove the isolated `CLAUDE_CONFIG_DIR`** — without it the sandbox loads the global
 CLAUDE.md/MCP/hooks and measures dotfiles instead of the model. Five more sharp edges
 (parallel-tool-use counting, the CLI's cost figure being Claude-only, golden-solution
-graders, `route-map`'s residency check): [`docs/pipelines.md`](docs/pipelines.md).
+graders): [`docs/pipelines.md`](docs/pipelines.md).
 
-`bun run cap` and the **`/bench`** route are the two readers of that data, and they share
-one derivation (`src/server/bench/summary.ts`) so they cannot disagree: newest suite with a
+The **`/stack`** page reads that data through `src/server/bench/summary.ts`: newest suite with a
 real field → AA index → rate card → three picks (interactive / unattended worker / EU-pinned).
-Neither spends anything — `cap` reads only the local SQLite file, so it needs no key, no
-network and **no `op run` wrapper**. `cap` prints everything human-facing to **stderr** and
-the chosen model id alone to **stdout**, which is the contract the shell alias reads;
-`--json`, `--all` and `--suite <id>` are the flags. Residency and the Claude context windows
-are committed snapshots in `models.ts` (`ROUTE_RESIDENCY`, `CLAUDE_CONTEXT_WINDOW`) because
-`route-map` persists nothing — re-run it and update them when the route moves.
+Residency and the Claude context windows are committed snapshots in `models.ts`
+(`ROUTE_RESIDENCY`, `CLAUDE_CONTEXT_WINDOW`); update them when the route moves.
 
 ## Project skills
 

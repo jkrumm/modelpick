@@ -378,11 +378,11 @@ asks `AUDIO_L16` and parses RIFF chunks as a second line.
 
 ## German STT comparison (2026-10-25) — decided: Voxtral mini
 
-Measured on `/stt`, public German audio only (residency rule): 15 FLEURS-de clips (244 words), 2 FLEURS clips
+Measured on the (since cut) `/stt` page, public German audio only (residency rule): 15 FLEURS-de clips (244 words), 2 FLEURS clips
 degraded to phone quality (44 words), 12 min of LibriVox *Der Schimmelreiter* scored against the Gutenberg text
 (windowed, ~1,875 words), and the synthetic two-host `/tts` podcast clip (known script) for diarization.
-Sources and licences: `data/stt-compare/testset.json`; rebuild with `scripts/stt-testset.ts`, rerun with
-`scripts/stt-compare.ts`. IU spend $0.83 of the $1 cap (list-price estimate; IU returns no cost on these routes).
+Sources and licences: FLEURS-de, LibriVox / Gutenberg (the test-set builder, runner and `/stt` page were cut
+2026-10-26; recover them from git history before that date). IU spend $0.83 of the $1 cap (list-price estimate; IU returns no cost on these routes).
 
 | Model | Residency | Short WER norm / raw | Noisy norm | Long norm / raw | Long RTF | $/min | Diarization |
 |-|-|-|-|-|-|-|-|

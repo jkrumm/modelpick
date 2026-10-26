@@ -27,7 +27,6 @@ re-derive either from the data — a refresh updates the numbers, not the rules.
 | Recommendations (`recommendation`) | `bun run recommend` | Re-scores every category against the new metrics. |
 | Deployment truth (`deployment`) | `bun run verify-deployments` | Reads the *other repos'* config files. |
 | ccbench agentic runs (`bench_run`) | `bun run bench` | **Spends real money. Never run as part of a refresh** — only when a candidate genuinely needs an agent-loop floor test. |
-| Fast-tier effort/latency (`fast_*`) | `bun run bench:fast` | **Spends real money (small). Not part of a refresh** — run it when a fast-slot candidate changes, or when a latency claim needs settling across effort levels. |
 
 ## Steps
 

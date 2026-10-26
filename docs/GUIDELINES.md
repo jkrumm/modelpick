@@ -189,8 +189,8 @@ If every model "fails" the same way, the grader is wrong, not the field.
 
 ### 3.6 Never read an operational benchmark as a quality benchmark
 
-`ccbench` measures whether a model can hold an agent loop; `bench-fast` measures the cost of
-correctness on deliberately easy tasks. Both measure a **floor**. A perfect score means the
+`ccbench` measures whether a model can hold an agent loop; the cut fast-tier bench measured the
+cost of correctness on deliberately easy tasks. Both measure a **floor**. A perfect score means the
 floor was cleared, never that the model is smart.
 
 ---
