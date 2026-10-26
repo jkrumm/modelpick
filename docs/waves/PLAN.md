@@ -158,6 +158,11 @@ once that rematch has its verdict. `git add` explicit paths only.
       metric_snapshot. One table: job → model → settings → $/1M in/out (models.dev or measured) → where it
       runs (deployment slots) → drift flag from the latest recommendation. A test fails when the
       committed `STACK.md` is stale relative to `src/stack.ts`.
+- [ ] Re-point the two outside references to the deleted `cap`/`pick` scripts at `STACK.md` / `make stack`:
+      `~/SourceRoot/dotfiles/docs/opencode.md:29` (context windows/prices) and the comment at
+      `~/SourceRoot/agent-gateway/server/mcp/session-runner.ts:1101`. One-line doc edits each, committed
+      in their own repo (`docs:` commit, explicit paths, push). Both repos may have other agents working,
+      so never touch other files.
 - [ ] AGENTS.md: point "current picks" at `STACK.md`. Shrink AGENTS.md: move the ccbench and pipeline
       detail to `docs/pipelines.md`, so AGENTS.md keeps decisions, commands and traps only.
 **Left behind:**
