@@ -206,3 +206,62 @@ question, an unintroduced term) before, 0 after, 11 questions from the second ho
 turns instead of 0. Caveats: the new segment comes from a new brief and outline (different content, 731 words
 against a 590 target — the lab run omitted the tightening pass production runs), and a fact-coverage proxy did not
 move (2/8 → 3/11 key facts by token overlap), so density is unproven until it is heard.
+
+## Writer rematch (2026-10-26) — PARTIAL: the $4 IU cap stopped it; verdict pending the owner's ears
+
+**What changed under the rematch.** The pipeline was rebuilt before candidates were compared, so the rematch measures
+the final design, not the bake-off's: research with no ceiling (5 gateway runs, 30-term glossary for episode
+`8ee3a4df`; the old stage used one), the editor's brief and a fresh frozen outline from the Wave 2 + 3 prompts, per-turn
+delivery + a tag band, deterministic expression/segmentation lint, and an **agentic writer** (`podcast-agent.ts`): the
+segment draft and every revision run as a tool loop (`lint_segment`, `glossary_lookup`, `brain_search/read`,
+`submit_segment`) on the existing `runToolLoop`, so the model measures words-vs-target, rhythm, tags and unintroduced
+names before it hands the text in. Reviewer panel, tightening and the expressive synth are the production ones.
+Sonnet's Wave 1 failure was a format bug (screenplay text instead of JSON), fixed with `output_config.format`
+(structured outputs, GA); `claude-sonnet-5-5` now parses on the first attempt.
+
+**Measured** (episode `8ee3a4df`, opening + the DBOS segment; list prices; cost with caching, projected to the
+five-segment outline by target words; reviewers are shared and listed separately):
+
+| Writer | Writer / episode | Reviewers (2 segs) | Wall (draft+review+revise) | Words / target (open, DBOS) | Lint findings left | Notes |
+|-|-|-|-|-|-|-|
+| `claude-haiku-5-5`, agentic | $0.55 (uncached $0.62) | $0.11 | 325 + 169 + 260 s | 377/430, 554/480 | 1 + 6 | 4–7 rounds per draft, 20 writer calls, 0 failures |
+| `gpt-6.1-sol`, single-shot | $0.39 (uncached $0.60) | $0.10 | 51 + 141 + 43 s | 406/430, 552/480 | 1 + 8 | no tool loop (see below); tags 1/2, deliveries 0/3 |
+| `claude-opus-5-5`, single-shot (old inputs, reference) | $2.47 | $0.13 | — | 422/400, 592/560 | — | measured before the research/agent rebuild; provisional |
+
+Lint-finding counts include `unintroduced-term` flags in the DBOS segment (5 for Haiku, 7 for Sol): the two-segment
+sub-episode never contains the segments where those names are introduced, so most are artefacts, not misses.
+
+**Agentic vs single-shot, same writer, same inputs** (`claude-haiku-5-5`, first inputs): opening 293/400 words and 6
+lint findings → 415/400 and 0; DBOS segment 455/560 and 5 findings → 556/560 and 5. Cost $0.036 → $0.122 for the two
+segments (3.4×), draft wall 66 → 170 s, revision 98 → 290 s. The loop buys length discipline and clean mechanics for
+about three times the money and time; whether it buys better dialogue is the ears' call.
+
+**IU facts learned on the way** (probed 2026-10-26):
+- Claude serves function tools on the OpenAI-compatible route with `reasoning_effort: high` and **automatic prompt
+  caching** (cache write on the first call, `cached_tokens` on the next) — no native-Anthropic transport needed.
+- `gpt-6-luna` accepts tools only with `reasoning_effort: "none"` (the default fails with a 503 naming that fix).
+- `gpt-6.1-sol` accepts function tools **only on `/v1/responses`**: every effort value 503s on chat/completions and
+  `none` is unsupported. It therefore runs single-shot; a `/responses` transport in the tool loop is the follow-up.
+- `gemini-4-argon`: $2 / $10 per M (cached $0.10) through 2026-11-30, then $4 / $20 / $0.20; no context tiers.
+  `gpt-6.1-sol` $2 / $10 / $0.10 cached is snippet-level only (provisional).
+
+**Not run — needs a cap raise (~$4.5 on top of the $3.73 spent):** `gpt-6-luna` (started, stopped by the cap
+mid-run), `gemini-4-argon`, `gemini-3.8-flash`, `claude-sonnet-5-5` (agentic), `claude-opus-5-5` (agentic baseline,
+~$1.5 for two segments), and the hybrid (cheap drafter + Opus revision only). The blind question therefore has two
+candidates (Haiku, Sol); the Opus baseline is missing from the listening test.
+
+**Ranked recommendation** (evidence + measured cost; verdict pending the owner's ears; the default stays
+`claude-opus-5-5`):
+1. `gpt-6.1-sol` — best measured creative-writing evidence of the cheap models (EQ-Bench CW v3 2125, slop 8.97), $0.39
+   per episode and four minutes of wall for two segments, length within tolerance. Cost of the agentic loop on it: a
+   `/v1/responses` transport.
+2. `claude-opus-5-5` agentic — the incumbent and the quality reference; ~$2.5/episode before the loop, more with it.
+   Keep until Sol (or the hybrid) wins the blind listen.
+3. Hybrid (cheap drafter, Opus revision only) — untested; the revision pass is where Opus's cost concentrates.
+4. `claude-haiku-5-5` agentic — cheapest Claude, the loop makes it mechanically clean, but it ran 15% over target on
+   the DBOS segment and costs 3.4× its own single-shot; listen before trusting it.
+5. Unmeasured: Sonnet 5.5 (format fixed, verbose per community reports), Argon (near Opus on LMArena creative,
+   intro price ends 2026-11-30), `gemini-3.8-flash` (CW 1745, slop 22.6 — expected to sound sloppy), `gpt-6-luna`.
+
+**Proof, to be heard.** `/tts` → "Podcast writer — rematch" (blind, letters only) and "Expressiveness" (flat vs tags vs
+tags + delivery for podcast, briefing and chat).
