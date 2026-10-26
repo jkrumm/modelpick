@@ -83,6 +83,8 @@ Left behind.
   `make models` also runs `import:replicate`, which rewrites `replicate-catalog.ts` with a pure re-ordering
   (209/209 line churn); I reverted that file, so it is unchanged.
 - `make check` green (886 tests). No `/review` gateway run: self-read the diff.
+- Owner-requested ad-hoc spend (3 tiny Replicate calls, <1 cent, 2026-10-26): `xai/grok-text-to-speech` (leo, de) and
+  `xai/grok-speech-to-text` round-trip. See the Grok result in the session; not a pipeline change.
 - **Not mine, left alone:** the tree had uncommitted TTS "expression" edits from another session
   (`data/tts-compare/manifest.json`, `src/server/audio/{compare,experiments}.ts`, `src/routes/-tts-workbench.tsx`,
   `src/__tests__/tts-experiments.test.ts`). Wave 2 deletes that code; decide whether to commit or drop them first.
