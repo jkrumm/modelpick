@@ -127,3 +127,82 @@ reasoning tokens). Nothing is billed beyond list; no production config changed.
 
 **Verdict:** pending. Re-pick triggers unchanged; if a cheaper writer wins the listening, change
 `PODCAST_WRITE_MODEL` in audio-gateway `config.ts` and re-run the unit/format tests.
+
+## What the bake-off taught (2026-10-26) — pipeline changes, audio-gateway Wave 2
+
+The ranking waits for ears; the scripts already said a lot about the pipeline. All numbers are from the
+seven candidates' drafts and finals (`data/writer-bakeoff/`) and one lab run (`scripts/writer-lab.ts`).
+
+**Cost levers that keep the voice owner**
+
+- **Prompt caching (shipped).** `callAnthropicMessages` now marks the episode-stable system prefix (house rules,
+  voice guide, show bible, brief) with `cache_control`. Measured on Opus, two consecutive segment drafts: the second
+  read 10,253 of 18,606 input tokens from cache, call cost $0.173 → $0.145 (input cost −52%, whole call −21%). The
+  prefix is ~10k tokens per call. On the 2026-10-25 episode shape (24 writer calls, 388k input) that is roughly
+  $0.8–0.9 of $3.41 if the cache is warm; the first parallel batch of three segment calls cannot hit it (the cache is
+  written when the first response starts), revisions can. Not shipped: moving the per-segment instruction tail out of
+  the system prompt so the SOURCE and outline become cacheable too (another ~7k tokens per call) — it changes prompt
+  layout and needs its own listening.
+- **OpenAI-wire models cache on their own through IU**: `deepseek-v4.1-flash` 58% of input tokens, `kimi-k3` 55%,
+  grok (OpenRouter) 9%, `glm-5.3` 0%; `gpt-6-sol` returned no `cached_tokens` at all. IU also returns the billed
+  `cost` per call for those routes; it matched the list-price estimate within 1% for glm and kimi, and DeepSeek's
+  actual cost was 45% of the peak-rate estimate.
+- **The revision pass is the other half of the writer bill**, not an optional polish: for Opus, draft $0.32 vs
+  revision $0.39 for the two segments. A revision rewrites 40–70% of a segment's words (kept-word share 27–61% across
+  candidates, 100% only where the revision failed), driven by 17–30 notes per segment from six reviewer calls. Part of
+  that volume is an artifact of the bake-off (reviewers saw a 2-segment draft and kept noting that three segments were
+  missing), so the real episode has fewer. No pass is dropped or made conditional: the data cannot show which notes
+  mattered, and cutting notes without listening is a quality bet. The cheap structural fix, if the cost still hurts
+  after the caching, is a cap of the ~8 most-converged notes per segment — measure it against ears first.
+
+**Failure patterns in the drafts** (14 final segments, all seven writers)
+
+1. Names used as if known: "Cortex", "engrams", "Sweeper", "Lead", "Version Gating", "ADR hundertneunzehn" were
+   spoken before anyone said what they are in 6 of 7 interaction segments. Only haiku defined cron and ADR inline,
+   grok and opus explained some terms; nobody explained Cortex. The glossary was empty for this episode, so the writer rule ("the GLOSSARY
+   gives you both") had nothing to enforce, and the fact editor judged against a SOURCE that takes the names for
+   granted.
+2. Echoed reactions: the second host repeats the last words of the previous turn ("Zweitausend Zeilen. Und trotzdem…",
+   "Fünfzehn verwaiste Runs.") instead of adding a question, a consequence or a number.
+3. The second host almost never asks: 0 questions in 4 of 7 interaction segments, 1 in the rest. Instead of questions
+   there are positions — a staged debate, because the brief asked for one.
+4. Lecture turns: 80–150 words from the explaining host followed by 10–50 words of reaction; zero turns of eight words
+   or fewer in all 14 segments (the 2026-09/10 production episodes have 14%).
+5. Identifier verbalisation drifts between writers: "ADR null eins eins neun" / "elf neunzehn" / "einhundertneunzehn".
+6. Strongest drafts: `gpt-6-sol` (a real question — "Wie viele Runs betraf es?" — and a defined acronym in the first
+   turn), `grok-4.7` (explains "Node und Bun" in one clause), `claude-haiku-5-5` (defines cron and ADR inline, but
+   writes 17% short). Nothing here is a ranking: it is what the text shows before listening.
+
+**Why every episode argues:** 7 of the last 10 briefs list a scripted "live disagreement" device and the format names
+repeat ("…mit Streitfrage/Gegenrede/Gegenprüfung"). Structural pushes in the prompts: the outline field `tension` was
+defined as "the question/disagreement this segment turns on", the hook options named "a live disagreement", the
+editor's device list led with it and said "a decision gets two positions that really disagree", and the show bible
+listed "Einwand" as the second host's first reaction.
+
+**Changes shipped**
+
+- Outline `tension` is now the segment's pull (open question, curiosity, a reveal); the hook option and the editor's
+  device list no longer default to a disagreement; the editor picks a MODE (explainer / story / Q&A / interview /
+  debate) from the material, varies it against the recent formats and may choose a debate only for a genuinely
+  contested source; the dramaturge flags a manufactured argument; the writer's default is knowledge sharing with the
+  density kept ("sharing is not chatter").
+- Names: the writer rule now covers every proper name, place, person, company, project, tool, term and abbreviation,
+  judged as a stranger to the notes would, and says what to do when neither source nor glossary explains a name. The
+  fact editor gets the same stranger test and a per-name first-mention task.
+- `src/podcast-lint.ts`: deterministic lint (stock phrases, lecture turns > 130 words, echoed reactions, segments with
+  no question, metronomic turn lengths, acronyms/glossary terms used before an introducing clause). Its report goes
+  to every reviewer; stock-phrase and unintroduced-term findings become revision notes. Calibrated on the 14 finals:
+  it separates haiku (0 findings) from opus/kimi/glm/deepseek interaction (3–5 findings each). Known limit: German
+  capitalises every noun, so non-acronym names (Cortex, engrams) are caught by the fact editor, not the lint.
+- Show bible: sharing as the normal case, six German before/after pairs from the real drafts.
+
+**Editor test.** The same material through the new editorial prompt, three runs against the real 8 preceding
+episodes: Explainer, Explainer, Q&A — no run listed a live disagreement, every run put "no staged opposition" in
+`avoid`. The brief that produced the bake-off episode was "Entscheidungsbriefing mit einer offenen Streitfrage".
+
+**Proof, to be heard.** `/tts` → "Podcast writer — improved pipeline": the segment around the DBOS question, old vs new
+pipeline, for Opus and `gpt-6-sol`, order shuffled and blind. Lint on the Opus segment: 5 findings (a lecture turn, 2 echoes, no
+question, an unintroduced term) before, 0 after, 11 questions from the second host, 23 turns instead of 9, 9% short
+turns instead of 0. Caveats: the new segment comes from a new brief and outline (different content, 731 words
+against a 590 target — the lab run omitted the tightening pass production runs), and a fact-coverage proxy did not
+move (2/8 → 3/11 key facts by token overlap), so density is unproven until it is heard.
