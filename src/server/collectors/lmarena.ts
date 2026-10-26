@@ -24,6 +24,7 @@
 import type { CollectorResult, IdResolver, NormalizedMetric } from "./normalize.js";
 
 const HF_FILTER_URL = "https://datasets-server.huggingface.co/filter";
+const HF_ROWS_URL = "https://datasets-server.huggingface.co/rows";
 const DATASET = "lmarena-ai/leaderboard-dataset";
 const PAGE_SIZE = 100;
 const MIN_VOTE_COUNT = 100; // rows below this are too thin to rank on — dropped entirely
@@ -37,6 +38,12 @@ const RETRY_DELAYS_MS = [5000, 15000];
 // than spaced ones do — the failures land on the second page of a category,
 // never the first. Pace the pagination instead of retrying into a rate limit.
 const PAGE_DELAY_MS = 1500;
+// /rows fallback: the whole split (~111 pages) is walked, so pages are fetched
+// a few at a time with a short per-worker pause. MAX_ROWS_PAGES bounds the
+// request count if num_rows_total ever balloons.
+const ROWS_CONCURRENCY = 4;
+const ROWS_PAGE_DELAY_MS = 250;
+const MAX_ROWS_PAGES = 200;
 const ARENA_EFFORT_SUFFIX_RE = /-(max|xhigh|high|medium|low|minimal|thinking)$/i;
 
 /** Resolves an arena model name to a local catalog id: exact name first, then
@@ -109,28 +116,33 @@ interface LmArenaFilterResponse {
   error?: string;
 }
 
-function buildUrl(category: string, offset: number): string {
+function buildUrl(category: string | null, offset: number): string {
   const params = new URLSearchParams({
     dataset: DATASET,
     config: "text",
     split: "latest",
-    where: `"category"='${category}'`,
+    ...(category === null ? {} : { where: `"category"='${category}'` }),
     offset: String(offset),
     length: String(PAGE_SIZE),
   });
-  return `${HF_FILTER_URL}?${params.toString()}`;
+  return `${category === null ? HF_ROWS_URL : HF_FILTER_URL}?${params.toString()}`;
 }
 
-async function fetchPage(category: string, offset: number): Promise<LmArenaFilterResponse | null> {
+/** `category === null` addresses the unfiltered /rows endpoint. */
+async function fetchPage(
+  category: string | null,
+  offset: number,
+): Promise<LmArenaFilterResponse | null> {
+  const label = category === null ? "/rows" : `"${category}"`;
   try {
     const resp = await fetch(buildUrl(category, offset));
     if (!resp.ok) {
-      console.warn(`[lmarena] HTTP ${resp.status} for "${category}" offset ${offset}`);
+      console.warn(`[lmarena] HTTP ${resp.status} for ${label} offset ${offset}`);
       return null;
     }
     return (await resp.json()) as LmArenaFilterResponse;
   } catch (err) {
-    console.warn(`[lmarena] fetch error for "${category}" offset ${offset}: ${String(err)}`);
+    console.warn(`[lmarena] fetch error for ${label} offset ${offset}: ${String(err)}`);
     return null;
   }
 }
@@ -143,7 +155,8 @@ interface Page {
 /** Fetches one page, retrying on any failure — the "index is loading" error
  *  arrives as an HTTP 500 with no `rows`, so both shapes get the same
  *  treatment. Returns null once the retries are exhausted. */
-async function fetchPageWithRetry(category: string, offset: number): Promise<Page | null> {
+async function fetchPageWithRetry(category: string | null, offset: number): Promise<Page | null> {
+  const label = category === null ? "/rows" : `"${category}"`;
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     const data = await fetchPage(category, offset);
     if (data !== null && data.error === undefined && data.rows !== undefined) {
@@ -152,19 +165,21 @@ async function fetchPageWithRetry(category: string, offset: number): Promise<Pag
     const delay = RETRY_DELAYS_MS[attempt];
     if (delay === undefined) break;
     console.warn(
-      `[lmarena] "${category}" offset ${offset}: ${data?.error ?? "request failed"} — retrying in ${delay}ms`,
+      `[lmarena] ${label} offset ${offset}: ${data?.error ?? "request failed"} — retrying in ${delay}ms`,
     );
     await new Promise((res) => setTimeout(res, delay));
   }
-  console.warn(`[lmarena] "${category}" offset ${offset}: giving up on this page`);
+  console.warn(`[lmarena] ${label} offset ${offset}: giving up on this page`);
   return null;
 }
 
 /** Paginates a whole category, KEEPING whatever pages succeeded. A failed page
  *  costs the models on it and nothing else: every row carries its own rating,
  *  so a partial pull is incomplete, never wrong. Dropping the category instead
- *  would mean one flaky page loses `arena_german` for the whole refresh. */
-async function fetchCategory(category: string): Promise<LmArenaRow[]> {
+ *  would mean one flaky page loses `arena_german` for the whole refresh.
+ *  Returns null when the very first page is unavailable — /filter itself is
+ *  down, not just one page of it. */
+async function fetchCategory(category: string): Promise<LmArenaRow[] | null> {
   const rows: LmArenaRow[] = [];
   let offset = 0;
   let total = Infinity;
@@ -178,7 +193,7 @@ async function fetchCategory(category: string): Promise<LmArenaRow[]> {
       );
       // No successful page yet means `total` is still unknown, so there is no
       // end condition to walk towards — stop rather than page forever.
-      if (total === Infinity) break;
+      if (total === Infinity) return null;
       offset += PAGE_SIZE;
       continue;
     }
@@ -191,12 +206,56 @@ async function fetchCategory(category: string): Promise<LmArenaRow[]> {
   return rows;
 }
 
+/** Fallback for a dead /filter: walks the whole split through /rows (which the
+ *  datasets-server keeps serving) so categories can be cut client-side. Same
+ *  keep-what-succeeded semantics as fetchCategory — a lost page costs the
+ *  models on it and nothing else. Returns [] when the first page is lost, since
+ *  `num_rows_total` is then unknown. */
+async function fetchAllRows(): Promise<LmArenaRow[]> {
+  const first = await fetchPageWithRetry(null, 0);
+  if (first === null) return [];
+
+  const pageCount = Math.min(Math.ceil(first.numRowsTotal / PAGE_SIZE), MAX_ROWS_PAGES);
+  const pages: LmArenaRow[][] = [first.rows];
+  let next = 1;
+
+  const worker = async (): Promise<void> => {
+    while (next < pageCount) {
+      const index = next++;
+      await new Promise((res) => setTimeout(res, ROWS_PAGE_DELAY_MS));
+      const page = await fetchPageWithRetry(null, index * PAGE_SIZE);
+      if (page === null) {
+        console.warn(`[lmarena] /rows page ${index} unavailable — keeping the other pages`);
+        continue;
+      }
+      pages[index] = page.rows;
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(ROWS_CONCURRENCY, pageCount - 1) }, worker));
+
+  return pages.flat();
+}
+
 export async function collectLmarena(resolve: IdResolver): Promise<CollectorResult> {
   const metrics: NormalizedMetric[] = [];
   const unmatchedById = new Map<string, { externalId: string; name: string }>();
 
+  let splitRows: LmArenaRow[] | null = null;
+
   for (const { category, metric } of CATEGORIES) {
-    const rows = await fetchCategory(category);
+    let rows: LmArenaRow[];
+    if (splitRows !== null) {
+      rows = splitRows.filter((r) => r.row.category === category);
+    } else {
+      const fetched = await fetchCategory(category);
+      if (fetched === null) {
+        console.warn("[lmarena] /filter unavailable — falling back to paginating /rows");
+        splitRows = await fetchAllRows();
+        rows = splitRows.filter((r) => r.row.category === category);
+      } else {
+        rows = fetched;
+      }
+    }
     if (rows.length === 0) {
       console.warn(`[lmarena] category "${category}" returned no rows — continuing with the rest`);
       continue;

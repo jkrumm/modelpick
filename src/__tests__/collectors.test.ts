@@ -700,11 +700,13 @@ describe("collectLmarena", () => {
     expect(overall.find((m) => m.model_id === "claude-sonnet-4-6")?.confidence).toBe(0.85);
   });
 
-  it("retries the 'index is loading' error, then skips just that category", async () => {
+  it("retries the 'index is loading' error on /filter, falls back to /rows, and yields nothing when both stay down", async () => {
     vi.useFakeTimers();
-    let calls = 0;
-    fetchMock.mockImplementation(async () => {
-      calls++;
+    let filterCalls = 0;
+    let rowsCalls = 0;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      if (new URL(String(input)).pathname === "/rows") rowsCalls++;
+      else filterCalls++;
       return jsonResponse({
         error: "the dataset index is loading, this may take longer than usual",
       });
@@ -715,10 +717,10 @@ describe("collectLmarena", () => {
     const result = await promise;
 
     expect(result.metrics).toHaveLength(0);
-    // 5 categories x (initial attempt + two retries) = 15 fetch calls. The first
-    // page never succeeds, so num_rows_total stays unknown and each category
-    // stops after that one page instead of paging forever.
-    expect(calls).toBe(15);
+    // The first /filter page never succeeds (initial attempt + two retries), so
+    // the collector switches to /rows once instead of retrying every category.
+    expect(filterCalls).toBe(3);
+    expect(rowsCalls).toBe(3);
     vi.useRealTimers();
   });
 
@@ -747,6 +749,83 @@ describe("collectLmarena", () => {
       "claude-sonnet-4-6",
     ]);
     vi.useRealTimers();
+  });
+
+  describe("/rows fallback", () => {
+    const fixtureRows = [
+      { model_name: "claude-sonnet-4-6", rating: 1500, category: "overall" },
+      { model_name: "claude-opus-4-6", rating: 1600, category: "overall" },
+      { model_name: "claude-opus-4-6-high", rating: 1650, category: "creative_writing" },
+      { model_name: "claude-sonnet-4-6", rating: 1400, category: "german", vote_count: 200 },
+      { model_name: "claude-opus-4-6", rating: 1300, category: "coding", vote_count: 50 },
+      { model_name: "unknown-model", rating: 1200, category: "overall" },
+    ].map((r) => {
+      const base = arenaRow(r);
+      return { ...base, row: { ...base.row, category: r.category } };
+    });
+
+    // Real pages hold 100 rows; two per page here with a 250-row total makes the
+    // loop walk three pages (the rest of the fixture split is empty).
+    function pageOf(page: number): { rows: unknown[]; num_rows_total: number } {
+      return { rows: fixtureRows.slice(page * 2, page * 2 + 2), num_rows_total: 250 };
+    }
+
+    async function run(
+      handler: (url: URL) => Response | Promise<Response>,
+    ): Promise<Awaited<ReturnType<typeof collectLmarena>>> {
+      vi.useFakeTimers();
+      fetchMock.mockImplementation(async (input: RequestInfo | URL) =>
+        handler(new URL(String(input))),
+      );
+      const promise = collectLmarena(resolveArena);
+      await vi.runAllTimersAsync();
+      const result = await promise;
+      vi.useRealTimers();
+      return result;
+    }
+
+    const filterHandler = (url: URL): Response => {
+      const category = categoryOf(url.toString());
+      const offset = Number(url.searchParams.get("offset"));
+      const matching = fixtureRows.filter((r) => r.row.category === category);
+      return jsonResponse({
+        rows: matching.slice(offset, offset + 100),
+        num_rows_total: matching.length,
+      });
+    };
+
+    it("produces the same metrics as the /filter path when /filter returns 500", async () => {
+      const viaFilter = await run(filterHandler);
+      const viaRows = await run((url) => {
+        if (url.pathname === "/filter") return new Response("auth check failed", { status: 500 });
+        return jsonResponse(pageOf(Number(url.searchParams.get("offset")) / 100));
+      });
+
+      expect(viaFilter.metrics.length).toBeGreaterThan(0);
+      const key = (m: { metric: string; model_id: string }): string => `${m.metric}/${m.model_id}`;
+      expect(viaRows.metrics.toSorted((a, b) => key(a).localeCompare(key(b)))).toEqual(
+        viaFilter.metrics.toSorted((a, b) => key(a).localeCompare(key(b))),
+      );
+      expect(viaRows.unmatched).toEqual(viaFilter.unmatched);
+    });
+
+    it("keeps the /rows pages already fetched when a later page fails", async () => {
+      const result = await run((url) => {
+        if (url.pathname === "/filter") return new Response("auth check failed", { status: 500 });
+        const page = Number(url.searchParams.get("offset")) / 100;
+        if (page >= 1) return new Response("boom", { status: 500 });
+        return jsonResponse({ rows: fixtureRows.slice(0, 3), num_rows_total: 250 });
+      });
+
+      // page 0 survives (overall: sonnet + opus + unknown, creative_writing: opus-high)
+      expect(
+        result.metrics
+          .filter((m) => m.metric === "arena_elo")
+          .map((m) => m.model_id)
+          .toSorted(),
+      ).toEqual(["claude-opus-4-6", "claude-sonnet-4-6"]);
+      expect(result.metrics.filter((m) => m.metric === "arena_creative_writing")).toHaveLength(1);
+    });
   });
 
   it("resolves a hyphenated effort suffix, keeping the higher-rated variant", async () => {
