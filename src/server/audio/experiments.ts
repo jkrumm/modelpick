@@ -42,6 +42,29 @@ const WRITER_LETTERS = ["A", "B", "C", "D", "E", "F", "G"] as const;
 
 export const EXPERIMENTS: Experiment[] = [
   {
+    id: "expression",
+    kind: "question",
+    title: "Expressiveness",
+    question:
+      "Does deliberate expression (inline tags, per-turn delivery) make the voice better in every lane — podcast, briefing, chat — or does it sound staged?",
+    same: "voices, the words (a finished script; the briefing and chat text are identical across versions), model (gemini-3.8-flash-tts, chat on flash-lite)",
+    differs:
+      "the expression layer: flat (constant style, no tags — what the lanes did), tags only (a few well-placed pauses/reactions), tags + per-turn delivery (the vocabulary style chosen where the moment changes). Letters are shuffled per row; briefing and chat have flat vs tags + delivery only",
+    pickable: true,
+    blind: true,
+    variants: [
+      { key: "a", letter: "A", label: "Version A", description: "" },
+      { key: "b", letter: "B", label: "Version B", description: "" },
+      { key: "c", letter: "C", label: "Version C", description: "" },
+    ],
+    rows: [
+      { key: "podcast", label: "Podcast — the segment around the DBOS question (three versions)" },
+      { key: "briefing", label: "Briefing — a morning briefing through the prep (two versions)" },
+      { key: "chat", label: "Chat — a short answer, plain vs written with tags + a delivery (two versions)" },
+    ],
+    sampleId: ({ row, variant }) => `expr__${row}__${variant}`,
+  },
+  {
     id: "writer-improved",
     kind: "question",
     title: "Podcast writer — improved pipeline",

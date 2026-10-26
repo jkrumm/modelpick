@@ -23,10 +23,10 @@ export interface CompareSample {
   streaming: string;
   aa_rank: string | null;
   /** "audition" = the Gemini 3.8 voice audition (real lane pipeline); absent = the cross-model comparison. */
-  set?: "audition" | "wave5" | "writer";
+  set?: "audition" | "wave5" | "writer" | "expression";
   /** The exact request(s) sent, audio omitted: model, style field, tags, voice config. */
   request?: string;
-  /** Podcast-writer bake-off cells only: who wrote this script and what it cost. Hidden in the UI until revealed. */
+  /** Podcast-writer bake-off cells and the blind "Expressiveness" question: who/what this is, hidden in the UI until revealed (for expression cells `model` names the version, `script` is the text as sent). */
   writer?: WriterCell;
 }
 

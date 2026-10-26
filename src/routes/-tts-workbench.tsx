@@ -448,7 +448,7 @@ function ExperimentCard({
                 color="grape"
                 onClick={() => setRevealed((v) => !v)}
               >
-                {revealed ? "hide writers" : "reveal writers"}
+                {revealed ? "hide" : "reveal"} {experiment.id.startsWith("writer") ? "writers" : "versions"}
               </Button>
             )}
           </Group>
