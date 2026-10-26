@@ -1,16 +1,12 @@
 # Podcast writer — a role split with one voice owner
 
-> **Current verdict (2026-09-13):** the role split holds, but every structural role has moved
-> off `gpt-5.6-luna` onto the estate default: `deepseek-v4.1-flash` at `reasoning_effort: high`
-> writes outline, editorial, metadata and research (`config.ts:392`, `:501`, `:416`, `:492`),
-> `claude-opus-4-6` is still the sole voice owner (`:401`), the review panel is
-> `gemini-3.8-flash,deepseek-v4.1-flash` (`:408`), `elevenlabs/v3` narrates (`:404`). This is the
-> same 2026-09-13 owner decision recorded in [hermes-brain.md](./hermes-brain.md) §2026-09-13, not
-> a per-service call. Open: drop `gemini-3.8-flash` from the panel — 14x `glm-5.3-flash`'s cost,
-> and it dropped a tool in the 2026-09-07 probe.
-> **Status of this record:** the body below still names `gpt-5.6-luna` and `gpt-5.6-terra` as the
-> live structural picks; those references are historical as of 2026-09-13.
-> Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
+> **Current verdict (2026-10-26):** the role split holds. Estate default `deepseek-v4.1-flash` at
+> `reasoning_effort: high` writes outline, editorial, metadata and research; `claude-opus-5-5`
+> (`PODCAST_WRITE_MODEL`) is the sole voice owner; reviewers are `gemini-3.8-flash,deepseek-v4.1-flash`;
+> narration is `gemini-3.8-flash-tts` (Charon + Erinome), not ElevenLabs. Whether Opus stays the voice owner
+> is **open pending the owner's blind listening** (2026-10-26 bake-off below, `/tts` → "Podcast writer").
+> The body of this record is the 2026-09-02 history (it names `claude-opus-4-6`, `gpt-5.6-luna` and
+> ElevenLabs v3; those are superseded). Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
 
 **Decision (2026-09-02, third revision the same day):** audio-gateway's podcast pipeline
 (`POST /v1/podcasts`, the "writers' room" in `src/podcast-script.ts`) uses one model per role,
@@ -83,3 +79,51 @@ reliability do, and Terra leads both. Sol is the quality ceiling but 20× Luna's
 price for no measured tool advantage; Gemini 3.8 Flash is flaky on tools in this shape
 (see gemini-tool-calling-shapes.md); the open-weight models are 3–6× slower. Luna
 (the 2026-09-06 first pick) stays the metadata/review workhorse.
+
+## Writer bake-off (2026-10-26) — verdict pending the owner's blind listening
+
+**Why:** `podcast-segment` on `claude-opus-5-5` cost $3.41 of the last Gemini test episode while all
+audio cost $0.10; writing is the dominant podcast cost. **Method** (`audio-gateway`
+`scripts/writer-bakeoff.ts`): one episode ("Factory v2.2"), one frozen outline, then per candidate the
+production per-segment flow — draft → production reviewer panel → the candidate's own revision/tightening —
+for two segments (the opening and "Blog und Code", the segment with the most host interaction),
+voiced with the production Gemini 3.8 multi-speaker path. Only the voice owner differs. Listen blind at
+`/tts` → "Podcast writer" (letters only; "reveal writers" shows model, cost and script stats).
+
+| Writer | $/M out | Writer cost / 20-min episode | Words / target (opening / interaction) | Draft + revision wall | Tag violations | Revised |
+|-|-|-|-|-|-|-|
+| `claude-haiku-5-5` | 0.5 | $0.07 | 368/460 / 465/500 | 93 s | 0 | 2/2 |
+| `deepseek-v4.1-flash` | 1.2 | $0.11 | 444/460 / 412/500 | 85 s | 0 | 2/2 |
+| `gpt-6-sol` | 10 | $0.37 | 420/460 / 507/500 | 29 s | 0 | 2/2 |
+| `grok-4.7` | 6 | $1.71 | 424/460 / 482/500 | 738 s | 0 | 2/2 |
+| `claude-opus-5-5` | 20 | $1.73 | 401/460 / 490/500 | 92 s | 0 | 2/2 |
+| `glm-5.3` | 4.4 | $2.10 | 420/460 / 599/500 | 1290 s | 0 | 1/2 |
+| `kimi-k3` | 16 | $4.47 | 412/460 / 536/500 | 1509 s | 0 | 2/2 |
+| `claude-sonnet-5-5` | 10 | — | — | — | — | failed |
+
+Cost is **list price** (input and output tokens from the usage ledger, cache discounts ignored) scaled from
+the two measured segments to the outline's five by target words, revisions at the measured share. The
+measured 2026-10-25 Opus episode cost $3.41 for the writer; the projection for Opus lands at ~$1.7 because
+the bake-off ran a single revision pass over 2 of 5 segments and the real episode ran more calls (24).
+Compare candidates with each other, not against $3.41. Prices: Anthropic and gpt-6-sol from their pricing
+pages (2026-10-25), grok-4.7 from OpenRouter, glm-5.3 from Z.ai, deepseek-v4.1-flash at the peak rate,
+kimi-k3 from OpenRouter (Moonshot's own table did not render). Both reviewer models are shared and not part
+of the writer cost.
+
+**Findings that do not need ears:**
+
+- `claude-sonnet-5-5` failed the harness: its segment draft came back as a `[A] …` screenplay instead of the
+  required JSON object, twice (the production retry). In production that fails the job. No audio exists for it.
+- `glm-5.3` and `kimi-k3` reason for minutes per segment (glm ~250–500 s per call, ~45k output tokens for a
+  500-word segment) — 15–25 min wall for two segments, against 30–90 s for the rest. glm's second segment
+  stayed a draft because the revision came back empty twice; it also ran 20% over target.
+- `gpt-6-sol` is by far the fastest and cheapest of the strong models: 29 s wall, ~$0.37 / episode.
+- `grok-4.7` ran through OpenRouter (list $2 / $6), not IU.
+- No candidate used a tag outside the allowlist.
+
+**Spend (list price) — both caps were exceeded.** IU $4.53 against a $4.00 cap (the guard checked headroom
+before each candidate, not during; `kimi-k3` alone cost $1.85), OpenRouter $0.71 against $0.50 (grok's
+reasoning tokens). Nothing is billed beyond list; no production config changed.
+
+**Verdict:** pending. Re-pick triggers unchanged; if a cheaper writer wins the listening, change
+`PODCAST_WRITE_MODEL` in audio-gateway `config.ts` and re-run the unit/format tests.
