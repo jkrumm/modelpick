@@ -49,3 +49,21 @@ export interface WriterCell {
   /** Tag allowlist violations in the raw drafts. */
   tagViolations?: number;
 }
+
+export interface CompareManifest {
+  generated_at: string;
+  texts: Record<string, string>;
+  samples: CompareSample[];
+}
+
+export function getCompareDir(): string {
+  return process.env["TTS_COMPARE_DIR"] ?? join(process.cwd(), "data", "tts-compare");
+}
+
+export async function readCompareManifest(): Promise<CompareManifest> {
+  try {
+    return JSON.parse(await readFile(join(getCompareDir(), "manifest.json"), "utf8"));
+  } catch {
+    return { generated_at: "", texts: {}, samples: [] };
+  }
+}
