@@ -282,7 +282,7 @@ by probe; the loop normalises the reply and usage to the chat shape, so the ledg
 |-|-|-|-|-|-|-|
 | `gpt-6-luna` | $0.06 | 53 + 230 + 41 s | 278/430, 516/480 | 0 + 3 | 3/0, 2/0 | 25 rounds, 6 rejections |
 | `claude-haiku-5-5` | $0.55 | 325 + 169 + 260 s | 377/430, 554/480 | 1 + 6 | 3/3, 2/4 | 18 rounds, 2 rejections |
-| `gemini-3.8-flash` | $1.07 | n/a (fallback) | 329/430, 448/480 | see run file | see run file | agent draft hit the IU ~230 s timeout, single-shot fallback; 3 failed calls |
+| `gemini-3.8-flash` | $1.07 | 503 + 132 + 247 s | 329/430, 448/480 | 8 + 9 | 2/2, 1/4 | agent draft hit the IU ~230 s timeout, single-shot fallback; 3 failed calls |
 | `gemini-4-argon` (not blind) | $1.23 | 105 + 231 + 46 s | 405/430, 551/480 | 0 + 0 | 1/2, 3/5 | 16 rounds, 0 rejections |
 | `gpt-6.1-sol` | $1.52 | 145 + 230 + 220 s | 412/430, 572/480 | 1 + 4 | 2/13, 2/13 | 21 rounds, 1 rejection |
 | `claude-sonnet-5-5` | $3.53 | 70 + 230 + 79 s | 460/430, 511/480 | 5 + 4 | 1/2, 2/3 | 13 rounds, 0 rejections |
@@ -297,7 +297,7 @@ the output side (verbose), not the loop.
 - Sol is the only candidate that uses the delivery vocabulary heavily (13 per segment) — whether that sounds better or
   merely busier is the listening test's job — and costs 2.8× Haiku.
 - Argon is the cleanest in lint terms (0 / 0 findings, 0 rejections) at $1.23, and is out on price.
-- Flash does not hold the agentic loop inside IU's ~230 s non-streaming limit; it needed the single-shot fallback.
+- Flash leaves the most lint findings (17 across the two segments) and does not hold the agentic loop inside IU's ~230 s non-streaming limit; it needed the single-shot fallback.
 
 **Ranked recommendation before the ears** (default stays `claude-opus-5-5`):
 1. `claude-haiku-5-5` — the cost/mechanics balance: $0.55, clean after the loop, uses delivery sparingly. Listen first.
