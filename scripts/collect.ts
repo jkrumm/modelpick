@@ -20,10 +20,21 @@ const collectors = [
   ["lmarena", collectLmarena],
 ] as const;
 
-const results = await Promise.all(collectors.map(([, run]) => run(resolve)));
+const settled = await Promise.allSettled(collectors.map(([, run]) => run(resolve)));
 
-const allMetrics = results.flatMap((r) => r.metrics);
-const allUnmatched = results.flatMap((r) => r.unmatched);
+// Pair each outcome with its collector name; a failed one is logged by name and the
+// successful ones are still persisted, mirroring the daily refresh.
+const failed: string[] = [];
+const results = settled.flatMap((outcome, i) => {
+  const name = collectors[i]![0];
+  if (outcome.status === "fulfilled") return [{ name, result: outcome.value }];
+  console.error(`[collect] ${name} FAILED: ${String(outcome.reason)}`);
+  failed.push(name);
+  return [];
+});
+
+const allMetrics = results.flatMap((r) => r.result.metrics);
+const allUnmatched = results.flatMap((r) => r.result.unmatched);
 
 if (allMetrics.length > 0) {
   await db.insert(metricSnapshot).values(
@@ -47,9 +58,14 @@ if (allUnmatched.length > 0) {
 }
 
 console.log(
-  `[collect] ${collectors
-    .map(([name], i) => `${name}: ${results[i]?.metrics.length} metrics, ${results[i]?.unmatched.length} unmatched`)
+  `[collect] ${results
+    .map(({ name, result }) => `${name}: ${result.metrics.length} metrics, ${result.unmatched.length} unmatched`)
     .join(" | ")}`,
 );
 
 await client.end();
+
+if (failed.length > 0) {
+  console.error(`[collect] failed collectors: ${failed.join(", ")}`);
+  process.exit(1);
+}
