@@ -198,7 +198,7 @@ Three things fall out of that table:
 
 `bun run refresh` runs `scripts/refresh.ts` locally: sync catalog → probe access → collect external
 metrics (models.dev, OpenRouter, ArtificialAnalysis + its speech lists, Epoch AI, LMArena) → recommend (re-score + persist picks +
-rationale). Steps are independent; one failure doesn't abort the rest, but the exit is 1.
+rationale) → re-render `STACK.md` (`src/server/stack-file.ts`, DB read only). Steps are independent; one failure doesn't abort the rest, but the exit is 1.
 A collector that fails or returns 0 rows is a *degraded source*: its siblings' metrics are still
 persisted, the run exits 1 (`RefreshResult.degraded`). The agent runs under `jobrun`
 (dotfiles: `--every 86400 --timeout 3600`, state in `~/.local/state/jobs/`), so a red run becomes
@@ -207,7 +207,7 @@ Green tests ≠ working pipeline — confirm against live data after changes. On
 `com.jkrumm.modelpick-refresh` LaunchAgent (`make refresh-setup`, 06:00, no `KeepAlive` —
 a failed step must not retry all day) runs it; `make refresh-check` shows the last exit.
 After the run, `src/server/snapshot-commit.ts` commits and pushes ONLY the regenerated
-`epoch-benchmarks.ts` and `iu-catalog.ts` (one commit each) to `origin master` (`git commit --only`) when it differs from HEAD, so the
+`epoch-benchmarks.ts`, `iu-catalog.ts` and `STACK.md` (one commit each; `STACK.md` only when its render step succeeded) to `origin master` (`git commit --only`) when it differs from HEAD, so the
 mini's checkout never stays dirty; it skips with a log line off `master`, mid merge/rebase/
 cherry-pick, or when the file has someone else's staged changes; it pushes only when the snapshot commit is the sole unpushed one, and a failed push leaves the
 local commit. It never fails the refresh.

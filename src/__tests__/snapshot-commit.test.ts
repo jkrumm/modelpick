@@ -3,6 +3,8 @@ import {
   commitSnapshot,
   EPOCH_SNAPSHOT_PATH,
   SNAPSHOT_COMMIT_MESSAGE,
+  STACK_COMMIT_MESSAGE,
+  STACK_SNAPSHOT_PATH,
 } from "../server/snapshot-commit.js";
 import type { GitResult, SnapshotCommitDeps } from "../server/snapshot-commit.js";
 
@@ -67,6 +69,19 @@ describe("commitSnapshot", () => {
     ]);
     expect(calls.at(-1)).toEqual(["push", "origin", "master"]);
     expect(calls.flat()).not.toContain("add");
+  });
+
+  it("commits STACK.md as its own sibling commit under the same guards", async () => {
+    const { deps, calls } = makeDeps({ status: ` M ${STACK_SNAPSHOT_PATH}\n` });
+    expect(await commitSnapshot(deps, STACK_SNAPSHOT_PATH, STACK_COMMIT_MESSAGE)).toBe("pushed");
+    expect(calls).toContainEqual([
+      "commit",
+      "--only",
+      "-m",
+      STACK_COMMIT_MESSAGE,
+      "--",
+      STACK_SNAPSHOT_PATH,
+    ]);
   });
 
   it("does nothing when the file is unchanged", async () => {

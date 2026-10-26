@@ -21,6 +21,7 @@ const makeDeps = (overrides: Partial<RefreshDeps> = {}): RefreshDeps => ({
   collectLmarena: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
   insertMetrics: vi.fn().mockResolvedValue(undefined),
   runRecommender: vi.fn().mockResolvedValue(undefined),
+  renderStack: vi.fn().mockResolvedValue("wrote STACK.md"),
   ...overrides,
 });
 
@@ -90,6 +91,52 @@ describe("runRefresh", () => {
     expect(result.allOk).toBe(false);
     // the surviving sources are still persisted
     expect(deps.insertMetrics).toHaveBeenCalledWith(Array(5).fill(baseMetric));
+  });
+
+  it("a rejected modelsdev collector marks the run degraded under its name", async () => {
+    const deps = makeDeps({
+      collectModelsDev: vi.fn().mockRejectedValue(new Error("models.dev down")),
+    });
+    const result = await runRefresh(deps);
+
+    expect(result.degraded).toEqual(["modelsdev"]);
+    expect(result.allOk).toBe(false);
+    expect(deps.insertMetrics).toHaveBeenCalledWith(Array(5).fill(baseMetric));
+  });
+
+  it("a rejected aa-speech collector marks the run degraded under its name", async () => {
+    const deps = makeDeps({
+      collectAaSpeech: vi.fn().mockRejectedValue(new Error("speech down")),
+    });
+    const result = await runRefresh(deps);
+
+    expect(result.degraded).toEqual(["aa-speech"]);
+    expect(result.allOk).toBe(false);
+  });
+
+  it("renders STACK.md last, after the recommender", async () => {
+    const order: string[] = [];
+    const deps = makeDeps({
+      runRecommender: vi.fn(async () => void order.push("recommend")),
+      renderStack: vi.fn(async () => {
+        order.push("stack");
+        return "wrote STACK.md";
+      }),
+    });
+    const result = await runRefresh(deps);
+
+    expect(order).toEqual(["recommend", "stack"]);
+    expect(result.stack.ok).toBe(true);
+  });
+
+  it("a failed STACK.md render is reported but does not undo the other steps", async () => {
+    const deps = makeDeps({ renderStack: vi.fn().mockRejectedValue(new Error("disk full")) });
+    const result = await runRefresh(deps);
+
+    expect(result.stack.ok).toBe(false);
+    expect(result.stack.message).toContain("disk full");
+    expect(result.recommend.ok).toBe(true);
+    expect(result.allOk).toBe(false);
   });
 
   it("a source returning 0 rows degrades the run (rc!=0) but still persists the rest", async () => {

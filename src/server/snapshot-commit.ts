@@ -12,6 +12,11 @@ export const IU_CATALOG_SNAPSHOT_PATH = "src/db/iu-catalog.ts";
 
 export const IU_CATALOG_COMMIT_MESSAGE = "chore(data): refresh IU model catalog snapshot";
 
+/** The tracked file the daily refresh re-renders last, from the fresh prices and recommendations. */
+export const STACK_SNAPSHOT_PATH = "STACK.md";
+
+export const STACK_COMMIT_MESSAGE = "chore(data): refresh STACK.md prices and drift";
+
 const BRANCH = "master";
 const IN_PROGRESS_MARKERS = ["MERGE_HEAD", "rebase-merge", "rebase-apply", "CHERRY_PICK_HEAD"];
 

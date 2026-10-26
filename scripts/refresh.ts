@@ -13,8 +13,11 @@ import {
   createSnapshotCommitDeps,
   IU_CATALOG_COMMIT_MESSAGE,
   IU_CATALOG_SNAPSHOT_PATH,
+  STACK_COMMIT_MESSAGE,
+  STACK_SNAPSHOT_PATH,
 } from "../src/server/snapshot-commit.js";
 import { runRecommender } from "../src/server/scoring/recommend.js";
+import { writeStackFile } from "../src/server/stack-file.js";
 import { createIdResolver } from "../src/server/collectors/normalize.js";
 import { db, client } from "../src/db/index.js";
 import { metricSnapshot, models } from "../src/db/schema.js";
@@ -48,9 +51,10 @@ const result = await runRefresh({
     );
   },
   runRecommender,
+  renderStack: writeStackFile,
 });
 
-// collectEpoch and syncCatalog rewrite tracked files; ship them so the unattended checkout
+// collectEpoch, syncCatalog and the STACK.md render rewrite tracked files; ship them so the unattended checkout
 // stays clean. Never throws — a git problem must not fail the refresh. The catalog snapshot
 // is committed only when its step succeeded (syncCatalog writes it last, after the DB).
 const gitDeps = createSnapshotCommitDeps(join(import.meta.dirname, ".."));
@@ -58,9 +62,12 @@ await commitSnapshot(gitDeps);
 if (result.catalog.ok) {
   await commitSnapshot(gitDeps, IU_CATALOG_SNAPSHOT_PATH, IU_CATALOG_COMMIT_MESSAGE);
 }
+if (result.stack.ok) {
+  await commitSnapshot(gitDeps, STACK_SNAPSHOT_PATH, STACK_COMMIT_MESSAGE);
+}
 
 if (!result.allOk) {
-  const failed = (["catalog", "probe", "collect", "recommend"] as const).filter((k) => !result[k].ok);
+  const failed = (["catalog", "probe", "collect", "recommend", "stack"] as const).filter((k) => !result[k].ok);
   console.error(
     `[refresh] not ok — failed steps: ${failed.join(", ") || "none"}; degraded sources: ${result.degraded.join(", ") || "none"}`,
   );
