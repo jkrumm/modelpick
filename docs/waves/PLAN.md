@@ -87,7 +87,7 @@ Left behind.
   (`data/tts-compare/manifest.json`, `src/server/audio/{compare,experiments}.ts`, `src/routes/-tts-workbench.tsx`,
   `src/__tests__/tts-experiments.test.ts`). Wave 2 deletes that code; decide whether to commit or drop them first.
 
-## Wave 2 — Cut the bloat (TTS frozen)            <!-- status: active -->
+## Wave 2 — Cut the bloat (TTS frozen)            <!-- status: done -->
 **TTS freeze (orchestrator, 2026-10-26):** audio-gateway's active Wave 3 ends with the owner picking a podcast
 writer in a blind rematch on modelpick `/tts`, and it edits modelpick's TTS files right now (the uncommitted
 `data/tts-compare/manifest.json`, `src/server/audio/{compare,experiments}.ts`, `src/routes/-tts-workbench.tsx`,
@@ -96,26 +96,44 @@ TTS stays untouched in this wave: `tts*` routes, `-tts-*`, `-gemini-tts-docs`, `
 `api.tts-audio.*`, the TTS modules in `src/server/audio/`, `scripts/tts-*`, `data/tts-compare`,
 `docs/gemini-tts.md`, the `demo` table if `/tts` reads it, and their tests. Wave 5 removes or moves them
 once that rematch has its verdict. `git add` explicit paths only.
-- [ ] Scripts: delete `adhoc-*`, `benchmark-bakeoff`, `benchmark-crossprovider`, `benchmark-tool-calling`,
+- [x] Scripts: delete `adhoc-*`, `benchmark-bakeoff`, `benchmark-crossprovider`, `benchmark-tool-calling`,
       `bench-fast`, `bench-writing`, `bench-review-judge`, `bench-decision`, `stt-compare`, `stt-testset`,
       `seed-demos` (if TTS does not need it), `pick`, `cap`, `route-map`, plus their package.json entries.
       Keep `benchmark-throughput`, which feeds scoring with live speed metrics.
-- [ ] Server + tests: delete the STT modules of `src/server/audio/` (`stt-compare`, `stt-score`), `bench/{fast-metrics,
+- [x] Server + tests: delete the STT modules of `src/server/audio/` (`stt-compare`, `stt-score`), `bench/{fast-metrics,
       fast-tasks,iu-client,rates,writing-*,review-judge,decision-*}`, `pick/*` except `anthropic.ts`, `iu/index.ts`,
       and the matching tests (fast-metrics, fast-tasks, writing-metrics, review-judge,
       decision-metrics/summary/tasks, stt-coverage, stt-score; shrink `pick.test` to the anthropic cases).
       Check importers first. If a TTS file imports something on this list, keep that thing.
-- [ ] Routes: delete `stt*`, `-stt-*`, `api.stt-audio.*`, `decision*`, `bench.tsx` + `-bench-server-fns`. Prune
+- [x] Routes: delete `stt*`, `-stt-*`, `api.stt-audio.*`, `decision*`, `bench.tsx` + `-bench-server-fns`. Prune
       `NAV_ITEMS`. Fold `index.tsx` ("Decider") into `/stack` or `/catalog` only if it duplicates them.
-- [ ] Data/docs: `git rm` `data/stt-compare` and `docs/experiments/*`, except anything a `docs/decisions/*`
+- [x] Data/docs: `git rm` `data/stt-compare` and `docs/experiments/*`, except anything a `docs/decisions/*`
       file or audio-gateway's PLAN links to (re-point or inline the numbers). Keep `docs/decisions/*`. Update
       AGENTS.md, README, `docs/pipelines.md` and `docs/GUIDELINES.md` wherever they name cut commands.
-- [ ] `make check` (the foreign uncommitted TTS edits are part of the tree. If they break the check, say so in
+- [x] `make check` (the foreign uncommitted TTS edits are part of the tree. If they break the check, say so in
       Left behind and do not fix them), then `bun run build`, then a fallow/dead-code pass to catch orphans.
       Record LOC before and after.
-**Left behind:**
+**Left behind:** (2026-10-26)
+- Source LOC (`src/**`, `scripts/**`): 46,787 → 33,384. `make check` green (743 tests), `bun run build` green,
+  fallow dead-code pass done (orphans trimmed: `bench/route.ts` is now just the `RouteResidency` type, `summary.ts`
+  re-exports shrunk). No `/review` gateway run: self-read the diff, it is nearly all deletions.
+- Cut: scripts `adhoc-*`, `benchmark-{bakeoff,crossprovider,tool-calling}`, `bench-{fast,writing,review-judge,decision}`,
+  `stt-{compare,testset}`, `pick`, `cap`, `route-map` (+ package.json entries); `audio/stt-score`, `bench/{fast-*,
+  iu-client,rates,writing-*,review-judge,decision-*}`, `pick/*` except `anthropic.ts`, `iu/index.ts`, their tests (`pick.test`
+  shrunk to anthropic cases; the `cap` stream-contract test in `bench-summary.test` removed); routes `stt*`, `decision*`,
+  `bench*`, `api.stt-audio`; NAV pruned to Stack / Decider / Catalog / Leaderboards / TTS. `/` (Decider) kept: it is the
+  interactive weight scorer, not a duplicate of `/stack`/`/catalog`. `data/stt-compare` and `docs/experiments/fast-2026-10-08` removed.
+- **Kept on purpose (TTS freeze):** `seed-demos` + `demos:seed` (TTS playground), `scripts/tts-*`, and
+  `src/server/audio/stt-compare.ts` + `stt-coverage.test.ts`: `-audio-server-fns.ts` still imports `readStt*`, and its STT
+  fns (`getSttPlaygroundData`, `runSttDemoFn`, `getSttCompareFn`) are now dead. Wave 5 removes them with the workbench.
+  `docs/experiments/*` kept except the one unlinked run: the rest is linked from `docs/decisions/*` or is ccbench's output dir.
+- `docs/decisions/audio-stack.md` STT sources line re-pointed (scripts recoverable from git history).
+- **Outside this repo, not touched:** `dotfiles/docs/opencode.md:29` says context windows/prices come from
+  `bun run scripts/cap.ts --json --all`, which is gone, and a comment in `agent-gateway/server/mcp/session-runner.ts:1101`
+  cites `bun run pick`. Also check that the `cap`/`ca` shell launchers in dotfiles don't call it. Wave 4's STACK.md replaces that source.
+- fallow still lists the frozen `scripts/tts-*` files and a pre-existing `src/styles/app.css` as unused.
 
-## Wave 3 — Better sources            <!-- status: pending -->
+## Wave 3 — Better sources            <!-- status: active -->
 - [ ] Add a `modelsdev` collector (`src/server/collectors/`): list prices (in/out/cache per 1M) and
       context into `metric_snapshot`, joined to catalog ids (exact id → canonical id → normalised slug; log
       unmatched ids). Make it the preferred list-price source in scoring; OpenRouter becomes the fallback.
