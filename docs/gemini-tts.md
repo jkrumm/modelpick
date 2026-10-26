@@ -139,6 +139,28 @@ English even inside German text (docs, field); never place two tags adjacent; ke
 sentences. Field: a valid `<short pause>` was read aloud as words on 2 of many takes — if a pause is
 spoken, swap it for `<long pause>` or punctuation.
 
+## Expression in every lane (audio-gateway Wave 3, 2026-10-26)
+
+One vocabulary, three lanes (podcast, briefing prep, chat). Measured on IU with a STT round trip
+(`voxtral-mini-transcribe-3-0`) on one neutral German sentence per item:
+
+- **Delivery vocabulary** — eight `speechMetadata.style` strings, none ever spoken (8/8 transcripts clean):
+  `curious, leaning in` · `amused, a smile in the voice` · `surprised, a little incredulous` ·
+  `serious, measured` · `thoughtful, a bit slower` · `energetic, a little faster` · `dry, understated` ·
+  `warm, reassuring`. The writer/prep picks a KEY; code maps it to the exact string (reused strings, no drift).
+- **Tag allowlist** — `<short pause> <long pause> <laugh> <chuckle> <sigh> <exhales> <breath> <whispers>`: 8/8
+  never spoken. Not added: the other vocalisations in the table above (no IU check yet — add only after one).
+- **Tag band** — the podcast writer is asked for a few well-placed pauses and reactions, roughly one tag every four to
+  eight turns (lint band 1–3.5 per ten turns); the old "one every six turns, mostly none" produced zero tags in
+  6 episodes. Briefing prep: one to three per ~110-word chunk, per-chunk delivery where the content turns.
+- **Chat lane** (flash-lite, prep off, no extra LLM call): allowlisted inline tags written by the caller pass through;
+  invented/square tags are stripped; an optional request `delivery` key sets the style for the whole request.
+  Bug fixed on the way: the plain-text normalizer stripped the `>` of every inline tag (`<laugh>` → `<laugh`).
+- **Segmentation** — multi-speaker requests never cut between a question and its answer (the cut moves before the
+  question); unit count/size spread is recorded per job in `profile.segmentation`.
+- Blind listening: `/tts` → "Expressiveness" (podcast flat / tags / tags + delivery; briefing and chat flat vs
+  expressive).
+
 ## Streaming
 
 - `:streamGenerateContent?alt=sse` returns many small headerless PCM chunks (24 kHz mono s16le). IU:
