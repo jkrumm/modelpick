@@ -1,7 +1,8 @@
 import { collectOpenRouter } from "../src/server/collectors/openrouter.js";
 import { collectArtificialAnalysis } from "../src/server/collectors/artificialanalysis.js";
+import { collectArtificialAnalysisSpeech } from "../src/server/collectors/artificialanalysis-speech.js";
+import { collectModelsDev } from "../src/server/collectors/modelsdev.js";
 import { collectEpoch } from "../src/server/collectors/epoch.js";
-import { collectEqbench } from "../src/server/collectors/eqbench.js";
 import { collectLmarena } from "../src/server/collectors/lmarena.js";
 import { createIdResolver } from "../src/server/collectors/normalize.js";
 import { db, client } from "../src/db/index.js";
@@ -10,28 +11,19 @@ import { metricSnapshot, models } from "../src/db/schema.js";
 const catalog = await db.select({ id: models.id }).from(models);
 const resolve = createIdResolver(catalog.map((m) => m.id));
 
-const [orResult, aaResult, epochResult, eqbenchResult, lmarenaResult] = await Promise.all([
-  collectOpenRouter(resolve),
-  collectArtificialAnalysis(resolve),
-  collectEpoch(resolve),
-  collectEqbench(resolve),
-  collectLmarena(resolve),
-]);
+const collectors = [
+  ["openrouter", collectOpenRouter],
+  ["artificialanalysis", collectArtificialAnalysis],
+  ["aa-speech", collectArtificialAnalysisSpeech],
+  ["modelsdev", collectModelsDev],
+  ["epoch", collectEpoch],
+  ["lmarena", collectLmarena],
+] as const;
 
-const allMetrics = [
-  ...orResult.metrics,
-  ...aaResult.metrics,
-  ...epochResult.metrics,
-  ...eqbenchResult.metrics,
-  ...lmarenaResult.metrics,
-];
-const allUnmatched = [
-  ...orResult.unmatched,
-  ...aaResult.unmatched,
-  ...epochResult.unmatched,
-  ...eqbenchResult.unmatched,
-  ...lmarenaResult.unmatched,
-];
+const results = await Promise.all(collectors.map(([, run]) => run(resolve)));
+
+const allMetrics = results.flatMap((r) => r.metrics);
+const allUnmatched = results.flatMap((r) => r.unmatched);
 
 if (allMetrics.length > 0) {
   await db.insert(metricSnapshot).values(
@@ -54,11 +46,10 @@ if (allUnmatched.length > 0) {
   }
 }
 
-const orStats = `openrouter: ${orResult.metrics.length} metrics, ${orResult.unmatched.length} unmatched`;
-const aaStats = `artificialanalysis: ${aaResult.metrics.length} metrics, ${aaResult.unmatched.length} unmatched`;
-const epochStats = `epoch: ${epochResult.metrics.length} metrics, ${epochResult.unmatched.length} unmatched`;
-const eqbenchStats = `eqbench: ${eqbenchResult.metrics.length} metrics, ${eqbenchResult.unmatched.length} unmatched`;
-const lmarenaStats = `lmarena: ${lmarenaResult.metrics.length} metrics, ${lmarenaResult.unmatched.length} unmatched`;
-console.log(`[collect] ${orStats} | ${aaStats} | ${epochStats} | ${eqbenchStats} | ${lmarenaStats}`);
+console.log(
+  `[collect] ${collectors
+    .map(([name], i) => `${name}: ${results[i]?.metrics.length} metrics, ${results[i]?.unmatched.length} unmatched`)
+    .join(" | ")}`,
+);
 
 await client.end();

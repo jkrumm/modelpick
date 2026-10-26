@@ -52,7 +52,7 @@ describe("schema enum values", () => {
       "artificialanalysis",
       "live",
       "epoch",
-      "eqbench",
+      "modelsdev",
       "lmarena",
     ]);
   });

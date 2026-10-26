@@ -94,7 +94,7 @@ export const METRIC_SOURCE = [
   "artificialanalysis",
   "live",
   "epoch",
-  "eqbench",
+  "modelsdev",
   "lmarena",
 ] as const;
 

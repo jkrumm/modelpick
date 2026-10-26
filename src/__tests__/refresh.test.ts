@@ -16,7 +16,8 @@ const makeDeps = (overrides: Partial<RefreshDeps> = {}): RefreshDeps => ({
   collectOpenRouter: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
   collectArtificialAnalysis: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
   collectEpoch: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
-  collectEqbench: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
+  collectAaSpeech: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
+  collectModelsDev: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
   collectLmarena: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
   insertMetrics: vi.fn().mockResolvedValue(undefined),
   runRecommender: vi.fn().mockResolvedValue(undefined),
@@ -88,7 +89,7 @@ describe("runRefresh", () => {
     expect(result.degraded).toEqual(["openrouter"]);
     expect(result.allOk).toBe(false);
     // the surviving sources are still persisted
-    expect(deps.insertMetrics).toHaveBeenCalledWith([baseMetric, baseMetric, baseMetric, baseMetric]);
+    expect(deps.insertMetrics).toHaveBeenCalledWith(Array(5).fill(baseMetric));
   });
 
   it("a source returning 0 rows degrades the run (rc!=0) but still persists the rest", async () => {
@@ -121,14 +122,15 @@ describe("runRefresh", () => {
       collectOpenRouter: empty,
       collectArtificialAnalysis: empty,
       collectEpoch: empty,
-      collectEqbench: empty,
+      collectAaSpeech: empty,
+      collectModelsDev: empty,
       collectLmarena: empty,
     });
     const result = await runRefresh(deps);
 
     expect(deps.insertMetrics).not.toHaveBeenCalled();
     expect(result.collect.ok).toBe(true);
-    expect(result.degraded).toHaveLength(5);
+    expect(result.degraded).toHaveLength(6);
     expect(result.allOk).toBe(false);
   });
 

@@ -42,6 +42,21 @@ const ARENA_EFFORT_SUFFIX_RE = /-(max|xhigh|high|medium|low|minimal|thinking)$/i
 /** Resolves an arena model name to a local catalog id: exact name first, then
  *  the name with its trailing effort tier removed. Returns the id that matched
  *  and the name to record when nothing did. */
+/**
+ * The dataset moved from ids (`claude-opus-4-6-high`) to display names
+ * (`Claude Opus 5.5 (High)`, `Claude Sonnet 4.5 (High, 32K, 20250929)`,
+ * `GPT-5.2 Chat (20260210)`). Drop every parenthetical (effort, token budget, date or
+ * checkpoint number — all variants of one model) and hyphenate the rest. Rows that
+ * differ only in that suffix then collapse onto one id and the best rating wins.
+ */
+export function arenaDisplayToSlug(modelName: string): string {
+  return modelName
+    .replace(/\s*\([^)]*\)/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-");
+}
+
 function resolveArenaId(
   modelName: string,
   resolve: IdResolver,
@@ -49,8 +64,12 @@ function resolveArenaId(
   const direct = resolve(modelName);
   if (direct) return { localId: direct, externalId: modelName };
 
-  const base = modelName.replace(ARENA_EFFORT_SUFFIX_RE, "");
-  if (base === modelName) return { localId: null, externalId: modelName };
+  const slug = arenaDisplayToSlug(modelName);
+  const fromSlug = resolve(slug);
+  if (fromSlug) return { localId: fromSlug, externalId: slug };
+
+  const base = slug.replace(ARENA_EFFORT_SUFFIX_RE, "");
+  if (base === slug) return { localId: null, externalId: slug };
   return { localId: resolve(base) ?? null, externalId: base };
 }
 

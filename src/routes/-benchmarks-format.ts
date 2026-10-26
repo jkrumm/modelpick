@@ -55,13 +55,6 @@ const METRIC_LABEL_OVERRIDES: Record<string, string> = {
   arena_german: "Arena: German",
   arena_instruction_following: "Arena: Instruction Following",
   arena_coding: "Arena: Coding",
-  creative_writing_elo: "Creative Writing Elo",
-  creative_writing_rubric: "Creative Writing Rubric",
-  slop_score: "Slop (lower=better)",
-  repetition_score: "Repetition (lower=better)",
-  vocab_complexity: "Vocab Complexity",
-  longform_writing: "Longform Writing",
-  longform_slop_score: "Longform Slop (lower=better)",
 };
 
 export function metricLabel(metric: string): string {
@@ -83,7 +76,7 @@ const SOURCE_LABELS: Record<string, string> = {
   live: "Live probe",
   iu: "IU",
   epoch: "Epoch AI",
-  eqbench: "EQ-Bench",
+  modelsdev: "models.dev",
   lmarena: "LMArena",
 };
 

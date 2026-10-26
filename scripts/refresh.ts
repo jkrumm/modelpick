@@ -4,7 +4,8 @@ import { runProbe } from "../src/server/iu/probe.js";
 import { collectOpenRouter } from "../src/server/collectors/openrouter.js";
 import { collectArtificialAnalysis } from "../src/server/collectors/artificialanalysis.js";
 import { collectEpoch } from "../src/server/collectors/epoch.js";
-import { collectEqbench } from "../src/server/collectors/eqbench.js";
+import { collectModelsDev } from "../src/server/collectors/modelsdev.js";
+import { collectArtificialAnalysisSpeech } from "../src/server/collectors/artificialanalysis-speech.js";
 import { collectLmarena } from "../src/server/collectors/lmarena.js";
 import { syncCatalog } from "../src/server/iu/catalog-sync.js";
 import {
@@ -31,7 +32,8 @@ const result = await runRefresh({
   collectOpenRouter: async () => collectOpenRouter(await buildResolver()),
   collectArtificialAnalysis: async () => collectArtificialAnalysis(await buildResolver()),
   collectEpoch: async () => collectEpoch(await buildResolver()),
-  collectEqbench: async () => collectEqbench(await buildResolver()),
+  collectModelsDev: async () => collectModelsDev(await buildResolver()),
+  collectAaSpeech: async () => collectArtificialAnalysisSpeech(await buildResolver()),
   collectLmarena: async () => collectLmarena(await buildResolver()),
   insertMetrics: async (metrics) => {
     if (metrics.length === 0) return;

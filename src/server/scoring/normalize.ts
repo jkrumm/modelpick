@@ -11,6 +11,8 @@ export interface MetricInput {
    * leaderboard rows, which never disclose it.
    */
   conditions?: string | null;
+  /** Where the row came from (DB reads and collectors carry it). Price rows use it for source priority. */
+  source?: string;
 }
 
 export interface ModelMetrics {
@@ -20,6 +22,20 @@ export interface ModelMetrics {
   cost: number | null; // 0-1, higher = cheaper
   speed: number | null; // 0-1, higher = faster
   writing: number | null; // 0-1, higher = better (prose quality; no fallback to quality)
+}
+
+type PricePoint = { value: number; confidence: number };
+
+// List-price precedence: models.dev when it covers the model, else the average of
+// every other source (AA, OpenRouter). Measured IU rates (price_*_per_m) are not read
+// by this scorer; they price ccbench rows in bench/summary.ts and win there.
+const PREFERRED_PRICE_SOURCE = "modelsdev";
+
+function listPrice(bySource: Map<string, PricePoint[]> | undefined): number | null {
+  if (bySource === undefined) return null;
+  const preferred = bySource.get(PREFERRED_PRICE_SOURCE);
+  if (preferred !== undefined) return weightedAverage(preferred);
+  return weightedAverage([...bySource.values()].flat());
 }
 
 function weightedAverage(values: { value: number; confidence: number }[]): number | null {
@@ -79,6 +95,7 @@ export function normalizeMetrics(rawMetrics: MetricInput[]): ModelMetrics[] {
 
   // Group by model_id → metric → [(value, confidence)]
   const grouped = new Map<string, Map<string, { value: number; confidence: number }[]>>();
+  const prices = new Map<string, Map<string, Map<string, PricePoint[]>>>();
   for (const m of rawMetrics) {
     if (POSITIVE_ONLY.has(m.metric) && m.value <= 0) continue;
     if (m.conditions === "off" && SPEED_METRICS.has(m.metric)) continue;
@@ -93,6 +110,19 @@ export function normalizeMetrics(rawMetrics: MetricInput[]): ModelMetrics[] {
       byMetric.set(m.metric, entries);
     }
     entries.push({ value: m.value, confidence: m.confidence ?? 1.0 });
+    if (m.metric === "price_in" || m.metric === "price_out") {
+      let byPriceMetric = prices.get(m.model_id);
+      if (byPriceMetric === undefined) {
+        byPriceMetric = new Map();
+        prices.set(m.model_id, byPriceMetric);
+      }
+      const bySource = byPriceMetric.get(m.metric) ?? new Map<string, PricePoint[]>();
+      byPriceMetric.set(m.metric, bySource);
+      const source = m.source ?? "unknown";
+      const points = bySource.get(source) ?? [];
+      points.push({ value: m.value, confidence: m.confidence ?? 1.0 });
+      bySource.set(source, points);
+    }
   }
 
   const modelIds = [...grouped.keys()];
@@ -102,10 +132,8 @@ export function normalizeMetrics(rawMetrics: MetricInput[]): ModelMetrics[] {
   const rawCoding = modelIds.map((id) =>
     weightedAverage(grouped.get(id)?.get("coding_index") ?? []),
   );
-  const rawPriceIn = modelIds.map((id) => weightedAverage(grouped.get(id)?.get("price_in") ?? []));
-  const rawPriceOut = modelIds.map((id) =>
-    weightedAverage(grouped.get(id)?.get("price_out") ?? []),
-  );
+  const rawPriceIn = modelIds.map((id) => listPrice(prices.get(id)?.get("price_in")));
+  const rawPriceOut = modelIds.map((id) => listPrice(prices.get(id)?.get("price_out")));
   const rawThroughput = modelIds.map((id) =>
     weightedAverage(grouped.get(id)?.get("throughput") ?? []),
   );
@@ -122,9 +150,6 @@ export function normalizeMetrics(rawMetrics: MetricInput[]): ModelMetrics[] {
   const rawArenaCreativeWriting = modelIds.map((id) =>
     weightedAverage(grouped.get(id)?.get("arena_creative_writing") ?? []),
   );
-  const rawCreativeWritingElo = modelIds.map((id) =>
-    weightedAverage(grouped.get(id)?.get("creative_writing_elo") ?? []),
-  );
 
   // Min-max normalize across models
   const normQuality = minmax(rawQuality);
@@ -136,7 +161,6 @@ export function normalizeMetrics(rawMetrics: MetricInput[]): ModelMetrics[] {
     rawLatency.map((v) => (v === null ? null : Math.min(v, LATENCY_CLIP_S))),
   );
   const normArenaCreativeWriting = minmax(rawArenaCreativeWriting);
-  const normCreativeWritingElo = minmax(rawCreativeWritingElo);
 
   return modelIds.map((model_id, i) => {
     // Quality: higher = better (direct)
@@ -160,18 +184,10 @@ export function normalizeMetrics(rawMetrics: MetricInput[]): ModelMetrics[] {
       speed = invLat ?? normTp;
     }
 
-    // Writing: prefer LMArena's human pairwise-preference Elo over EQ-Bench's
-    // LLM-judged rubric, the same "prefer the live/human measurement" shape as
-    // the latency derivation above. EQ-Bench's judge is Claude Sonnet judging
-    // Claude models — a same-family judge — and its slop_score (avoidance of
-    // cliché LLM phrasing) rewards prose that merely reads as different, not
-    // better: it ranks claude-opus-5 near the top on rubric and lowest on
-    // slop, while LMArena's 12k+ human votes rank claude-opus-4-6 above it and
-    // independent user reports call Opus 5's prose confusing and strange.
-    // Human preference wins the disagreement; EQ-Bench is used only as a
-    // fallback for a model Arena has no creative-writing row for. Never falls
-    // back to `quality` — a model with neither measurement stays null.
-    const writing = normArenaCreativeWriting[i] ?? normCreativeWritingElo[i] ?? null;
+    // Writing: LMArena's human creative-writing preference only. LLM-judged writing
+    // benches rank by same-family judges and reward oddness over quality, so none is
+    // used. Never falls back to `quality` — an unmeasured model stays null.
+    const writing = normArenaCreativeWriting[i] ?? null;
 
     return { model_id, quality, coding, cost, speed, writing };
   });

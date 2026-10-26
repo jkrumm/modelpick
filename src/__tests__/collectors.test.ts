@@ -10,10 +10,17 @@ import {
   extractScores,
 } from "../server/collectors/epoch.js";
 import { benchmarkSaturation } from "../server/collectors/epoch-benchmarks.js";
-import { collectEqbench, extractEmbeddedCsv } from "../server/collectors/eqbench.js";
-import { collectLmarena } from "../server/collectors/lmarena.js";
+import { collectModelsDev } from "../server/collectors/modelsdev.js";
+import { collectArtificialAnalysisSpeech } from "../server/collectors/artificialanalysis-speech.js";
+import { arenaDisplayToSlug, collectLmarena } from "../server/collectors/lmarena.js";
 
-const resolve = createIdResolver(["claude-sonnet-4-6", "gpt-5.5", "tts-hd", "whisper"]);
+const resolve = createIdResolver([
+  "claude-sonnet-4-6",
+  "gpt-5.5",
+  "tts-hd",
+  "whisper",
+  "gpt-4o-mini-transcribe",
+]);
 
 const fetchMock = vi.fn<typeof fetch>();
 vi.stubGlobal("fetch", fetchMock);
@@ -29,14 +36,6 @@ function jsonResponse(body: unknown, status = 200): Response {
     ok: status >= 200 && status < 300,
     status,
     json: async () => body,
-  } as unknown as Response;
-}
-
-function textResponse(body: string, status = 200): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    text: async () => body,
   } as unknown as Response;
 }
 
@@ -637,105 +636,6 @@ describe("benchmarkSaturation", () => {
   });
 });
 
-// ── eqbench ──────────────────────────────────────────────────────────────────
-
-describe("extractEmbeddedCsv", () => {
-  it("extracts the CSV, stopping at the first backtick after further JS/HTML follows", () => {
-    const js = [
-      "console.log('site boot');",
-      "let leaderboardDataCreativeWritingV3 = `",
-      "model_name,elo_score",
-      "gpt-5.5,1500",
-      "`;",
-      "",
-      "document.querySelector('.foo').innerHTML = `<div>not csv, has a backtick too\\`</div>`;",
-    ].join("\n");
-
-    expect(extractEmbeddedCsv(js, "leaderboardDataCreativeWritingV3")).toBe(
-      "model_name,elo_score\ngpt-5.5,1500\n",
-    );
-  });
-
-  it("returns null when the variable assignment is not present", () => {
-    expect(
-      extractEmbeddedCsv("let somethingElse = `a,b\n1,2`;", "leaderboardDataCreativeWritingV3"),
-    ).toBeNull();
-  });
-});
-
-const CREATIVE_WRITING_JS_FIXTURE = [
-  "console.log('site boot');",
-  "let leaderboardDataCreativeWritingV3 = `",
-  "model_name,elo_score,creative_writing_score,avg_length,vocab_complexity,slop_score,repetition_score",
-  "claude-sonnet-4-6,1550,8.5,3000,55.2,12.1,3.4",
-  "*gpt-5.5,1490,8.1,2800,50.0,15.6,4.0",
-  "some/totally-unknown-model,1400,7.0,2500,48.0,20.0,5.0",
-  "`;",
-  "",
-  "document.querySelector('.foo').innerHTML = `<div>not csv</div>`;",
-].join("\n");
-
-const LONGFORM_JS_FIXTURE = [
-  "let leaderboardDataLongformV3 = `",
-  "model_name,overall_score_100,avg_chapter_length,vocab_complexity,slop_score,repetition_score,chapter1_avg,chapter2_avg,final_judgement_avg",
-  "claude-sonnet-4-6,82.5,1200,60.0,10.0,2.0,8.0,8.2,8.4",
-  "`;",
-].join("\n");
-
-describe("collectEqbench", () => {
-  it("parses both leaderboards, strips a '*' new-entry marker, and records unmatched models", async () => {
-    fetchMock
-      .mockResolvedValueOnce(textResponse(CREATIVE_WRITING_JS_FIXTURE))
-      .mockResolvedValueOnce(textResponse(LONGFORM_JS_FIXTURE));
-
-    const result = await collectEqbench(resolve);
-
-    const elo = result.metrics.find(
-      (m) => m.model_id === "claude-sonnet-4-6" && m.metric === "creative_writing_elo",
-    );
-    expect(elo?.value).toBe(1550);
-    expect(elo?.source).toBe("eqbench");
-    expect(elo?.confidence).toBe(0.8);
-
-    // "*"-prefixed new-entry marker stripped before resolving
-    const gptSlop = result.metrics.find(
-      (m) => m.model_id === "gpt-5.5" && m.metric === "slop_score",
-    );
-    expect(gptSlop?.value).toBe(15.6);
-
-    const longform = result.metrics.find(
-      (m) => m.model_id === "claude-sonnet-4-6" && m.metric === "longform_writing",
-    );
-    expect(longform?.value).toBe(82.5);
-
-    expect(result.unmatched.some((u) => u.externalId === "some/totally-unknown-model")).toBe(true);
-  });
-
-  it("skips a row whose cell count does not match the header", async () => {
-    const ragged = [
-      "let leaderboardDataCreativeWritingV3 = `",
-      "model_name,elo_score,creative_writing_score,avg_length,vocab_complexity,slop_score,repetition_score",
-      "claude-sonnet-4-6,1550,8.5,3000", // too few cells — ragged, must be skipped
-      "`;",
-    ].join("\n");
-    fetchMock
-      .mockResolvedValueOnce(textResponse(ragged))
-      .mockResolvedValueOnce(textResponse("no literal here"));
-
-    const result = await collectEqbench(resolve);
-    expect(result.metrics).toHaveLength(0);
-  });
-
-  it("returns empty result when the embedded CSV cannot be located in either file", async () => {
-    fetchMock
-      .mockResolvedValueOnce(textResponse("no literal here at all"))
-      .mockResolvedValueOnce(textResponse("also nothing here"));
-
-    const result = await collectEqbench(resolve);
-    expect(result.metrics).toHaveLength(0);
-  });
-});
-
 // ── lmarena ──────────────────────────────────────────────────────────────────
 
 function categoryOf(url: string): string | null {
@@ -910,5 +810,143 @@ describe("collectLmarena", () => {
     const metrics = result.metrics.filter((m) => m.metric === "arena_elo");
     expect(metrics.find((m) => m.model_id === "claude-sonnet-4-6")).toBeUndefined();
     expect(metrics.find((m) => m.model_id === "claude-opus-4-6")?.confidence).toBe(0.7);
+  });
+});
+
+// ── modelsdev ────────────────────────────────────────────────────────────────
+
+const MODELS_DEV_FIXTURE = {
+  openai: {
+    models: {
+      "gpt-5.5": {
+        id: "gpt-5.5",
+        name: "GPT-5.5",
+        canonical_model_id: "openai/gpt-5.5",
+        cost: { input: 1.25, output: 10, cache_read: 0.125 },
+        limit: { context: 400000 },
+      },
+    },
+  },
+  reseller: {
+    models: {
+      "openai/gpt-5.5": {
+        id: "openai/gpt-5.5",
+        canonical_model_id: "openai/gpt-5.5",
+        cost: { input: 9, output: 99 },
+      },
+      "whisper": { id: "whisper", name: "Whisper", cost: { input: 0.006, output: 0 } },
+    },
+  },
+  anthropic: {
+    models: {
+      "claude-never-heard-of": {
+        id: "claude-never-heard-of",
+        name: "Unknown",
+        canonical_model_id: "anthropic/claude-never-heard-of",
+        cost: { input: 1, output: 2 },
+      },
+    },
+  },
+};
+
+describe("collectModelsDev", () => {
+  it("takes the first-party row over resellers and emits list price, cache and context", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(MODELS_DEV_FIXTURE));
+    const result = await collectModelsDev(resolve);
+    const gpt = result.metrics.filter((m) => m.model_id === "gpt-5.5");
+    const byMetric = Object.fromEntries(gpt.map((m) => [m.metric, m]));
+    expect(byMetric["price_in"]?.value).toBe(1.25);
+    expect(byMetric["price_out"]?.value).toBe(10);
+    expect(byMetric["price_cache_read"]?.value).toBe(0.125);
+    expect(byMetric["context_window"]?.value).toBe(400000);
+    expect(byMetric["price_in"]?.source).toBe("modelsdev");
+    expect(byMetric["price_in"]?.confidence).toBe(0.95);
+  });
+
+  it("drops zero prices and reports only first-party unmatched ids", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(MODELS_DEV_FIXTURE));
+    const result = await collectModelsDev(resolve);
+    const whisper = result.metrics.filter((m) => m.model_id === "whisper");
+    expect(whisper.map((m) => m.metric)).toEqual(["price_in"]);
+    expect(result.unmatched.map((u) => u.externalId)).toEqual(["anthropic/claude-never-heard-of"]);
+  });
+
+  it("returns empty on HTTP failure", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({}, 500));
+    expect(await collectModelsDev(resolve)).toEqual({ metrics: [], unmatched: [] });
+  });
+});
+
+// ── artificialanalysis speech ────────────────────────────────────────────────
+
+describe("collectArtificialAnalysisSpeech", () => {
+  it("emits tts_elo and stt_wer_index, skips null WER, strips the STT vendor suffix", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: [{ name: "TTS HD", slug: "tts-hd", elo: 1200, ci_95: 10 }],
+          pagination: { has_more: false },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: [
+            { name: "Whisper, OpenAI", aa_wer_index: 0.06 },
+            { name: "GPT-4o Mini Transcribe, OpenAI", aa_wer_index: 0.045 },
+            { name: "WhisperX", aa_wer_index: null },
+          ],
+        }),
+      );
+    const result = await collectArtificialAnalysisSpeech(resolve);
+    const tts = result.metrics.find((m) => m.metric === "tts_elo");
+    const stt = result.metrics.find((m) => m.metric === "stt_wer_index");
+    expect(tts).toMatchObject({ model_id: "tts-hd", value: 1200, source: "artificialanalysis" });
+    expect(stt).toMatchObject({ model_id: "whisper", value: 0.06 });
+    expect(
+      result.metrics.find((m) => m.model_id === "gpt-4o-mini-transcribe"),
+    ).toMatchObject({ metric: "stt_wer_index", value: 0.045 });
+    expect(result.metrics).toHaveLength(3);
+    expect(result.unmatched).toEqual([]);
+  });
+
+  it("keeps the other leg when one endpoint fails", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({}, 403))
+      .mockResolvedValueOnce(jsonResponse({ data: [{ name: "Whisper, OpenAI", aa_wer_index: 0.06 }] }));
+    const result = await collectArtificialAnalysisSpeech(resolve);
+    expect(result.metrics.map((m) => m.metric)).toEqual(["stt_wer_index"]);
+  });
+
+  it("skips without an API key", async () => {
+    delete process.env["ARTIFICIALANALYSIS_API_KEY"];
+    expect(await collectArtificialAnalysisSpeech(resolve)).toEqual({ metrics: [], unmatched: [] });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("arenaDisplayToSlug", () => {
+  it.each([
+    ["Claude Opus 5.5 (High)", "claude-opus-5.5"],
+    ["Claude Sonnet 4.5 (High, 32K, 20250929)", "claude-sonnet-4.5"],
+    ["GPT-5.2 Chat (20260210)", "gpt-5.2-chat"],
+    ["Gemini 3.5 Flash-Lite", "gemini-3.5-flash-lite"],
+  ])("%s -> %s", (name, slug) => {
+    expect(arenaDisplayToSlug(name)).toBe(slug);
+  });
+
+  it("lets a display-name row resolve to a catalog id", async () => {
+    const resolveOpus = createIdResolver(["claude-opus-5-5"]);
+    fetchMock.mockImplementation(async () =>
+      jsonResponse({
+        rows: [
+          { row: { model_name: "Claude Opus 5.5 (High)", rating: 1516, vote_count: 900 } },
+          { row: { model_name: "Claude Opus 5.5 (Max)", rating: 1520, vote_count: 900 } },
+        ],
+        num_rows_total: 2,
+      }),
+    );
+    const result = await collectLmarena(resolveOpus);
+    const elo = result.metrics.find((m) => m.metric === "arena_elo");
+    expect(elo).toMatchObject({ model_id: "claude-opus-5-5", value: 1520 });
   });
 });

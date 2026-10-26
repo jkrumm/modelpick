@@ -22,7 +22,8 @@ export interface RefreshDeps {
   collectOpenRouter: () => Promise<CollectorResult>;
   collectArtificialAnalysis: () => Promise<CollectorResult>;
   collectEpoch: () => Promise<CollectorResult>;
-  collectEqbench: () => Promise<CollectorResult>;
+  collectAaSpeech: () => Promise<CollectorResult>;
+  collectModelsDev: () => Promise<CollectorResult>;
   collectLmarena: () => Promise<CollectorResult>;
   /** Persists the merged metrics list to the DB. Called only when metrics.length > 0. */
   insertMetrics: (metrics: NormalizedMetric[]) => Promise<void>;
@@ -60,64 +61,34 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
   });
 
   const collect = await runStep("collect", async () => {
-    const [orSettled, aaSettled, epochSettled, eqbenchSettled, lmarenaSettled] =
-      await Promise.allSettled([
-        deps.collectOpenRouter(),
-        deps.collectArtificialAnalysis(),
-        deps.collectEpoch(),
-        deps.collectEqbench(),
-        deps.collectLmarena(),
-      ]);
-
-    const sources = [
-      ["openrouter", orSettled],
-      ["artificialanalysis", aaSettled],
-      ["epoch", epochSettled],
-      ["eqbench", eqbenchSettled],
-      ["lmarena", lmarenaSettled],
+    const collectors = [
+      ["openrouter", "OR", deps.collectOpenRouter],
+      ["artificialanalysis", "AA", deps.collectArtificialAnalysis],
+      ["aa-speech", "AA speech", deps.collectAaSpeech],
+      ["modelsdev", "models.dev", deps.collectModelsDev],
+      ["epoch", "Epoch", deps.collectEpoch],
+      ["lmarena", "LMArena", deps.collectLmarena],
     ] as const;
-    for (const [name, settled] of sources) {
-      if (settled.status === "rejected" || settled.value.metrics.length === 0) degraded.push(name);
-    }
+    const settled = await Promise.allSettled(collectors.map(([, , run]) => run()));
 
     const metrics: NormalizedMetric[] = [];
-    if (orSettled.status === "fulfilled") {
-      for (const m of orSettled.value.metrics) metrics.push(m);
-    }
-    if (aaSettled.status === "fulfilled") {
-      for (const m of aaSettled.value.metrics) metrics.push(m);
-    }
-    if (epochSettled.status === "fulfilled") {
-      for (const m of epochSettled.value.metrics) metrics.push(m);
-    }
-    if (eqbenchSettled.status === "fulfilled") {
-      for (const m of eqbenchSettled.value.metrics) metrics.push(m);
-    }
-    if (lmarenaSettled.status === "fulfilled") {
-      for (const m of lmarenaSettled.value.metrics) metrics.push(m);
-    }
+    const statuses: string[] = [];
+    collectors.forEach(([name, label], i) => {
+      const result = settled[i];
+      if (result?.status !== "fulfilled") {
+        degraded.push(name);
+        statuses.push(`${label} failed`);
+        return;
+      }
+      if (result.value.metrics.length === 0) degraded.push(name);
+      for (const m of result.value.metrics) metrics.push(m);
+      statuses.push(`${result.value.metrics.length} ${label}`);
+    });
 
     if (metrics.length > 0) {
       await deps.insertMetrics(metrics);
     }
-
-    const orStatus =
-      orSettled.status === "fulfilled" ? `${orSettled.value.metrics.length} OR` : "OR failed";
-    const aaStatus =
-      aaSettled.status === "fulfilled" ? `${aaSettled.value.metrics.length} AA` : "AA failed";
-    const epochStatus =
-      epochSettled.status === "fulfilled"
-        ? `${epochSettled.value.metrics.length} Epoch`
-        : "Epoch failed";
-    const eqbenchStatus =
-      eqbenchSettled.status === "fulfilled"
-        ? `${eqbenchSettled.value.metrics.length} EQ-Bench`
-        : "EQ-Bench failed";
-    const lmarenaStatus =
-      lmarenaSettled.status === "fulfilled"
-        ? `${lmarenaSettled.value.metrics.length} LMArena`
-        : "LMArena failed";
-    return `${metrics.length} metrics (${orStatus}, ${aaStatus}, ${epochStatus}, ${eqbenchStatus}, ${lmarenaStatus})`;
+    return `${metrics.length} metrics (${statuses.join(", ")})`;
   });
 
   const recommend = await runStep("recommend", async () => {

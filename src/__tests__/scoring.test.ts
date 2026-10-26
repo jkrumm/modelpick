@@ -179,39 +179,20 @@ describe("normalizeMetrics", () => {
   });
 });
 
-// ── normalizeMetrics — writing dimension (preference chain) ─────────────────
-// LMArena's human pairwise-preference Elo wins over EQ-Bench's LLM-judged
-// rubric whenever both exist; EQ-Bench is a fallback only for a model Arena
-// never measured. See normalize.ts's own comment for why (same-family judge,
-// slop_score rewards strangeness over quality).
+// ── normalizeMetrics — writing dimension ────────────────────────────────────
+// LMArena's human creative-writing Elo is the only writing signal.
 
 describe("normalizeMetrics — writing dimension", () => {
-  it("prefers arena_creative_writing over creative_writing_elo when both exist, even if they disagree", () => {
+  it("ranks writing on arena_creative_writing only", () => {
     const result = normalizeMetrics([
       { model_id: "a", metric: "arena_creative_writing", value: 1500, confidence: 1.0 },
       { model_id: "b", metric: "arena_creative_writing", value: 1400, confidence: 1.0 },
-      // EQ-Bench ranks the pair the opposite way — must not win
-      { model_id: "a", metric: "creative_writing_elo", value: 60, confidence: 1.0 },
-      { model_id: "b", metric: "creative_writing_elo", value: 90, confidence: 1.0 },
     ]);
-    const a = result.find((m) => m.model_id === "a");
-    const b = result.find((m) => m.model_id === "b");
-    expect(a?.writing).toBeCloseTo(1.0);
-    expect(b?.writing).toBeCloseTo(0.0);
+    expect(result.find((m) => m.model_id === "a")?.writing).toBeCloseTo(1.0);
+    expect(result.find((m) => m.model_id === "b")?.writing).toBeCloseTo(0.0);
   });
 
-  it("falls back to creative_writing_elo for a model Arena has no row for", () => {
-    const result = normalizeMetrics([
-      { model_id: "a", metric: "arena_creative_writing", value: 1500, confidence: 1.0 },
-      { model_id: "b", metric: "arena_creative_writing", value: 1400, confidence: 1.0 },
-      // "c" has no arena row at all — only an EQ-Bench measurement
-      { model_id: "c", metric: "creative_writing_elo", value: 85, confidence: 1.0 },
-    ]);
-    const c = result.find((m) => m.model_id === "c");
-    expect(c?.writing).not.toBeNull();
-  });
-
-  it("stays null with neither measurement — no fallback to general quality", () => {
+  it("stays null without an Arena row — no fallback to general quality", () => {
     const result = normalizeMetrics([
       { model_id: "a", metric: "quality", value: 90, confidence: 1.0 },
       { model_id: "a", metric: "arena_creative_writing", value: 1500, confidence: 1.0 },
@@ -220,6 +201,37 @@ describe("normalizeMetrics — writing dimension", () => {
     const b = result.find((m) => m.model_id === "b");
     expect(b?.quality).not.toBeNull();
     expect(b?.writing).toBeNull();
+  });
+});
+
+// ── normalizeMetrics — list-price source priority ────────────────────────────
+
+describe("normalizeMetrics — list price", () => {
+  const price = (model_id: string, source: string, value: number) => ({
+    model_id,
+    source,
+    metric: "price_in",
+    value,
+    confidence: 0.9,
+  });
+
+  it("prefers models.dev over OpenRouter/AA for the same model", () => {
+    // a: models.dev says 1 (cheap), OpenRouter says 100; b is the 10 reference.
+    const withDev = normalizeMetrics([
+      price("a", "modelsdev", 1),
+      price("a", "openrouter", 100),
+      price("b", "openrouter", 10),
+    ]);
+    const withoutDev = normalizeMetrics([price("a", "openrouter", 100), price("b", "openrouter", 10)]);
+    expect(withDev.find((m) => m.model_id === "a")?.cost).toBeGreaterThan(
+      withoutDev.find((m) => m.model_id === "a")?.cost ?? 1,
+    );
+  });
+
+  it("falls back to the other sources when models.dev has no row", () => {
+    const result = normalizeMetrics([price("a", "openrouter", 1), price("b", "artificialanalysis", 10)]);
+    expect(result.find((m) => m.model_id === "a")?.cost).toBeCloseTo(1);
+    expect(result.find((m) => m.model_id === "b")?.cost).toBeCloseTo(0);
   });
 });
 

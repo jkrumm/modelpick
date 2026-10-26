@@ -236,15 +236,23 @@ export async function runRecommender(snapshotDate?: string): Promise<void> {
     // latency wrongly surfaces the legacy models (they're the simplest/fastest).
     // Instead prefer the modern generation, breaking ties by access latency.
     if (targetModality === "tts" || targetModality === "stt") {
-      const top = pickBestAudio(targetModality, modalityByModel, latestProbeByModel);
+      const top = pickBestAudio(
+        targetModality,
+        modalityByModel,
+        latestProbeByModel,
+        audioMeasured(latestSnapshots, targetModality),
+      );
       if (!top) {
         console.warn(`[recommend] no accessible ${category} models — skipping`);
         continue;
       }
-      const rationale =
-        `Best accessible ${category.toUpperCase()} model on the IU endpoint: the current ` +
-        `generation preferred over legacy variants (probe latency ${Math.round(top.latency_ms)}ms). ` +
-        `No leaderboard publishes audio quality, so this uses a generation preference.`;
+      const rationale = top.measured
+        ? `Best accessible ${category.toUpperCase()} model on the IU endpoint by ArtificialAnalysis ` +
+          `${targetModality === "tts" ? "speech Elo" : "word-error-rate index"} ` +
+          `(probe latency ${Math.round(top.latency_ms)}ms).`
+        : `Best accessible ${category.toUpperCase()} model on the IU endpoint: the current ` +
+          `generation preferred over legacy variants (probe latency ${Math.round(top.latency_ms)}ms). ` +
+          `No ArtificialAnalysis row matches an accessible model, so this uses a generation preference.`;
       await persist(category, top.model_id, top.score, rationale);
       console.log(
         `[recommend] ${category}: ${top.model_id} (latency ${Math.round(top.latency_ms)}ms)`,
@@ -332,14 +340,32 @@ function audioQualityRank(id: string, modality: Modality): number {
   return 1; // whisper: legacy
 }
 
-/** Picks the best accessible audio model: highest quality rank, then undated
- *  alias, then lowest latency. Score is the rank normalized to 0-1. */
-function pickBestAudio(
+/** ArtificialAnalysis speech quality per model, oriented so higher = better:
+ *  TTS Elo as-is, STT word-error-rate negated. */
+function audioMeasured(
+  snapshots: readonly MetricSnapshot[],
+  modality: Modality,
+): Map<string, number> {
+  const metric = modality === "tts" ? "tts_elo" : "stt_wer_index";
+  const out = new Map<string, number>();
+  for (const snap of snapshots) {
+    if (snap.metric !== metric) continue;
+    out.set(snap.model_id, modality === "tts" ? snap.value : -snap.value);
+  }
+  return out;
+}
+
+/** Picks the best accessible audio model. With ArtificialAnalysis speech data
+ *  for any accessible candidate, the measured quality ranks (candidates without
+ *  a measurement are not ranked against it); otherwise the generation rank does.
+ *  Ties: undated alias, then lowest latency. Score is quality normalized to 0-1. */
+export function pickBestAudio(
   modality: Modality,
   modalityByModel: Map<string, Modality>,
   probes: Map<string, { accessible: boolean; latency_ms: number | null }>,
-): { model_id: string; latency_ms: number; score: number } | null {
-  const candidates: { model_id: string; latency_ms: number; rank: number }[] = [];
+  measured: Map<string, number>,
+): { model_id: string; latency_ms: number; score: number; measured: boolean } | null {
+  let candidates: { model_id: string; latency_ms: number; rank: number }[] = [];
   for (const [model_id, probe] of probes) {
     if (!probe.accessible || probe.latency_ms === null) continue;
     if (modalityByModel.get(model_id) !== modality) continue;
@@ -351,6 +377,13 @@ function pickBestAudio(
   }
   if (candidates.length === 0) return null;
 
+  const useMeasured = candidates.some((c) => measured.has(c.model_id));
+  if (useMeasured) {
+    candidates = candidates
+      .filter((c) => measured.has(c.model_id))
+      .map((c) => ({ ...c, rank: measured.get(c.model_id) ?? 0 }));
+  }
+
   const best = candidates.reduce((a, b) => {
     if (b.rank !== a.rank) return b.rank > a.rank ? b : a;
     const ad = isDatedPin(a.model_id);
@@ -358,7 +391,15 @@ function pickBestAudio(
     if (ad !== bd) return ad ? b : a;
     return b.latency_ms < a.latency_ms ? b : a;
   });
-  const maxRank = candidates.reduce((m, c) => Math.max(m, c.rank), 0);
-  const score = maxRank > 0 ? best.rank / maxRank : 1;
-  return { model_id: best.model_id, latency_ms: best.latency_ms, score };
+  const ranks = candidates.map((c) => c.rank);
+  const min = Math.min(...ranks);
+  const max = Math.max(...ranks);
+  const score = useMeasured
+    ? max === min
+      ? 1
+      : (best.rank - min) / (max - min)
+    : max > 0
+      ? best.rank / max
+      : 1;
+  return { model_id: best.model_id, latency_ms: best.latency_ms, score, measured: useMeasured };
 }
