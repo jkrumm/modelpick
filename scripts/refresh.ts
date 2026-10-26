@@ -6,7 +6,13 @@ import { collectArtificialAnalysis } from "../src/server/collectors/artificialan
 import { collectEpoch } from "../src/server/collectors/epoch.js";
 import { collectEqbench } from "../src/server/collectors/eqbench.js";
 import { collectLmarena } from "../src/server/collectors/lmarena.js";
-import { commitSnapshot, createSnapshotCommitDeps } from "../src/server/snapshot-commit.js";
+import { syncCatalog } from "../src/server/iu/catalog-sync.js";
+import {
+  commitSnapshot,
+  createSnapshotCommitDeps,
+  IU_CATALOG_COMMIT_MESSAGE,
+  IU_CATALOG_SNAPSHOT_PATH,
+} from "../src/server/snapshot-commit.js";
 import { runRecommender } from "../src/server/scoring/recommend.js";
 import { createIdResolver } from "../src/server/collectors/normalize.js";
 import { db, client } from "../src/db/index.js";
@@ -20,6 +26,7 @@ async function buildResolver() {
 }
 
 const result = await runRefresh({
+  syncCatalog,
   probe: runProbe,
   collectOpenRouter: async () => collectOpenRouter(await buildResolver()),
   collectArtificialAnalysis: async () => collectArtificialAnalysis(await buildResolver()),
@@ -41,12 +48,14 @@ const result = await runRefresh({
   runRecommender,
 });
 
-// collectEpoch rewrites a tracked file; ship it so the unattended checkout stays clean.
-// Never throws — a git problem must not fail the refresh.
-await commitSnapshot(createSnapshotCommitDeps(join(import.meta.dirname, "..")));
+// collectEpoch and syncCatalog rewrite tracked files; ship them so the unattended checkout
+// stays clean. Never throws — a git problem must not fail the refresh.
+const gitDeps = createSnapshotCommitDeps(join(import.meta.dirname, ".."));
+await commitSnapshot(gitDeps);
+await commitSnapshot(gitDeps, IU_CATALOG_SNAPSHOT_PATH, IU_CATALOG_COMMIT_MESSAGE);
 
 if (!result.allOk) {
-  const failed = (["probe", "collect", "recommend"] as const).filter((k) => !result[k].ok);
+  const failed = (["catalog", "probe", "collect", "recommend"] as const).filter((k) => !result[k].ok);
   console.error(
     `[refresh] not ok — failed steps: ${failed.join(", ") || "none"}; degraded sources: ${result.degraded.join(", ") || "none"}`,
   );

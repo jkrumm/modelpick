@@ -7,6 +7,11 @@ export const EPOCH_SNAPSHOT_PATH = "src/server/collectors/epoch-benchmarks.ts";
 
 export const SNAPSHOT_COMMIT_MESSAGE = "chore(data): refresh Epoch benchmark snapshot";
 
+/** The tracked file `syncCatalog` regenerates wholesale on every refresh. */
+export const IU_CATALOG_SNAPSHOT_PATH = "src/db/iu-catalog.ts";
+
+export const IU_CATALOG_COMMIT_MESSAGE = "chore(data): refresh IU model catalog snapshot";
+
 const BRANCH = "master";
 const IN_PROGRESS_MARKERS = ["MERGE_HEAD", "rebase-merge", "rebase-apply", "CHERRY_PICK_HEAD"];
 
@@ -41,6 +46,7 @@ export type SnapshotCommitOutcome =
 export async function commitSnapshot(
   deps: SnapshotCommitDeps,
   path: string = EPOCH_SNAPSHOT_PATH,
+  message: string = SNAPSHOT_COMMIT_MESSAGE,
 ): Promise<SnapshotCommitOutcome> {
   const done = (outcome: SnapshotCommitOutcome, detail: string): SnapshotCommitOutcome => {
     console.log(`[refresh] snapshot-commit: ${detail}`);
@@ -69,7 +75,7 @@ export async function commitSnapshot(
       return done("staged-by-other", `${path} has staged changes, skipped`);
     }
 
-    const commit = await deps.git(["commit", "--only", "-m", SNAPSHOT_COMMIT_MESSAGE, "--", path]);
+    const commit = await deps.git(["commit", "--only", "-m", message, "--", path]);
     if (commit.code !== 0) return done("commit-failed", `commit failed (exit ${commit.code})`);
 
     // `git push` ships every unpushed commit on the branch; only push when the snapshot

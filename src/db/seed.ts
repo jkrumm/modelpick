@@ -7,10 +7,8 @@ import { REPLICATE_CATALOG } from "./replicate-catalog.js";
 import { DEPLOYMENTS } from "./deployments.js";
 import { DECISION_CATALOG } from "./decision-models.js";
 
-// The model catalog is the IU self-service portal export, parsed into
-// src/db/iu-catalog.ts by scripts/import-portal.ts. The live /v1/models aliases
-// (tts, tts-hd, whisper, …) are merged in at probe time. Re-run import-portal
-// with a fresh HTML export to refresh the catalog.
+// The model catalog is the IU gateway's live per-leg /models listings, merged into
+// src/db/iu-catalog.ts by scripts/sync-catalog.ts (`make models`, step 0 of refresh).
 export async function seedModels(): Promise<void> {
   if (IU_CATALOG.length === 0) return;
   await db
@@ -26,6 +24,8 @@ export async function seedModels(): Promise<void> {
         context_window: sql`excluded.context_window`,
         iu_listed: sql`excluded.iu_listed`,
         transport: sql`excluded.transport`,
+        owned_by: sql`excluded.owned_by`,
+        legs: sql`excluded.legs`,
       },
     });
 }
@@ -51,7 +51,7 @@ export async function seedReplicateModels(): Promise<void> {
     });
 }
 
-// Models we genuinely depend on that the IU portal export cannot contain,
+// Models we genuinely depend on that the IU /models listings cannot contain,
 // because they are not on the IU endpoint at all. `iu_listed: false` is the
 // existing marker for "catalogued but not IU-served" (the collectors already
 // create such rows for leaderboard-only comparison entries). Without these,
@@ -100,7 +100,7 @@ export async function seedDecisionModels(): Promise<void> {
 // My current, deliberately-chosen stack — kept separate from the algorithmic
 // `recommendation`. The /stack page diffs the two to flag review-worthy drift.
 // Revise the picks here (and bump `decided_at`) when a choice actually changes.
-const MY_STACK: StackChoiceInsert[] = [
+export const MY_STACK: StackChoiceInsert[] = [
   {
     category: "fast",
     model_id: "deepseek-v4.1-flash",

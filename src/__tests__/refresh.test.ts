@@ -11,6 +11,7 @@ const baseMetric = {
 };
 
 const makeDeps = (overrides: Partial<RefreshDeps> = {}): RefreshDeps => ({
+  syncCatalog: vi.fn().mockResolvedValue({ total: 3, added: ["a"], removed: [] }),
   probe: vi.fn().mockResolvedValue([{ accessible: true }, { accessible: false }]),
   collectOpenRouter: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
   collectArtificialAnalysis: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
@@ -33,6 +34,16 @@ describe("runRefresh", () => {
     expect(deps.insertMetrics).toHaveBeenCalledOnce();
     expect(deps.runRecommender).toHaveBeenCalledOnce();
     expect(result.allOk).toBe(true);
+  });
+
+  it("a failed catalog sync still runs every later step but fails the run", async () => {
+    const deps = makeDeps({ syncCatalog: vi.fn().mockRejectedValue(new Error("leg down")) });
+    const result = await runRefresh(deps);
+
+    expect(result.catalog.ok).toBe(false);
+    expect(result.probe.ok).toBe(true);
+    expect(deps.probe).toHaveBeenCalledOnce();
+    expect(result.allOk).toBe(false);
   });
 
   it("continues all remaining steps when probe fails", async () => {

@@ -6,6 +6,7 @@ export interface RefreshStepResult {
 }
 
 export interface RefreshResult {
+  catalog: RefreshStepResult;
   probe: RefreshStepResult;
   collect: RefreshStepResult;
   recommend: RefreshStepResult;
@@ -15,6 +16,8 @@ export interface RefreshResult {
 }
 
 export interface RefreshDeps {
+  /** Step 0: syncs the IU catalog from the live /models legs. */
+  syncCatalog: () => Promise<{ total: number; added: string[]; removed: string[] }>;
   probe: () => Promise<Array<{ accessible: boolean }>>;
   collectOpenRouter: () => Promise<CollectorResult>;
   collectArtificialAnalysis: () => Promise<CollectorResult>;
@@ -39,12 +42,17 @@ async function runStep(name: string, fn: () => Promise<string>): Promise<Refresh
 }
 
 /**
- * Orchestrates the daily refresh pipeline: probe → collect → recommend.
+ * Orchestrates the daily refresh pipeline: catalog → probe → collect → recommend.
  * Each step runs independently — one failure does not abort subsequent steps.
  * Within collect, individual collector failures are isolated via Promise.allSettled.
  */
 export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
   const degraded: string[] = [];
+  const catalog = await runStep("catalog", async () => {
+    const r = await deps.syncCatalog();
+    return `${r.total} models (+${r.added.length} / -${r.removed.length})`;
+  });
+
   const probe = await runStep("probe", async () => {
     const results = await deps.probe();
     const accessible = results.filter((r) => r.accessible).length;
@@ -118,11 +126,11 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
   });
 
   if (degraded.length > 0) console.error(`[refresh] degraded sources: ${degraded.join(", ")}`);
-  const allOk = probe.ok && collect.ok && recommend.ok && degraded.length === 0;
-  const okCount = [probe, collect, recommend].filter((s) => s.ok).length;
+  const allOk = catalog.ok && probe.ok && collect.ok && recommend.ok && degraded.length === 0;
+  const okCount = [catalog, probe, collect, recommend].filter((s) => s.ok).length;
   console.log(
-    `[refresh] summary: ${okCount}/3 steps ok${degraded.length > 0 ? `, ${degraded.length} degraded source(s)` : ""}`,
+    `[refresh] summary: ${okCount}/4 steps ok${degraded.length > 0 ? `, ${degraded.length} degraded source(s)` : ""}`,
   );
 
-  return { probe, collect, recommend, degraded, allOk };
+  return { catalog, probe, collect, recommend, degraded, allOk };
 }

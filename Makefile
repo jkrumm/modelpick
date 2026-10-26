@@ -1,4 +1,4 @@
-.PHONY: dev build db-push db-seed refresh-setup refresh-check refresh-teardown \
+.PHONY: dev build db-push db-seed models probe collect refresh refresh-setup refresh-check refresh-teardown \
 	web-setup web-check web-teardown web-restart \
 	help check deploy verify logs
 
@@ -28,6 +28,19 @@ db-push:
 
 db-seed:
 	bun run db:seed
+
+models: ## Sync the IU catalog from the live /models legs (+ Replicate speech models)
+	bun run models
+	bun run import:replicate
+
+probe: ## Probe every catalog model once (cents)
+	bun run probe
+
+collect: ## Collect leaderboard + price metrics
+	bun run collect
+
+refresh: ## Full refresh: catalog → probe → collect → recommend
+	bun run refresh
 
 dev:
 	bun run dev

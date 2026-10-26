@@ -115,6 +115,11 @@ export const models = sqliteTable("models", {
   // external-only comparison entry discovered from a leaderboard collector)
   iu_listed: integer("iu_listed", { mode: "boolean" }).notNull().default(false),
   transport: text("transport", { enum: TRANSPORT }).notNull().default("iu"),
+  // Backend route list the IU gateway reports (`Requesty-EU`, `… GDPR`, …): the best
+  // residency hint there is. Null for ids only a non-OpenAI leg lists.
+  owned_by: text("owned_by"),
+  // Comma-separated IU legs that accept this id (openai, anthropic, gemini, decisions).
+  legs: text("legs"),
   created_at: text("created_at").notNull().default(now),
 });
 
