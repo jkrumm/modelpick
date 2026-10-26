@@ -49,8 +49,8 @@ Left behind.
   briefings/podcasts; voices Charon/Erinome). STT is decided in `docs/decisions/audio-stack.md` (Voxtral mini
   default, MacWhisper for dictation).
 
-## Wave 1 — Catalog from the live API            <!-- status: active -->
-- [ ] `scripts/sync-catalog.ts` (replaces `scripts/import-portal.ts`): fetch the four legs (plus Replicate
+## Wave 1 — Catalog from the live API            <!-- status: done -->
+- [x] `scripts/sync-catalog.ts` (replaces `scripts/import-portal.ts`): fetch the four legs (plus Replicate
       through the existing `import-replicate` path, untouched) and merge by exact id. Record display name,
       vendor→provider, context, a modality derived from capabilities (Embedding→embedding,
       VoiceOutput→tts, VoiceInput/AudioInput-only→stt, ImageGeneration→image, else llm; keep the existing
@@ -58,17 +58,36 @@ Left behind.
       Add schema columns only where needed (`db:push`). Write the committed snapshot
       `src/db/iu-catalog.ts`, upsert, and set `iu_listed=false` on ids that vanished (never delete: probes
       and metrics hang off them). Print an added/removed diff against the previous snapshot.
-- [ ] Make it step 0 of `bun run refresh` (`src/server/refresh.ts`), and let `src/server/snapshot-commit.ts`
+- [x] Make it step 0 of `bun run refresh` (`src/server/refresh.ts`), and let `src/server/snapshot-commit.ts`
       commit `iu-catalog.ts` alongside `epoch-benchmarks.ts`, keeping the same safety rules.
-- [ ] Delete `scripts/import-portal.ts`, `src/server/iu/portal.ts` + `portal.test.ts`, and the
+- [x] Delete `scripts/import-portal.ts`, `src/server/iu/portal.ts` + `portal.test.ts`, and the
       `.claude/skills/update-iu-models/` skill. Update `refresh-stack` and `investigate-models` skill text
       and the AGENTS.md "IU model catalog" section to the new flow.
-- [ ] Makefile: `make models` (catalog sync), `make probe`, `make collect`, `make refresh`. Each wraps the
+- [x] Makefile: `make models` (catalog sync), `make probe`, `make collect`, `make refresh`. Each wraps the
       existing bun script. Add them to `.PHONY` and the AGENTS.md targets line.
-- [ ] Live: `make models` once, record per-leg counts and the diff in Left behind, then `make probe`.
-**Left behind:**
+- [x] Live: `make models` once, record per-leg counts and the diff in Left behind, then `make probe`.
+**Left behind:** (2026-10-26)
+- `make models` live: 339 models. Legs: OpenAI 332, Anthropic 43, Gemini 42, Decisions 10. By modality: llm 242,
+  decision 8, embedding 14, image 24, tts 32, stt 18 (plus `claude-haiku-5-5-eu`). Diff vs the old snapshot:
+  +143 added (case variants, `-eu`/Claude 4.x–5.x aliases, Gemini aliases, decisions), -13 vanished (old
+  portal-cased ids such as `DeepSeek-V4.1-Flash`, `GPT-5`, `Whisper`; flagged `iu_listed=false`, rows kept).
+- `make probe` live: 256 available, 107 not_routed, 38 unknown, 1 timeout (listed ≠ callable); 336 `iu_listed` iu rows.
+  `claude-haiku-5-5-eu` probes available.
+- Orchestrator note applied: `HIDDEN_CALLABLE` (src/server/iu/catalog.ts, starts with `claude-haiku-5-5-eu`);
+  the sync never delists ids referenced by `deployments.ts` / `MY_STACK`, and prints them as "referenced but
+  unlisted": `claude-haiku-5-5-eu` (hidden-callable), `claude-sonnet-5[1m]` (Claude Code alias),
+  `grok-4.20-reasoning` (external). Documented in AGENTS.md "IU model catalog".
+- New columns `models.owned_by`, `models.legs` (`drizzle-kit push --force` done locally; the mini's DB needs the
+  same push on `make deploy`: `make db-push`). `MY_STACK` is now exported from `seed.ts`.
+- Refresh is now catalog → probe → collect → recommend; `iu-catalog.ts` is committed by the refresh like epoch.
+  `make models` also runs `import:replicate`, which rewrites `replicate-catalog.ts` with a pure re-ordering
+  (209/209 line churn); I reverted that file, so it is unchanged.
+- `make check` green (886 tests). No `/review` gateway run: self-read the diff.
+- **Not mine, left alone:** the tree had uncommitted TTS "expression" edits from another session
+  (`data/tts-compare/manifest.json`, `src/server/audio/{compare,experiments}.ts`, `src/routes/-tts-workbench.tsx`,
+  `src/__tests__/tts-experiments.test.ts`). Wave 2 deletes that code; decide whether to commit or drop them first.
 
-## Wave 2 — Cut the bloat            <!-- status: pending -->
+## Wave 2 — Cut the bloat            <!-- status: active -->
 - [ ] Scripts: delete `adhoc-*`, `benchmark-bakeoff`, `benchmark-crossprovider`, `benchmark-tool-calling`,
       `bench-fast`, `bench-writing`, `bench-review-judge`, `bench-decision`, `tts-compare`, `tts-audition`,
       `tts-wave5`, `stt-compare`, `stt-testset`, `seed-demos`, `pick`, `cap`, `route-map`, plus their
