@@ -157,25 +157,30 @@ once that rematch has its verdict. `git add` explicit paths only.
 - Noise to know: `collect` prints about 2,700 unmatched external ids (1,185 from models.dev first-party groups); all discovery candidates, no action.
 
 
-## Wave 4 — STACK.md, the one file that says what to use            <!-- status: active -->
-- [ ] Move `MY_STACK` out of `seed.ts` into `src/stack.ts` (seed imports it). One entry per job the owner
+## Wave 4 — STACK.md, the one file that says what to use            <!-- status: done -->
+- [x] Move `MY_STACK` out of `seed.ts` into `src/stack.ts` (seed imports it). One entry per job the owner
       actually has: estate default/fast (Hermes, gateways), coding, orchestrator, writing, TTS chat, TTS
       long-form, STT, embedding, vision, image, decision. Each gets model id, reasoning effort / settings,
       the IU leg it runs on, a one-line why, and its decision-record link.
-- [ ] `make stack` renders `STACK.md` at the repo root from `src/stack.ts` + `deployments.ts`, then
+- [x] `make stack` renders `STACK.md` at the repo root from `src/stack.ts` + `deployments.ts`, then
       metric_snapshot. One table: job → model → settings → $/1M in/out (models.dev or measured) → where it
       runs (deployment slots) → drift flag from the latest recommendation. A test fails when the
       committed `STACK.md` is stale relative to `src/stack.ts`.
-- [ ] Re-point the two outside references to the deleted `cap`/`pick` scripts at `STACK.md` / `make stack`:
+- [x] Re-point the two outside references to the deleted `cap`/`pick` scripts at `STACK.md` / `make stack`:
       `~/SourceRoot/dotfiles/docs/opencode.md:29` (context windows/prices) and the comment at
       `~/SourceRoot/agent-gateway/server/mcp/session-runner.ts:1101`. One-line doc edits each, committed
       in their own repo (`docs:` commit, explicit paths, push). Both repos may have other agents working,
       so never touch other files.
-- [ ] AGENTS.md: point "current picks" at `STACK.md`. Shrink AGENTS.md: move the ccbench and pipeline
+- [x] AGENTS.md: point "current picks" at `STACK.md`. Shrink AGENTS.md: move the ccbench and pipeline
       detail to `docs/pipelines.md`, so AGENTS.md keeps decisions, commands and traps only.
-**Left behind:**
+**Left behind:** (2026-10-26)
+- `src/stack.ts` holds `STACK` (11 jobs, each with settings, IU leg, one-line why, decision doc; `MY_STACK` = first entry per category, imported by `seed.ts` and `catalog-sync.ts`). `make stack` (`scripts/stack.ts`, renderer `src/stack-render.ts`) writes `STACK.md`; prices are measured `pick_probe` rate, else models.dev, else the AA/OpenRouter mean; drift is the latest recommendation. `src/__tests__/stack-md.test.ts` fails when `STACK.md`'s embedded hash (of `STACK` + `DEPLOYMENTS`) is stale, so rerun `make stack` after editing either. Prices and drift are DB-derived and not part of the staleness check.
+- **Pick change:** STT is now `voxtral-mini-transcribe-3-0` (audio-stack.md's 2026-10-25 decision); the old entry still said `gpt-transcribe`. `src/db/deployments.ts` audio `stt-default` still says `gpt-transcribe` and was not re-verified against audio-gateway; `STACK.md` shows "none recorded" for STT as a result. `glm-5.3-flash` (coding) also has no recorded slot.
+- Outside refs re-pointed and pushed: dotfiles `69b7cfe` (`docs/opencode.md`), agent-gateway `3a025b0` (`session-runner.ts` comment). Still stale and not mine to touch: the `cap`/`ca` launchers were not checked.
+- AGENTS.md 332 -> 266 lines: collector, refresh and ccbench detail moved to `docs/pipelines.md` ("Moved from AGENTS.md"), leaving a short Pipelines section with the traps.
+- `make check`: tsc, lint and 759/760 tests green. The one failure is `collectors.test.ts` (LMArena rows vs filter, ~line 806) from the other implementer's uncommitted `lmarena.ts`/`collectors.test.ts` edits, which I left alone. No `/review` gateway run: self-read.
 
-## Wave 5 — Close            <!-- status: pending -->
+## Wave 5 — Close            <!-- status: active -->
 - [ ] Only if audio-gateway's rematch wave is `done` (check its PLAN.md): remove the TTS workbench, or move it
       to audio-gateway if the owner still uses it. That covers the routes, `src/server/audio/*`, `scripts/tts-*`,
       `data/tts-compare` and `docs/gemini-tts.md`. Otherwise leave it and say so.

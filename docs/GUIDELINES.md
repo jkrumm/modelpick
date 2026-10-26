@@ -220,5 +220,5 @@ floor was cleared, never that the model is smart.
 
 ## 5. The current picks
 
-Not restated here — they live in `MY_STACK` (`src/db/seed.ts`), the `deployment` table, and the
+Not restated here — they live in `src/stack.ts` (rendered to `STACK.md`), the `deployment` table, and the
 live `/stack` page, so this file cannot drift from them. Each carries a link to its record.

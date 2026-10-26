@@ -27,7 +27,7 @@ single SQLite file (`modelpick.db`, gitignored).
   interactively signed in there. IU key in `op://common/anthropic`, leaderboard keys in
   `op://vps/modelpick`.
 - **Makefile targets**: `make dev`, `make build`, `make db-push`, `make db-seed`,
-  `make models|probe|collect|refresh` (catalog sync, access probe, metrics, full refresh),
+  `make models|probe|collect|stack|refresh` (catalog sync, access probe, metrics, STACK.md render, full refresh),
   `make check`, `make deploy`, `make verify`, `make logs`,
   `make refresh-setup|refresh-check|refresh-teardown` (the 06:00 LaunchAgent). The
   one measurement that matters day to day is a bun script, not a Makefile target:
@@ -63,11 +63,11 @@ Two tiers (`schema.ts`):
 
 `stack_choice` table holds my **deliberate** pick per category, separate from the
 algorithmic `recommendation`. The `/stack` page diffs the two and flags **drift** when the
-algorithm prefers a different model — my cue to reconsider. Picks live in `MY_STACK` in
-`src/db/seed.ts` (upserted on category); revise there and bump `decided_at` when a choice
-actually changes. Manual categories carry no `recommendation`, so the `/stack` page shows
+algorithm prefers a different model — my cue to reconsider. Picks live in `src/stack.ts`
+(`STACK`; the first entry per category is upserted into `stack_choice`); revise there, bump
+`decided_at`, and run `make stack` to re-render [`STACK.md`](STACK.md) (a test fails when it is stale). Manual categories carry no `recommendation`, so the `/stack` page shows
 them as "no recommendation" (gray `—`) rather than ok/drift. **Current picks are
-`MY_STACK` in `src/db/seed.ts` and the live `/stack` page — not restated here**, so this
+in [`STACK.md`](STACK.md) and the live `/stack` page — not restated here**, so this
 file cannot drift from them; each pick's rationale links its `docs/decisions/*.md` record.
 
 ## Deployments — the truth layer (`/stack`, section 1)
@@ -233,89 +233,23 @@ real access and residency.
 
 **`/models` is not complete.** `HIDDEN_CALLABLE` in `src/server/iu/catalog.ts` lists ids that
 are callable and billed but in no leg (start: `claude-haiku-5-5-eu`); add one only after
-`make probe` proves it callable. An id referenced by `deployments.ts` or `MY_STACK` is
+`make probe` proves it callable. An id referenced by `deployments.ts` or `src/stack.ts` is
 never delisted by the sync — the summary prints it as "referenced but unlisted"
 (today also `claude-sonnet-5[1m]`, a Claude Code alias, and `grok-4.20-reasoning`, external).
 
-## Daily refresh pipeline
+## Pipelines (detail: [`docs/pipelines.md`](docs/pipelines.md))
 
-`bun run refresh` runs `scripts/refresh.ts` locally: sync catalog → probe access → collect external
-metrics (models.dev, OpenRouter, ArtificialAnalysis + its speech lists, Epoch AI, LMArena) → recommend (re-score + persist picks +
-rationale). Steps are independent; one failure doesn't abort the rest, but the exit is 1.
-A collector that fails or returns 0 rows is a *degraded source*: its siblings' metrics are still
-persisted, the run exits 1 (`RefreshResult.degraded`). The agent runs under `jobrun`
-(dotfiles: `--every 86400 --timeout 3600`, state in `~/.local/state/jobs/`), so a red run becomes
-a warden `job` item for this repo.
-Green tests ≠ working pipeline — confirm against live data after changes. On the mini the
-`com.jkrumm.modelpick-refresh` LaunchAgent (`make refresh-setup`, 06:00, no `KeepAlive` —
-a failed step must not retry all day) runs it; `make refresh-check` shows the last exit.
-After the run, `src/server/snapshot-commit.ts` commits and pushes ONLY the regenerated
-`epoch-benchmarks.ts` and `iu-catalog.ts` (one commit each) to `origin master` (`git commit --only`) when it differs from HEAD, so the
-mini's checkout never stays dirty; it skips with a log line off `master`, mid merge/rebase/
-cherry-pick, or when the file has someone else's staged changes; it pushes only when the snapshot commit is the sole unpushed one, and a failed push leaves the
-local commit. It never fails the refresh.
-
-## Epoch AI benchmark collector
-
-`src/server/collectors/epoch.ts` pulls Epoch AI's public benchmark export (CC-BY 4.0 —
-keep the attribution if this data moves anywhere) and is the only source here backed by
-real Inspect-AI eval transcripts; it covers benchmarks AA has no column for at all
-(`swe_bench_verified`, `arc_agi*`, `frontiermath`, `aider_polyglot`, …). Committed snapshot:
-`src/server/collectors/epoch-benchmarks.ts`, regenerated wholesale on `bun run collect`.
-Internals (effort-suffix stripping, scale normalization, `benchmarkSaturation()`):
-[`docs/pipelines.md`](docs/pipelines.md).
-
-## Price and speech collectors
-
-`src/server/collectors/modelsdev.ts` reads `models.dev/api.json` (USD per 1M: `price_in`,
-`price_out`, `price_cache_read`, `context_window`). A model's group (`canonical_model_id`) takes the
-first-party provider's row, else the median across resellers. **`normalizeMetrics` prices from
-models.dev when it covers the model and falls back to the AA/OpenRouter average otherwise.**
-`artificialanalysis-speech.ts` reads AA's `/media/{text-to-speech,speech-to-text}/models/free`
-(`tts_elo`, `stt_wer_index`); `recommend.ts` ranks the `tts`/`stt` picks on them and falls back to the
-generation preference only when no accessible model has a row. The LLM list is already on
-`/api/v2/language/models/free` (the legacy `/data/llms` path sunsets 2026-11-04).
-
-## Writing collector — LMArena
-
-`src/server/collectors/lmarena.ts` reads LMArena's official leaderboard export off the HF
-datasets-server (CC-BY 4.0) for `arena_{elo,creative_writing,german,instruction_following,coding}`.
-The dataset names rows with display names (`Claude Opus 5.5 (High)`); `arenaDisplayToSlug` drops the
-parenthetical variants and hyphenates. EQ-Bench is gone (Claude judging Claude): **the `writing`
-dimension scores Arena only.** Full argument, and the German gap (nothing public
-scores German prose quality): [`docs/decisions/writing-model.md`](docs/decisions/writing-model.md).
-
-The HF datasets-server answers "index is loading" as an HTTP 500 mid-pagination, so the
-collector retries and then **keeps the pages it got** — a partial arena pull is incomplete,
-never wrong.
-
-## ccbench — the agentic benchmark
-
-**What it is for, and what it is not.** ccbench measures *operational fitness*: does the model
-actually drive an agent loop, how fast, at what real cost, how its caching behaves, where it
-times out. It is **not a quality benchmark** and must never be read as one — on the current
-field 11 of 13 models score a flat 1.000, which is the correct answer to "can it hold a loop"
-and no answer at all to "which is smarter". Quality comes from external leaderboards
-(`metric_snapshot`), never from here. Used as a ranking it hands the pick to whatever tiebreak
-is left over; used as a gate it does exactly the job it was built for.
-
-`bun run bench` (`scripts/bench.ts`, `src/server/bench/`) is the only measurement here that
-drives a real agent loop rather than a single call. Each run copies a committed fixture into a
-throwaway sandbox, spawns `claude -p` against the IU **Anthropic** route with the model pinned
-on all four `ANTHROPIC_DEFAULT_*` tiers, parses the stream-json transcript into metrics, and
-grades the resulting files mechanically. Rows land in `bench_run`; the verdict lives in
-`docs/decisions/claude-code-model.md`.
-
-**It spends real money** (`--yes` required non-interactively; `--dry-run` costs nothing) and
-**never remove the isolated `CLAUDE_CONFIG_DIR`** — without it the sandbox loads the global
-CLAUDE.md/MCP/hooks and measures dotfiles instead of the model. Five more sharp edges
-(parallel-tool-use counting, the CLI's cost figure being Claude-only, golden-solution
-graders): [`docs/pipelines.md`](docs/pipelines.md).
-
-The **`/stack`** page reads that data through `src/server/bench/summary.ts`: newest suite with a
-real field → AA index → rate card → three picks (interactive / unattended worker / EU-pinned).
-Residency and the Claude context windows are committed snapshots in `models.ts`
-(`ROUTE_RESIDENCY`, `CLAUDE_CONTEXT_WINDOW`); update them when the route moves.
+- `make refresh` = catalog → probe → collect → recommend, daily 06:00 on the mini
+  (`make refresh-check` shows the last exit). A collector that fails or returns 0 rows is a
+  *degraded source*: siblings still persist, the run exits 1. **Green tests ≠ working
+  pipeline — run the changed pipeline live.**
+- Collectors: models.dev (list prices; preferred), OpenRouter, ArtificialAnalysis (+ speech lists),
+  Epoch AI, LMArena (writing scores Arena only). Per-source detail in `docs/pipelines.md`.
+- `snapshot-commit.ts` commits only the regenerated `epoch-benchmarks.ts` and `iu-catalog.ts`
+  and never fails the refresh.
+- ccbench (`bun run bench`) measures operational fitness, **not quality**, and **spends real
+  money** (`--yes`; `--dry-run` is free). Never remove its isolated `CLAUDE_CONFIG_DIR`: without
+  it the sandbox measures dotfiles instead of the model.
 
 ## Project skills
 
