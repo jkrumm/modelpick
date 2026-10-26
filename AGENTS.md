@@ -4,7 +4,7 @@
 
 modelpick is **the place I decide which models to use for what**, and keep that decision
 current. It ranks the LLM/TTS/STT models reachable through the **IU unified endpoint**
-against external leaderboards (OpenRouter, ArtificialAnalysis) and live access probes, then
+against external leaderboards (ArtificialAnalysis, models.dev, OpenRouter, Epoch AI, LMArena) and live access probes, then
 records the models I have actually committed to. It is the single source of truth for model
 choice — rationale that used to live scattered in `dotfiles` now consolidates here (see
 `docs/decisions/`).
@@ -240,7 +240,7 @@ never delisted by the sync — the summary prints it as "referenced but unlisted
 ## Daily refresh pipeline
 
 `bun run refresh` runs `scripts/refresh.ts` locally: sync catalog → probe access → collect external
-metrics (OpenRouter, ArtificialAnalysis, Epoch AI, EQ-Bench, LMArena) → recommend (re-score + persist picks +
+metrics (models.dev, OpenRouter, ArtificialAnalysis + its speech lists, Epoch AI, LMArena) → recommend (re-score + persist picks +
 rationale). Steps are independent; one failure doesn't abort the rest, but the exit is 1.
 A collector that fails or returns 0 rows is a *degraded source*: its siblings' metrics are still
 persisted, the run exits 1 (`RefreshResult.degraded`). The agent runs under `jobrun`
@@ -265,19 +265,24 @@ real Inspect-AI eval transcripts; it covers benchmarks AA has no column for at a
 Internals (effort-suffix stripping, scale normalization, `benchmarkSaturation()`):
 [`docs/pipelines.md`](docs/pipelines.md).
 
-## Writing collectors — EQ-Bench and LMArena
+## Price and speech collectors
 
-Two external leaderboards, both pulled whole, neither judged here:
-`src/server/collectors/eqbench.ts` reads the CSV embedded in the EQ-Bench site repo's own
-JS (creative writing v3 + longform → `creative_writing_elo`, `creative_writing_rubric`,
-`slop_score`, `repetition_score`, `vocab_complexity`, `longform_writing`), and
+`src/server/collectors/modelsdev.ts` reads `models.dev/api.json` (USD per 1M: `price_in`,
+`price_out`, `price_cache_read`, `context_window`). A model's group (`canonical_model_id`) takes the
+first-party provider's row, else the median across resellers. **`normalizeMetrics` prices from
+models.dev when it covers the model and falls back to the AA/OpenRouter average otherwise.**
+`artificialanalysis-speech.ts` reads AA's `/media/{text-to-speech,speech-to-text}/models/free`
+(`tts_elo`, `stt_wer_index`); `recommend.ts` ranks the `tts`/`stt` picks on them and falls back to the
+generation preference only when no accessible model has a row. The LLM list is already on
+`/api/v2/language/models/free` (the legacy `/data/llms` path sunsets 2026-11-04).
+
+## Writing collector — LMArena
+
 `src/server/collectors/lmarena.ts` reads LMArena's official leaderboard export off the HF
 datasets-server (CC-BY 4.0) for `arena_{elo,creative_writing,german,instruction_following,coding}`.
-
-**The `writing` dimension scores Arena only, with EQ-Bench as a gap-filler** — EQ-Bench's
-judge is Claude grading Claude, and its slop score rewards prose that merely reads as
-different. `slop_score` and friends are displayed, never scored; both are lower-is-better,
-the one inversion on `/benchmarks`. Full argument, and the German gap (nothing public
+The dataset names rows with display names (`Claude Opus 5.5 (High)`); `arenaDisplayToSlug` drops the
+parenthetical variants and hyphenates. EQ-Bench is gone (Claude judging Claude): **the `writing`
+dimension scores Arena only.** Full argument, and the German gap (nothing public
 scores German prose quality): [`docs/decisions/writing-model.md`](docs/decisions/writing-model.md).
 
 The HF datasets-server answers "index is loading" as an HTTP 500 mid-pagination, so the

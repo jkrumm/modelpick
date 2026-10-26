@@ -133,23 +133,31 @@ once that rematch has its verdict. `git add` explicit paths only.
   cites `bun run pick`. Also check that the `cap`/`ca` shell launchers in dotfiles don't call it. Wave 4's STACK.md replaces that source.
 - fallow still lists the frozen `scripts/tts-*` files and a pre-existing `src/styles/app.css` as unused.
 
-## Wave 3 — Better sources            <!-- status: active -->
-- [ ] Add a `modelsdev` collector (`src/server/collectors/`): list prices (in/out/cache per 1M) and
+## Wave 3 — Better sources            <!-- status: done -->
+- [x] Add a `modelsdev` collector (`src/server/collectors/`): list prices (in/out/cache per 1M) and
       context into `metric_snapshot`, joined to catalog ids (exact id → canonical id → normalised slug; log
       unmatched ids). Make it the preferred list-price source in scoring; OpenRouter becomes the fallback.
       Measured IU rates (`price_*_per_m` from `usage.cost`) still win over both.
-- [ ] Add AA speech: TTS elo/ci and STT `aa_wer_index` from the `/free` endpoints into `metric_snapshot`,
+- [x] Add AA speech: TTS elo/ci and STT `aa_wer_index` from the `/free` endpoints into `metric_snapshot`,
       and wire them into the `tts`/`stt` category weights in `score.ts`. Confirm which AA LLM path family
       is live and migrate if `/data/llms/models` is deprecated.
-- [ ] Remove the EQ-Bench collector, its metrics in `/benchmarks` formatting, and its writing gap-filler
+- [x] Remove the EQ-Bench collector, its metrics in `/benchmarks` formatting, and its writing gap-filler
       role. Writing scores Arena only. Update `docs/decisions/writing-model.md` in one line.
-- [ ] Re-verify the LMArena HF dataset still carries current models (the arena site moved to agent
+- [x] Re-verify the LMArena HF dataset still carries current models (the arena site moved to agent
       win-shares; the dataset may have changed shape).
-- [ ] Live: `bun run collect`; record rows per source and confirm no source is degraded. Then `bun run
+- [x] Live: `bun run collect`; record rows per source and confirm no source is degraded. Then `bun run
       recommend` and note any category whose pick changed, with the reason.
-**Left behind:**
+**Left behind:** (2026-10-26)
+- `make check` green (754 tests). No `/review` gateway run: self-read the diff.
+- New: `collectors/modelsdev.ts` (`price_in/out/cache_read`, `context_window`; first-party provider row per `canonical_model_id`, else reseller median; 235 catalog models priced), `collectors/artificialanalysis-speech.ts` (`tts_elo`, `stt_wer_index`). `normalizeMetrics` prices from models.dev, else the AA/OpenRouter average (new optional `MetricInput.source`). Measured IU rates are not read by the leaderboard scorer (only ccbench's `bench/summary.ts`), so "they still win" holds trivially. `pickBestAudio` ranks tts/stt on the AA metrics and falls back to the generation preference only when no accessible model has a row; the unused `tts`/`stt` entries in `CATEGORY_WEIGHTS` stay unwired. Schema: `METRIC_SOURCE` `eqbench` -> `modelsdev` (text column, no `db:push` needed).
+- AA LLM path: already on `/api/v2/language/models/free` (migrated before this wave); nothing to do.
+- EQ-Bench removed: collector, tests, `/benchmarks` labels (`creative_writing_elo`, rubric, slop, repetition, vocab, longform_*), the writing gap-filler. Writing is Arena-only. `writing-model.md` "How this is wired" rewritten; the dated evidence tables stay as history. Old `eqbench` metric_snapshot rows remain in the DB, unread.
+- **LMArena:** the dataset is current (`leaderboard_publish_date` 2026-10-22) but now names rows with display names (`Claude Opus 5.5 (High)`); only 17/100 resolved. Fixed with `arenaDisplayToSlug` (65/100 now, the rest are models outside the catalog). **Live LMArena collect could not run:** HF datasets-server `/filter` answers HTTP 500 "Authentication check on the Hugging Face Hub failed" (`/rows`, `/first-rows`, `/size` work). External outage, so the run reports lmarena 0 metrics / degraded and the recommender used the previous Arena rows. Re-run `bun run collect` once `/filter` recovers; fallback if it persists: paginate `/rows` (11,099 rows in `latest`, about 111 pages) and filter by category client-side.
+- Live `bun run collect` (rows): openrouter 552, artificialanalysis 572, aa-speech 27, modelsdev 797, epoch 1697, lmarena 0 (degraded, above). `bun run recommend` (4 tiny rationale calls): fast `mimo-v2.6-pro` -> `mimo-v2.6-flash` (list prices now models.dev's); stt `gpt-4o-transcribe` -> `voxtral-small-transcribe-3` (AA WER; matches the audio-stack decision's Voxtral default); tts `gemini-3.8-flash-tts` now Elo-ranked (was flipping with `-lite-tts` on probe latency). coding, writing, orchestrator unchanged.
+- Noise to know: `collect` prints about 2,700 unmatched external ids (1,185 from models.dev first-party groups); all discovery candidates, no action.
 
-## Wave 4 — STACK.md, the one file that says what to use            <!-- status: pending -->
+
+## Wave 4 — STACK.md, the one file that says what to use            <!-- status: active -->
 - [ ] Move `MY_STACK` out of `seed.ts` into `src/stack.ts` (seed imports it). One entry per job the owner
       actually has: estate default/fast (Hermes, gateways), coding, orchestrator, writing, TTS chat, TTS
       long-form, STT, embedding, vision, image, decision. Each gets model id, reasoning effort / settings,

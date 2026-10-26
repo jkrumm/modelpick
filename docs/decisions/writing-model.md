@@ -133,19 +133,12 @@ prose pick.
 
 ## How this is wired
 
-`writing` is a scored category. Its quality dimension is a preference chain, not a blend:
-normalized `arena_creative_writing` when the model has an Arena row, falling back to
-normalized `creative_writing_elo` only for models Arena has never seen. Same shape as the
-latency derivation in `scoring/normalize.ts`, for the same reason — the better-aimed
-measurement wins, the other one fills gaps.
+`writing` is a scored category. Its quality dimension is normalized `arena_creative_writing` only
+(Wave 3, 2026-10-26: the EQ-Bench collector and its diagnostics were removed — a Claude judge
+grading Claude, and slop rewards prose that merely reads as different). A model with no Arena row
+stays unscored on writing; it never falls back to general quality.
 
-`slop_score`, `repetition_score`, `vocab_complexity`, `longform_writing` and
-`longform_slop_score` are collected and shown on `/benchmarks`. **None of them enters a
-score.** They are diagnostics; slop in particular is the metric this record exists to
-refuse to rank on.
-
-Collectors: `src/server/collectors/eqbench.ts` (EQ-Bench site repo, LLM-judged, English),
-`src/server/collectors/lmarena.ts` (LMArena's official leaderboard export via the Hugging
+Collector: `src/server/collectors/lmarena.ts` (LMArena's official leaderboard export via the Hugging
 Face datasets-server, CC BY 4.0, human pairwise votes).
 
 ## What would change this
