@@ -207,7 +207,7 @@ turns instead of 0. Caveats: the new segment comes from a new brief and outline 
 against a 590 target — the lab run omitted the tightening pass production runs), and a fact-coverage proxy did not
 move (2/8 → 3/11 key facts by token overlap), so density is unproven until it is heard.
 
-## Writer rematch (2026-10-26) — PARTIAL: the $4 IU cap stopped it; verdict pending the owner's ears
+## Writer rematch (2026-10-26) — first pass (partial; completed in the Wave 4 section below)
 
 **What changed under the rematch.** The pipeline was rebuilt before candidates were compared, so the rematch measures
 the final design, not the bake-off's: research with no ceiling (5 gateway runs, 30-term glossary for episode
@@ -265,3 +265,50 @@ candidates (Haiku, Sol); the Opus baseline is missing from the listening test.
 
 **Proof, to be heard.** `/tts` → "Podcast writer — rematch" (blind, letters only) and "Expressiveness" (flat vs tags vs
 tags + delivery for podcast, briefing and chat).
+
+## Writer rematch, completed (2026-10-26, audio-gateway Wave 4) — verdict pending the owner's ears
+
+**Scope decision.** Owner removed the spend ceiling, then ruled out `claude-opus-5-5` agentic, `gemini-4-argon` and the
+Opus-revision hybrid as too expensive per episode. Argon was already finished and is in the table but not in the blind
+question; Opus stays the production default and the single-shot reference (~$2.5/episode); the hybrid was not run (its
+revision pass is Opus). Same frozen inputs as before (episode `8ee3a4df`, research on, opening + DBOS segment), full
+production flow with tightening and the production reviewer panel, expressive synth.
+
+**Transport.** `gpt-6.1-sol` now runs the agentic loop: IU serves its function tools on `/v1/responses` (flat `tools`,
+`function_call` / `function_call_output` items, `reasoning.effort`, usage as `input_tokens` / `output_tokens`). Verified
+by probe; the loop normalises the reply and usage to the chat shape, so the ledger prices both alike.
+
+| Writer (agentic) | Writer / episode | Wall draft+review+revise | Words / target (open, DBOS) | Lint left | Tags / deliveries (open, DBOS) | Loop |
+|-|-|-|-|-|-|-|
+| `gpt-6-luna` | $0.06 | 53 + 230 + 41 s | 278/430, 516/480 | 0 + 3 | 3/0, 2/0 | 25 rounds, 6 rejections |
+| `claude-haiku-5-5` | $0.55 | 325 + 169 + 260 s | 377/430, 554/480 | 1 + 6 | 3/3, 2/4 | 18 rounds, 2 rejections |
+| `gemini-3.8-flash` | $1.07 | n/a (fallback) | 329/430, 448/480 | see run file | see run file | agent draft hit the IU ~230 s timeout, single-shot fallback; 3 failed calls |
+| `gemini-4-argon` (not blind) | $1.23 | 105 + 231 + 46 s | 405/430, 551/480 | 0 + 0 | 1/2, 3/5 | 16 rounds, 0 rejections |
+| `gpt-6.1-sol` | $1.52 | 145 + 230 + 220 s | 412/430, 572/480 | 1 + 4 | 2/13, 2/13 | 21 rounds, 1 rejection |
+| `claude-sonnet-5-5` | $3.53 | 70 + 230 + 79 s | 460/430, 511/480 | 5 + 4 | 1/2, 2/3 | 13 rounds, 0 rejections |
+| `claude-opus-5-5` single-shot (reference) | ~$2.5 | — | — | — | — | measured before the rebuild; not rerun |
+
+Costs are list price with caching, projected to the five-segment outline by target words. Reviewers are the shared panel
+($0.06–0.23 per two segments). Sonnet is the most expensive of the group and ran 7% over on the opening; its price is
+the output side (verbose), not the loop.
+
+**Observations (mechanics, not taste).**
+- Luna is by far the cheapest but writes short (opening 35% under target) and never sets a per-turn delivery.
+- Sol is the only candidate that uses the delivery vocabulary heavily (13 per segment) — whether that sounds better or
+  merely busier is the listening test's job — and costs 2.8× Haiku.
+- Argon is the cleanest in lint terms (0 / 0 findings, 0 rejections) at $1.23, and is out on price.
+- Flash does not hold the agentic loop inside IU's ~230 s non-streaming limit; it needed the single-shot fallback.
+
+**Ranked recommendation before the ears** (default stays `claude-opus-5-5`):
+1. `claude-haiku-5-5` — the cost/mechanics balance: $0.55, clean after the loop, uses delivery sparingly. Listen first.
+2. `gpt-6.1-sol` — the expressive one and best creative-writing evidence; 2.8× Haiku. If it wins the blind listen it is
+   still a quarter of the Opus price.
+3. `gpt-6-luna` — nearly free; worth hearing only to see whether short + flat is audible. Needs a length lever (target
+   words in the loop) before it could ship.
+4. `gemini-3.8-flash` — timeouts and sloppy-prose evidence; not recommended.
+5. `claude-sonnet-5-5` — most expensive of the rematch, no measured edge.
+Blind letters on `/tts` → "Podcast writer — rematch": B Haiku, D Flash, E Sonnet, G Sol, J Luna (letters kept in
+audio-gateway `data/wave3/letters.json`, not shown in the UI).
+
+**A/B fixture (`503c28f0` v1 vs v2):** pending — the v2 job is still in its research stage.
+
