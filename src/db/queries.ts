@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "./index.js";
 import {
   capabilityProbe,
@@ -8,6 +8,7 @@ import {
   recommendation,
   stackChoice,
   metricSnapshot,
+  METRIC_SOURCE,
 } from "./schema.js";
 import type {
   Modality,
@@ -103,6 +104,8 @@ export interface LatestMetric {
   captured_at: string;
 }
 
+/** Rows from a retired source (e.g. the old eqbench) can outlive it in the table;
+ *  reads are limited to the current `METRIC_SOURCE` values so they never surface. */
 export async function getLatestMetricsBySourceMetric(): Promise<LatestMetric[]> {
   const rows = await db
     .select({
@@ -114,6 +117,7 @@ export async function getLatestMetricsBySourceMetric(): Promise<LatestMetric[]> 
       captured_at: metricSnapshot.captured_at,
     })
     .from(metricSnapshot)
+    .where(inArray(metricSnapshot.source, [...METRIC_SOURCE]))
     .orderBy(desc(metricSnapshot.captured_at));
 
   // Rows are already newest-first, so the first hit per composite key is the latest.

@@ -208,8 +208,7 @@ syncs to the SQLite file with `bun run db:push` (`drizzle-kit push`, dialect `sq
   `/tts` is a listening workbench: open questions are defined in `src/server/audio/experiments.ts` (manifest ids → question, variants,
   production flag); picks persist in browser localStorage; the model comparison and voice audition sit in a collapsed reference.
 - German STT comparison: the `/stt` page, its scripts and scoring were cut; the numbers are in
-  `docs/decisions/audio-stack.md` §German STT comparison. `src/server/audio/stt-compare.ts` stays
-  until the TTS workbench goes because `-audio-server-fns.ts` still imports it (it reads an empty fallback now).
+  `docs/decisions/audio-stack.md` §German STT comparison.
 - SQLite has no native enums — they're `text({ enum: [...] })` with value tuples (`MODALITY`,
   `CATEGORY`, …) exported from `schema.ts`. Booleans are `integer({ mode: "boolean" })`;
   timestamps are text (`CURRENT_TIMESTAMP`), which sort lexically.
@@ -239,13 +238,13 @@ never delisted by the sync — the summary prints it as "referenced but unlisted
 
 ## Pipelines (detail: [`docs/pipelines.md`](docs/pipelines.md))
 
-- `make refresh` = catalog → probe → collect → recommend, daily 06:00 on the mini
+- `make refresh` = catalog → probe → collect → recommend → re-render `STACK.md`, daily 06:00 on the mini
   (`make refresh-check` shows the last exit). A collector that fails or returns 0 rows is a
   *degraded source*: siblings still persist, the run exits 1. **Green tests ≠ working
   pipeline — run the changed pipeline live.**
 - Collectors: models.dev (list prices; preferred), OpenRouter, ArtificialAnalysis (+ speech lists),
   Epoch AI, LMArena (writing scores Arena only). Per-source detail in `docs/pipelines.md`.
-- `snapshot-commit.ts` commits only the regenerated `epoch-benchmarks.ts` and `iu-catalog.ts`
+- `snapshot-commit.ts` commits only the regenerated `epoch-benchmarks.ts`, `iu-catalog.ts` and `STACK.md`
   and never fails the refresh.
 - ccbench (`bun run bench`) measures operational fitness, **not quality**, and **spends real
   money** (`--yes`; `--dry-run` is free). Never remove its isolated `CLAUDE_CONFIG_DIR`: without

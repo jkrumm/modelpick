@@ -38,8 +38,12 @@ describe("STACK.md", () => {
 });
 
 describe("MY_STACK", () => {
-  it("has one stack_choice row per category", () => {
-    const cats = MY_STACK.map((r) => r.category);
-    expect(new Set(cats).size).toBe(cats.length);
+  it("is the first STACK entry per category, in STACK order", () => {
+    const firstPerCategory = STACK.filter(
+      (e, i) => STACK.findIndex((o) => o.category === e.category) === i,
+    );
+    expect(MY_STACK.map((r) => [r.category, r.model_id])).toEqual(
+      firstPerCategory.map((e) => [e.category, e.model_id]),
+    );
   });
 });
