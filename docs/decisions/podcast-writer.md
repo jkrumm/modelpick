@@ -337,3 +337,21 @@ lecturing to the other asking (v2 swaps who leads), tags inside the band, delive
 brief. v2 is 37% shorter than v1 — whether that is the 15-minute target working or content lost is for the ears; the two
 unintroduced terms are the same in both.
 
+**v3 (`a5ee46ff`, Wave 5 pipeline, writer `gpt-6.1-sol`, same topic, source and brief; $2.35, 1102 s).**
+
+| Metric | v1 | v2 | v3 |
+|-|-|-|-|
+| words / turns | 2364 / 70 | 1500 / 62 | 2197 / 57 |
+| meta-hedge / notes-ignorance | 3 / 5 | 0 / 0 | 0 / 0 |
+| host A word share | 74% | 30% | 61% |
+| questions asked A / B | 0 / 29 | 19 / 1 | 2 / 8 |
+| tags / deliveries | 3 / 0 | 10 / 12 | 9 / 57 |
+| expression findings / all lint findings | 6 / 17 | 1 / 3 | 0 / 3 |
+| unintroduced terms | 2 | 2 | 3 |
+| length vs 15 min ask | ~105% | ~70% | ~122% (18.4 min) |
+| listener asks with a verdict | n/a | raw-carrot verdict missing | 7 extracted, all assigned; raw-carrot verdict explicit (wash, peel for raw) |
+| opening | cold | cold ("Das Grün.") | frames the question in turn one |
+
+Length and coverage are fixed; voice kept (no hedges, deliveries 57). v3 runs long (about 18 min) rather than short, and host A
+leads again (61%) with fewer questions than v2. Cost of v3 is below v2's $4.90 on the cheaper writer.
+
