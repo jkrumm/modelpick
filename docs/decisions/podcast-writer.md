@@ -1,10 +1,11 @@
 # Podcast writer — a role split with one voice owner
 
 > **Current verdict (2026-10-26):** the role split holds. Estate default `deepseek-v4.1-flash` at
-> `reasoning_effort: high` writes outline, editorial, metadata and research; `claude-opus-5-5`
-> (`PODCAST_WRITE_MODEL`) is the sole voice owner; reviewers are `gemini-3.8-flash,deepseek-v4.1-flash`;
-> narration is `gemini-3.8-flash-tts` (Charon + Erinome), not ElevenLabs. Whether Opus stays the voice owner
-> is **open pending the owner's blind listening** (2026-10-26 bake-off below, `/tts` → "Podcast writer").
+> `reasoning_effort: high` writes outline, editorial, metadata and research; **`gpt-6.1-sol`
+> (`PODCAST_WRITE_MODEL`) is the sole voice owner — owner decision 2026-10-26**, taken after the blind
+> writer rematch (`/tts` → "Podcast writer — rematch", full table below); `claude-opus-5-5` is the one-line
+> rollback. Reviewers are `gemini-3.8-flash,deepseek-v4.1-flash`; narration is `gemini-3.8-flash-tts`
+> (Charon + Erinome), not ElevenLabs.
 > The body of this record is the 2026-09-02 history (it names `claude-opus-4-6`, `gpt-5.6-luna` and
 > ElevenLabs v3; those are superseded). Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
 
@@ -266,7 +267,12 @@ candidates (Haiku, Sol); the Opus baseline is missing from the listening test.
 **Proof, to be heard.** `/tts` → "Podcast writer — rematch" (blind, letters only) and "Expressiveness" (flat vs tags vs
 tags + delivery for podcast, briefing and chat).
 
-## Writer rematch, completed (2026-10-26, audio-gateway Wave 4) — verdict pending the owner's ears
+## Writer rematch, completed (2026-10-26, audio-gateway Wave 4) — verdict: owner chose `gpt-6.1-sol` (2026-10-26)
+
+**Verdict.** The owner chose `gpt-6.1-sol` as the voice owner on 2026-10-26 and the default was switched the same day
+(audio-gateway `src/config.ts`; `claude-opus-5-5` is the rollback). The ranking below was written before that decision and
+stays as the evidence it was taken on: Sol is the most expressive candidate (13 deliveries per segment) at $1.52 per
+episode against Opus's ~$2.5, and it is the only OpenAI-family writer on the agentic loop (IU `/v1/responses`).
 
 **Scope decision.** Owner removed the spend ceiling, then ruled out `claude-opus-5-5` agentic, `gemini-4-argon` and the
 Opus-revision hybrid as too expensive per episode. Argon was already finished and is in the table but not in the blind
