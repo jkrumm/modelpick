@@ -59,24 +59,35 @@ export const parseLeg = {
   decisions: (raw: unknown): string[] => decisionsList.parse(raw).models.map((m) => m.name),
 };
 
-async function getJson(base: string | undefined, name: string, headers: Record<string, string>) {
-  if (!base) throw new Error(`${name} base URL is not set`);
-  const resp = await fetch(`${base.replace(/\/+$/, "")}/models`, { headers });
+const FETCH_TIMEOUT_MS = 30_000;
+
+async function getJson(
+  base: string | undefined,
+  leg: Leg,
+  name: string,
+  headers: Record<string, string>,
+) {
+  if (!base) throw new Error(`IU_${leg.toUpperCase()}_BASE_URL is not set`);
+  const resp = await fetch(`${base.replace(/\/+$/, "")}/models`, {
+    headers,
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
   if (!resp.ok) throw new Error(`IU ${name} /models returned HTTP ${resp.status}`);
   return (await resp.json()) as unknown;
 }
 
 /** Fetches all four legs. Any leg failing throws: a partial listing would mark live ids as vanished. */
 export async function fetchLegListings(env: NodeJS.ProcessEnv = process.env): Promise<LegListings> {
-  const key = env["IU_API_KEY"] ?? "";
+  const key = env["IU_API_KEY"];
+  if (!key) throw new Error("IU_API_KEY is not set");
   const [openai, anthropic, gemini, decisions] = await Promise.all([
-    getJson(env["IU_OPENAI_BASE_URL"], "OpenAI", { Authorization: `Bearer ${key}` }),
-    getJson(env["IU_ANTHROPIC_BASE_URL"], "Anthropic", {
+    getJson(env["IU_OPENAI_BASE_URL"], "openai", "OpenAI", { Authorization: `Bearer ${key}` }),
+    getJson(env["IU_ANTHROPIC_BASE_URL"], "anthropic", "Anthropic", {
       "x-api-key": key,
       "anthropic-version": "2023-06-01",
     }),
-    getJson(env["IU_GEMINI_BASE_URL"], "Gemini", { "x-goog-api-key": key }),
-    getJson(env["IU_DECISIONS_BASE_URL"], "Decisions", { Authorization: `Bearer ${key}` }),
+    getJson(env["IU_GEMINI_BASE_URL"], "gemini", "Gemini", { "x-goog-api-key": key }),
+    getJson(env["IU_DECISIONS_BASE_URL"], "decisions", "Decisions", { Authorization: `Bearer ${key}` }),
   ]);
   return {
     openai: parseLeg.openai(openai),
@@ -86,18 +97,38 @@ export async function fetchLegListings(env: NodeJS.ProcessEnv = process.env): Pr
   };
 }
 
-/** Modality from the capability list; ids with no capabilities fall back to the id heuristic. */
+/** A leg that lists nothing is a partial upstream answer: acting on it would delist live ids. */
+export function assertLegsNonEmpty(listings: LegListings): void {
+  const empty = LEGS.filter((leg) => listings[leg].length === 0);
+  if (empty.length > 0) throw new Error(`IU ${empty.join(", ")} /models returned an empty list`);
+}
+
+/**
+ * Modality from the capability list; ids with no capabilities fall back to the id heuristic.
+ * Chat wins: a model with ChatCompletion or Responses is `llm` whatever auxiliary capability
+ * (Embedding, ImageGeneration, VoiceOutput, AudioInput, ...) it also lists. The one exception
+ * is an image model that also answers on the chat route (`nano-banana`, `gpt-image-1.5`): it
+ * has no Functions (tool calling) — which every general chat model that merely carries
+ * ImageGeneration as a built-in tool (`gpt-6-sol`) does — or it lists ImageOutput.
+ */
 export function modalityFromCapabilities(id: string, caps: readonly string[] | undefined): Modality {
   if (isDecisionModel(id)) return "decision";
   if (!caps || caps.length === 0) return classifyModality(id);
   const has = (c: string) => caps.includes(c);
+  if (has("ImageOutput") || (has("ImageGeneration") && !has("Functions"))) return "image";
+  if (has("ChatCompletion") || has("Responses")) return "llm";
   if (has("Embedding")) return "embedding";
   if (has("ImageGeneration")) return "image";
   if (has("VoiceOutput")) return "tts";
-  if (!has("ChatCompletion") && !has("Responses") && (has("VoiceInput") || has("AudioInput"))) {
-    return "stt";
-  }
+  if (has("VoiceInput") || has("AudioInput")) return "stt";
   return "llm";
+}
+
+/** The repo's canonical provider key; the lower-cased Vendor only names ids it cannot place. */
+function providerFor(id: string, vendor: string | undefined): string {
+  const derived = deriveProvider(id);
+  const fallback = vendor?.trim().toLowerCase();
+  return derived === "other" && fallback ? fallback : derived;
 }
 
 function parseContext(s: string | undefined): number | null {
@@ -123,7 +154,7 @@ export function mergeLegs(listings: LegListings): ModelInsert[] {
     mark(m.id, "openai");
     rows.set(m.id, {
       id: m.id,
-      provider: m.Vendor?.trim() ? m.Vendor.trim().toLowerCase() : deriveProvider(m.id),
+      provider: providerFor(m.id, m.Vendor),
       family: null,
       modality: modalityFromCapabilities(m.id, m.Capabilities),
       display_name: m.Human_readable_name?.trim() || prettifyName(m.id),
@@ -168,9 +199,14 @@ export function mergeLegs(listings: LegListings): ModelInsert[] {
     .map((r) => {
       // Registered decision models keep the identity decision-models.ts gives them.
       const spec = decisionSpec(r.id);
+      // An id only the decisions leg lists is a decision model nobody registered yet.
+      const legSet = legsOf.get(r.id);
+      const decisionsOnly = legSet?.size === 1 && legSet.has("decisions");
       const identity = spec
         ? { provider: spec.provider, family: "decision", display_name: spec.display_name }
-        : {};
+        : decisionsOnly
+          ? { family: "decision", modality: "decision" as const }
+          : {};
       return { ...r, ...identity, legs: LEGS.filter((l) => legsOf.get(r.id)?.has(l)).join(",") };
     })
     .sort((a, b) => a.id.localeCompare(b.id));

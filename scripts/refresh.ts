@@ -49,10 +49,13 @@ const result = await runRefresh({
 });
 
 // collectEpoch and syncCatalog rewrite tracked files; ship them so the unattended checkout
-// stays clean. Never throws — a git problem must not fail the refresh.
+// stays clean. Never throws — a git problem must not fail the refresh. The catalog snapshot
+// is committed only when its step succeeded (syncCatalog writes it last, after the DB).
 const gitDeps = createSnapshotCommitDeps(join(import.meta.dirname, ".."));
 await commitSnapshot(gitDeps);
-await commitSnapshot(gitDeps, IU_CATALOG_SNAPSHOT_PATH, IU_CATALOG_COMMIT_MESSAGE);
+if (result.catalog.ok) {
+  await commitSnapshot(gitDeps, IU_CATALOG_SNAPSHOT_PATH, IU_CATALOG_COMMIT_MESSAGE);
+}
 
 if (!result.allOk) {
   const failed = (["catalog", "probe", "collect", "recommend"] as const).filter((k) => !result[k].ok);

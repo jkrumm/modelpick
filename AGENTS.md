@@ -165,6 +165,10 @@ elsewhere.
 - `make web-setup` builds, then installs/loads the `com.jkrumm.modelpick-web` LaunchAgent on
   :7727, behind the existing Caddy entry (`modelpick.test` → `modelpick.mini.jkrumm.com`).
 - `make refresh-setup` installs/loads the 06:00 `com.jkrumm.modelpick-refresh` agent.
+- **After pulling schema changes run `make db-push` before `make models` / `make refresh`.**
+  Neither pushes the schema itself: `drizzle-kit push` can stop at an interactive prompt
+  (column renames, data-loss statements) and the unattended 06:00 agent has no TTY, so it
+  would hang. A missing column (e.g. `models.legs`) fails the catalog step instead.
 - `make web-restart` rebuilds and kickstarts the dashboard without re-rendering the plist;
   `make web-teardown` / `make refresh-teardown` unload and remove the respective agent.
 
@@ -235,10 +239,14 @@ The catalog comes from the IU gateway's live per-leg `GET /models` endpoints (Op
 Anthropic, Gemini, Decisions), which return exactly what the check-key page shows and
 need only `IU_API_KEY` — no SSO, no HTML export. `make models` (`scripts/sync-catalog.ts`,
 step 0 of `bun run refresh`) merges the legs by exact id (case-sensitive, verbatim),
-rewrites the committed snapshot `src/db/iu-catalog.ts`, upserts `models` (adds `owned_by`
-= the backend route list, the best residency hint, and `legs` = the legs that accept the
-id), prints an added/removed diff and sets `iu_listed=false` on vanished ids. It never
-deletes rows: probes and metrics hang off them. `make models` also refreshes the
+upserts `models` (adds `owned_by` = the backend route list, the best residency hint, and
+`legs` = the legs that accept the id) and sets `iu_listed=false` on vanished ids in one
+transaction, and only then rewrites the committed snapshot `src/db/iu-catalog.ts` (tmp file +
+rename); the refresh commits it only when the catalog step succeeded. A failing or empty
+leg aborts before anything is written. It never deletes rows: probes and metrics hang off
+them. Modality: ChatCompletion/Responses means `llm` even with Embedding/ImageGeneration/
+audio capabilities listed (image-only models are the ones with ImageOutput or no
+Functions); an id only the decisions leg lists is a `decision` model. `make models` also refreshes the
 Replicate speech catalog. **Listed ≠ callable** — `make probe` (`bun run probe`) proves
 real access and residency.
 

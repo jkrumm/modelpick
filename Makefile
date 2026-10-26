@@ -29,7 +29,7 @@ db-push:
 db-seed:
 	bun run db:seed
 
-models: ## Sync the IU catalog from the live /models legs (+ Replicate speech models)
+models: ## Sync the IU catalog from the live /models legs (+ Replicate speech models); run `make db-push` first after pulling schema changes
 	bun run models
 	bun run import:replicate
 
@@ -39,7 +39,7 @@ probe: ## Probe every catalog model once (cents)
 collect: ## Collect leaderboard + price metrics
 	bun run collect
 
-refresh: ## Full refresh: catalog → probe → collect → recommend
+refresh: ## Full refresh: catalog → probe → collect → recommend (run `make db-push` first after pulling schema changes)
 	bun run refresh
 
 dev:
