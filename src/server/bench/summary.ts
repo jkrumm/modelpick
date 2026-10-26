@@ -46,26 +46,9 @@ import type { RouteResidency } from "./route.js";
 import { composite, perModel, perTask, type PerTaskScore } from "./score.js";
 import type { BenchCheck, BenchFailure, BenchRunResult, CostBasis } from "./types.js";
 
-// Re-exported so every existing server-side caller (scripts/cap.ts, tests)
-// keeps working unchanged — `format.ts` is the new home, this is just the
-// door. `/bench` imports these directly from `./format` instead, because a
-// value import from *this* module drags `db` along (see format.ts's header).
-export {
-  aaCodingOf,
-  aaIntelligenceOf,
-  caveatLines,
-  formatContext,
-  formatDuration,
-  formatPct,
-  formatRate,
-  formatScore,
-  formatUsd,
-  MISSING,
-  type AaIndex,
-  type BasisLabel,
-  type BenchCaveats,
-  type RateCard,
-} from "./format.js";
+// `format.ts` holds the pure formatters (a value import from *this* module drags `db`
+// along); `caveatLines` is re-exported for the summary tests.
+export { caveatLines, type AaIndex, type BasisLabel, type BenchCaveats, type RateCard } from "./format.js";
 
 /** A quality of exactly 1.00 after floating-point averaging. */
 const PERFECT = 1 - 1e-9;

@@ -1,6 +1,3 @@
-import { execFileSync } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
 import {
   buildAaLookup,
@@ -393,36 +390,6 @@ describe("buildBenchSummary — matrix cells", () => {
   it("orders task columns the way the suite ran them", () => {
     const summary = summaryOf([run("m", "zebra"), run("m", "alpha")]);
     expect(summary.taskIds).toEqual(["zebra", "alpha"]);
-  });
-});
-
-// ── the cap stdout/stderr contract ───────────────────────────────────────────
-
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-
-/** Runs the real CLI against the real `modelpick.db` with stdin closed, so the
- *  picklist never opens. It makes no network call and spends nothing, which is
- *  exactly the property being asserted. `stdio[2]` is inherited rather than
- *  captured — everything human-facing goes there, and that is the point. */
-function runCap(args: string[]): string {
-  return execFileSync("bun", ["run", "scripts/cap.ts", ...args], {
-    cwd: REPO_ROOT,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
-  });
-}
-
-describe("scripts/cap.ts — stream contract", () => {
-  it("writes nothing but the picklist result to stdout", () => {
-    // Non-interactive: no model is chosen, so stdout must be completely empty.
-    // Everything a human reads went to stderr.
-    expect(runCap([])).toBe("");
-  });
-
-  it("emits parseable JSON on stdout under --json, and nothing else", () => {
-    const parsed: unknown = JSON.parse(runCap(["--json"]));
-    expect(parsed).toHaveProperty("picks");
-    expect(parsed).toHaveProperty("models");
   });
 });
 
