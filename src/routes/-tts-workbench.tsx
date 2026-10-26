@@ -394,16 +394,23 @@ function PlayCell({
 }
 
 function WriterReveal({ writer }: { writer: WriterCell }) {
+  const facts = [
+    writer.costUsdPerEpisode === undefined
+      ? undefined
+      : `≈ $${writer.costUsdPerEpisode.toFixed(2)} / 20-min episode`,
+    `${writer.words}/${writer.targetWords} words`,
+    writer.wallSeconds === undefined ? undefined : `${writer.wallSeconds.toFixed(0)} s`,
+    writer.outputPricePerM === undefined ? undefined : `$${writer.outputPricePerM}/M out`,
+    writer.tagViolations ? `${writer.tagViolations} tag violations` : undefined,
+  ].filter(Boolean);
   return (
     <Stack gap={2} align="center">
       <Text size="xs" fw={700}>
         {writer.model}
+        {writer.stage ? ` · ${writer.stage === "before" ? "before" : "after"}` : ""}
       </Text>
       <Text size="xs" c="dimmed" ta="center">
-        ≈ ${writer.costUsdPerEpisode.toFixed(2)} / 20-min episode ·{" "}
-        {writer.words}/{writer.targetWords} words · {writer.wallSeconds.toFixed(0)} s
-        · ${writer.outputPricePerM}/M out
-        {writer.tagViolations > 0 ? ` · ${writer.tagViolations} tag violations` : ""}
+        {facts.join(" · ")}
       </Text>
     </Stack>
   );

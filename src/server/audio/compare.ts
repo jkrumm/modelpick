@@ -38,30 +38,14 @@ export interface WriterCell {
   script: string;
   words: number;
   targetWords: number;
+  /** Improved-pipeline comparison only: the pipeline version this script came from. */
+  stage?: "before" | "after";
   /** Wall time of draft + revision for this candidate (both segments), seconds. */
-  wallSeconds: number;
+  wallSeconds?: number;
   /** Projected writer cost for a 20-minute episode, USD, at list price. */
-  costUsdPerEpisode: number;
+  costUsdPerEpisode?: number;
   /** $/M output list price. */
-  outputPricePerM: number;
+  outputPricePerM?: number;
   /** Tag allowlist violations in the raw drafts. */
-  tagViolations: number;
-}
-
-export interface CompareManifest {
-  generated_at: string;
-  texts: Record<string, string>;
-  samples: CompareSample[];
-}
-
-export function getCompareDir(): string {
-  return process.env["TTS_COMPARE_DIR"] ?? join(process.cwd(), "data", "tts-compare");
-}
-
-export async function readCompareManifest(): Promise<CompareManifest> {
-  try {
-    return JSON.parse(await readFile(join(getCompareDir(), "manifest.json"), "utf8"));
-  } catch {
-    return { generated_at: "", texts: {}, samples: [] };
-  }
+  tagViolations?: number;
 }

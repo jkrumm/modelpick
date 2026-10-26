@@ -42,6 +42,26 @@ const WRITER_LETTERS = ["A", "B", "C", "D", "E", "F", "G"] as const;
 
 export const EXPERIMENTS: Experiment[] = [
   {
+    id: "writer-improved",
+    kind: "question",
+    title: "Podcast writer — improved pipeline",
+    question:
+      "Does the improved pipeline (sharing instead of staged argument, names introduced, a lint the reviewers see) sound better with the same writer?",
+    same: "writer model, source, show voices; the improved side also has a new editor brief and outline",
+    differs: "the pipeline version: bake-off prompts vs improved prompts. Order is shuffled per row",
+    pickable: true,
+    blind: true,
+    variants: [
+      { key: "a", letter: "A", label: "Version A", description: "" },
+      { key: "b", letter: "B", label: "Version B", description: "" },
+    ],
+    rows: [
+      { key: "opus", label: "Claude Opus 5.5 — the segment around the DBOS question" },
+      { key: "sol", label: "GPT-6 Sol — the segment around the DBOS question" },
+    ],
+    sampleId: ({ row, variant }) => `writerimp__${row}__${variant}`,
+  },
+  {
     id: "writer",
     kind: "question",
     title: "Podcast writer",
