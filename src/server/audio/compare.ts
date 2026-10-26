@@ -23,9 +23,29 @@ export interface CompareSample {
   streaming: string;
   aa_rank: string | null;
   /** "audition" = the Gemini 3.8 voice audition (real lane pipeline); absent = the cross-model comparison. */
-  set?: "audition" | "wave5";
+  set?: "audition" | "wave5" | "writer";
   /** The exact request(s) sent, audio omitted: model, style field, tags, voice config. */
   request?: string;
+  /** Podcast-writer bake-off cells only: who wrote this script and what it cost. Hidden in the UI until revealed. */
+  writer?: WriterCell;
+}
+
+/** One candidate's script for one segment, with the measurements shown on reveal. */
+export interface WriterCell {
+  /** Model id the voice owner ran as. */
+  model: string;
+  /** The final script, `Name: line` per turn. */
+  script: string;
+  words: number;
+  targetWords: number;
+  /** Wall time of draft + revision for this candidate (both segments), seconds. */
+  wallSeconds: number;
+  /** Projected writer cost for a 20-minute episode, USD, at list price. */
+  costUsdPerEpisode: number;
+  /** $/M output list price. */
+  outputPricePerM: number;
+  /** Tag allowlist violations in the raw drafts. */
+  tagViolations: number;
 }
 
 export interface CompareManifest {

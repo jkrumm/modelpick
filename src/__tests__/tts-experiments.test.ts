@@ -15,9 +15,9 @@ describe("tts experiments", () => {
   const views = resolveExperiments(manifest);
 
   it("resolves every wave-5 sample into exactly one experiment cell", () => {
-    const resolved = views.flatMap((v) =>
-      v.rows.flatMap((r) => Object.values(r.cells)),
-    );
+    const resolved = views
+      .filter((v) => v.experiment.id !== "writer")
+      .flatMap((v) => v.rows.flatMap((r) => Object.values(r.cells)));
     const wave5 = manifest.samples.filter((s) => s.set === "wave5");
     expect(
       resolved
@@ -25,6 +25,20 @@ describe("tts experiments", () => {
         .map((s) => s?.id)
         .toSorted(),
     ).toEqual(wave5.map((s) => s.id).toSorted());
+  });
+
+  it("resolves every writer sample into the blind writer question", () => {
+    const writer = views.find((v) => v.experiment.id === "writer");
+    const cells = (writer?.rows ?? []).flatMap((r) =>
+      Object.values(r.cells).filter(Boolean),
+    );
+    const samples = manifest.samples.filter((s) => s.set === "writer");
+    expect(cells.map((c) => c?.id).toSorted()).toEqual(
+      samples.map((s) => s.id).toSorted(),
+    );
+    expect(samples.every((s) => s.writer && s.writer.script.length > 0)).toBe(
+      true,
+    );
   });
 
   it("extracts distinct input texts for the writer-rule and number questions", () => {

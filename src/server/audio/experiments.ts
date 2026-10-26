@@ -26,6 +26,8 @@ export interface Experiment {
   differs: string;
   /** Pick the variant whose ears-verdict answers the question. Checks have none. */
   pickable: boolean;
+  /** Variants are listed by letter only; model names and measurements appear on reveal. */
+  blind?: boolean;
   variants: ExperimentVariant[];
   rows: ExperimentRow[];
   sampleId: (args: { row: string; variant: string }) => string;
@@ -36,7 +38,31 @@ const VOICE_ROWS: ExperimentRow[] = [
   { key: "Erinome", label: "Erinome (female co-host)" },
 ];
 
+const WRITER_LETTERS = ["A", "B", "C", "D", "E", "F", "G"] as const;
+
 export const EXPERIMENTS: Experiment[] = [
+  {
+    id: "writer",
+    kind: "question",
+    title: "Podcast writer",
+    question:
+      "Which model should write the podcast dialogue? Listen blind, pick the one you would put on the drive.",
+    same: "outline, brief, dossier, show bible, reviewer panel, voices (Gemini 3.8, Charon + Erinome)",
+    differs: "the voice-owning writer model (draft and revision)",
+    pickable: true,
+    blind: true,
+    variants: WRITER_LETTERS.map((letter) => ({
+      key: letter.toLowerCase(),
+      letter,
+      label: `Writer ${letter}`,
+      description: "",
+    })),
+    rows: [
+      { key: "opening", label: "Opening segment" },
+      { key: "interaction", label: "Most host interaction" },
+    ],
+    sampleId: ({ row, variant }) => `writer__${row}__${variant}`,
+  },
   {
     id: "english",
     kind: "question",

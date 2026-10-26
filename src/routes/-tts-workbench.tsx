@@ -14,6 +14,7 @@ import {
   Box,
   Button,
   Card,
+  Collapse,
   Group,
   Paper,
   SimpleGrid,
@@ -27,7 +28,11 @@ import {
   IconPlayerPauseFilled,
   IconPlayerPlayFilled,
 } from "@tabler/icons-react";
-import type { CompareManifest, CompareSample } from "~/server/audio/compare";
+import type {
+  CompareManifest,
+  CompareSample,
+  WriterCell,
+} from "~/server/audio/compare";
 import { resolveExperiments } from "~/server/audio/experiments";
 import type {
   ExperimentView,
@@ -118,7 +123,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         else audio.pause();
         return;
       }
-      if (!/^[1-4]$/.test(e.key)) return;
+      if (!/^[1-7]$/.test(e.key)) return;
       const sample = focusedRef.current?.samples[Number(e.key) - 1];
       if (!sample) return;
       e.preventDefault();
@@ -297,14 +302,18 @@ function PlayCell({
   picked,
   pickable,
   onPick,
+  revealed,
 }: {
   sample: CompareSample | undefined;
   variant: ExperimentVariant;
   picked: boolean;
   pickable: boolean;
   onPick: () => void;
+  /** Blind cards pass false until revealed; for ordinary cards it is irrelevant (no `writer` data). */
+  revealed: boolean;
 }) {
   const player = usePlayer();
+  const [showScript, setShowScript] = useState(false);
   if (!sample) {
     return (
       <Paper withBorder p="xs" radius="md" opacity={0.4}>
@@ -351,6 +360,23 @@ function PlayCell({
             </Badge>
           )}
         </Group>
+        {sample.writer && revealed && <WriterReveal writer={sample.writer} />}
+        {sample.writer && (
+          <>
+            <Button
+              size="compact-xs"
+              variant="subtle"
+              onClick={() => setShowScript((v) => !v)}
+            >
+              {showScript ? "hide script" : "script"}
+            </Button>
+            <Collapse expanded={showScript} w="100%">
+              <Text size="xs" style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                {sample.writer.script}
+              </Text>
+            </Collapse>
+          </>
+        )}
         {pickable && (
           <Button
             size="compact-xs"
@@ -367,6 +393,22 @@ function PlayCell({
   );
 }
 
+function WriterReveal({ writer }: { writer: WriterCell }) {
+  return (
+    <Stack gap={2} align="center">
+      <Text size="xs" fw={700}>
+        {writer.model}
+      </Text>
+      <Text size="xs" c="dimmed" ta="center">
+        ≈ ${writer.costUsdPerEpisode.toFixed(2)} / 20-min episode ·{" "}
+        {writer.words}/{writer.targetWords} words · {writer.wallSeconds.toFixed(0)} s
+        · ${writer.outputPricePerM}/M out
+        {writer.tagViolations > 0 ? ` · ${writer.tagViolations} tag violations` : ""}
+      </Text>
+    </Stack>
+  );
+}
+
 function ExperimentCard({
   view,
   pick,
@@ -378,6 +420,7 @@ function ExperimentCard({
 }) {
   const player = usePlayer();
   const { experiment } = view;
+  const [revealed, setRevealed] = useState(!experiment.blind);
   return (
     <Card withBorder padding="md" radius="md">
       <Stack gap="sm">
@@ -391,6 +434,16 @@ function ExperimentCard({
             >
               {experiment.kind === "check" ? "check — no pick" : "your call"}
             </Badge>
+            {experiment.blind && (
+              <Button
+                size="compact-xs"
+                variant={revealed ? "filled" : "light"}
+                color="grape"
+                onClick={() => setRevealed((v) => !v)}
+              >
+                {revealed ? "hide writers" : "reveal writers"}
+              </Button>
+            )}
           </Group>
           <Text size="sm">{experiment.question}</Text>
         </div>
@@ -398,13 +451,15 @@ function ExperimentCard({
           <b>Same:</b> {experiment.same}. <b>Differs:</b> {experiment.differs}.
         </Text>
         <SpokenTexts view={view} />
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="xs">
-          {experiment.variants.map((v) => (
-            <Text key={v.key} size="xs" c="dimmed">
-              <b>{v.letter}</b> {v.description}
-            </Text>
-          ))}
-        </SimpleGrid>
+        {experiment.variants.some((v) => v.description) && (
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="xs">
+            {experiment.variants.map((v) => (
+              <Text key={v.key} size="xs" c="dimmed">
+                <b>{v.letter}</b> {v.description}
+              </Text>
+            ))}
+          </SimpleGrid>
+        )}
         {view.rows.map(({ row, cells }) => (
           <Box
             key={row.key}
@@ -433,6 +488,7 @@ function ExperimentCard({
                   picked={pick === v.key}
                   pickable={experiment.pickable}
                   onPick={() => onPick(v.key)}
+                  revealed={revealed}
                 />
               ))}
             </SimpleGrid>
@@ -515,7 +571,7 @@ export function TtsWorkbench({ manifest }: { manifest: CompareManifest }) {
       <Text size="xs" c="dimmed">
         Settled and not up for debate: Gemini 3.8 everywhere (chat on
         flash-lite, briefings and podcasts on flash), voices Charon and Erinome.
-        Keys: hover a row, then <b>1–4</b> plays A–D, <b>space</b> pauses.
+        Keys: hover a row, then <b>1–7</b> plays A–G, <b>space</b> pauses.
       </Text>
       {questions.map((view) => (
         <ExperimentCard
