@@ -39,7 +39,7 @@ const VOICE_ROWS: ExperimentRow[] = [
 ];
 
 const WRITER_LETTERS = ["A", "B", "C", "D", "E", "F", "G"] as const;
-const REMATCH_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I"] as const;
+const REMATCH_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"] as const;
 
 export const EXPERIMENTS: Experiment[] = [
   {
@@ -90,10 +90,10 @@ export const EXPERIMENTS: Experiment[] = [
     kind: "question",
     title: "Podcast writer — rematch",
     question:
-      "Which IU-only writer should voice the podcast now that expression, context and prompts are fixed? PARTIAL: only two candidates fit the $4 IU cap (the rest need a cap raise) — listen blind, pick the one you would put on the drive; the reveal shows model, cost per episode and script stats.",
+      "Which IU-only writer should voice the podcast now that expression, context and prompts are fixed? Five candidates (Opus and Argon were ruled out on price before listening) — listen blind, pick the one you would put on the drive; the reveal shows model, cost per episode and script stats.",
     same: "research dossier with glossary, fresh frozen outline, editor brief, show bible, production reviewer panel, tightening pass, expressive synth (tags + per-turn delivery), voices (Gemini 3.8, Charon + Erinome)",
     differs:
-      "the voice-owning writer model (draft and revision); one entry is a hybrid — a cheap model drafts, Opus only revises. Grok, GLM and Kimi are out (owner verdict 2026-10-26)",
+      "the voice-owning writer model (draft and revision). Grok, GLM, Kimi, Opus-agentic, Argon and the Opus hybrid are out (owner verdicts 2026-10-26)",
     pickable: true,
     blind: true,
     variants: REMATCH_LETTERS.map((letter) => ({
