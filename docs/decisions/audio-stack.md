@@ -6,8 +6,8 @@
 > (US-routed, like the `gpt-4o-transcribe` it replaces) with `whisper` for EU/diarization gaps —
 > the primary STT's US routing is still an open residency question. See
 > [STT re-pick (2026-10-15)](#stt-re-pick-2026-10-15-gpt-transcribe).
-> **STT comparison (2026-10-25):** Voxtral 3 (EU) matches the US models on German; recommendation pending —
-> see [German STT comparison](#german-stt-comparison-2026-10-25--recommendation-pending-johannes-verdict).
+> **STT decided (2026-10-25):** `voxtral-mini-transcribe-3-0` (EU) is the audio-gateway default, deployed
+> 2026-10-25 with `gpt-transcribe` → `whisper` as fallback — see [German STT comparison](#german-stt-comparison-2026-10-25--decided-voxtral-mini).
 > **Status of this record:** partly superseded — see §TTS re-pick (2026-08-26): ElevenLabs via
 > Replicate, which moved the top-level 2026-05-25 TTS decision (Gemini 3.1 Flash default).
 > Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
@@ -376,7 +376,7 @@ clearly" style on number-dense turns; no `speed` parameter exists. Found on the 
 carry a trailing C2PA chunk that plays as noise if only the 44-byte header is stripped — the gateway
 asks `AUDIO_L16` and parses RIFF chunks as a second line.
 
-## German STT comparison (2026-10-25) — recommendation pending Johannes' verdict
+## German STT comparison (2026-10-25) — decided: Voxtral mini
 
 Measured on `/stt`, public German audio only (residency rule): 15 FLEURS-de clips (244 words), 2 FLEURS clips
 degraded to phone quality (44 words), 12 min of LibriVox *Der Schimmelreiter* scored against the Gutenberg text
@@ -427,24 +427,23 @@ Findings that change what you do:
   project); use `generateContent` and read `audioTranscription.text`. It does not label speakers there.
 - **`whisper` (Azure Sweden Central) rate-limits bursts** (503 TooManyRequests after ~8 calls in a row); its
   latencies in the run include backoff and are blanked where they obviously do. It is also the slowest on long audio.
-- **MacWhisper's "custom" cloud provider is dead.** Its stored base URL points at a MacBook tailnet host that no
-  longer resolves, even from the MacBook (the retired MLX Whisper proxy). Nothing to fix unless you want it
-  pointed at audio-gateway; local engines were run through `mw transcribe --model <engine>:<id>`, which does not
+- **MacWhisper's "custom" cloud provider** pointed at the retired MLX Whisper proxy at test time; since
+  2026-10-25 it points at audio-gateway with model `voxtral-mini-transcribe-3-0`; local engines were run through `mw transcribe --model <engine>:<id>`, which does not
   touch the app's selection.
 
-Recommendation per use (pending your verdict):
+Decision per use (Johannes, 2026-10-25):
 
 | Use | Pick | Why |
 |-|-|-|
 | Hermes voice messages (personal, short) | `voxtral-mini-transcribe-3-0` via audio-gateway; `gpt-transcribe` as fallback | EU-resident, tied-best on short German, 0.45 s median latency, $0.0035/min, closes the open residency question on the primary STT. Risk: public preview, 12 days old. |
-| MacWhisper dictation (local) | keep Qwen3-ASR 1.7B | Ties the best cloud short WER (4.1) at 1.9 s per clip; Parakeet v3 is 7.0 and WhisperKit's raw formatting is worst. Parakeet v3 is the pick for long local files (RTF 0.005 vs 0.10, same 8.3 %). |
+| MacWhisper dictation (local) | Large v3 Turbo when an AI cleanup prompt runs after dictation; Parakeet v3 without cleanup or in noise. Both stream; Qwen3-ASR 1.7B does not | Turbo ties Qwen3 on normalised short WER (4.1) and its weak raw formatting (16.7) is what the cleanup fixes; Parakeet v3 (7.0 short, 4.5 noisy) is the most robust raw output and the pick for long local files (RTF 0.005). Qwen3 is the most accurate but only transcribes after you stop speaking. |
+| MacWhisper file transcription | `voxtral-mini-transcribe-3-0` via the app's custom cloud provider → audio-gateway | Same EU route and cost tracking as Hermes; a local engine when offline. |
 | Long multi-speaker recordings | `voxtral-small-transcribe-3-0` (EU, segment diarization, 60 min cap); `elevenlabs/scribe-v2` when word timestamps or >10 speakers matter and the content is not personal | Voxtral small 6.0 / Scribe 6.0 long WER; both diarized the duo clip perfectly. |
 
-**Can audio-gateway swap STT by config alone?** Not quite. `STT_MODEL` (default `gpt-transcribe`,
+**Can audio-gateway swap STT by config alone?** Not quite (as found at test time; the swap shipped 2026-10-25, audio-gateway 04fe545). `STT_MODEL` (default `gpt-transcribe`,
 `audio-gateway/src/config.ts:184`) is only the fallback; `STT_MODELS` in `model-resolution.ts:76` is an allowlist that
 remaps anything else. A Voxtral swap is therefore one allowlist line plus the env value — the route and multipart shape
 are identical, so no adapter. Scribe v2 and Grok would need a real Replicate adapter (data URI in, JSON out).
-Nothing was changed in audio-gateway.
 
 ## Superseded: local Fish S2 Pro + Parakeet (2026-04-29)
 
