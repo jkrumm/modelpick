@@ -31,7 +31,7 @@ per-file. Two things this source needs that the others don't:
 
 The committed snapshot `src/server/collectors/epoch-benchmarks.ts` (regenerated
 wholesale on every `bun run collect`, same relationship as `iu-catalog.ts` ↔
-`import-portal.ts`) captures per-benchmark
+`sync-catalog.ts`) captures per-benchmark
 `random_baseline`/`score_ceiling`/`in_eci`/`release_date`/`superseded_by` and
 exports `benchmarkSaturation()` — given a benchmark and its observed scores,
 reports what share of the field sits near the ceiling, i.e. whether the

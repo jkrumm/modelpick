@@ -21,7 +21,7 @@ re-derive either from the data — a refresh updates the numbers, not the rules.
 
 | Layer | Refreshed by | Notes |
 |-|-|-|
-| IU catalog (`src/db/iu-catalog.ts`) | `/update-iu-models` | Needs a human-saved HTML export. Skip when no new export exists. |
+| IU catalog (`src/db/iu-catalog.ts`) | `make models` (step 0 of `bun run refresh`) | Live per-leg `/models`; no export needed. `HIDDEN_CALLABLE` covers ids no leg lists. |
 | Live access + residency (`capability_probe`) | `bun run probe` | Listed ≠ callable. This is the only thing that proves access. |
 | Leaderboards (`metric_snapshot`) | `bun run collect` | OpenRouter · AA · Epoch · EQ-Bench · LMArena. |
 | Recommendations (`recommendation`) | `bun run recommend` | Re-scores every category against the new metrics. |
@@ -31,9 +31,8 @@ re-derive either from the data — a refresh updates the numbers, not the rules.
 
 ## Steps
 
-1. **Catalog, only if there is something new.** Ask once whether a fresh check-key export
-   exists. If yes, run `/update-iu-models` and come back. If no, skip — do not block the
-   rest of the loop on it.
+1. **Catalog.** `bun run refresh` syncs it as step 0; run `make models` alone to look at the
+   added/removed diff and the "referenced but unlisted" list before the rest.
 
 2. **Refresh the metrics.**
    ```bash

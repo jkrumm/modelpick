@@ -51,7 +51,7 @@ Four facts that resolve a large share of "which model for X":
 - **Per-model metrics:** `metric_snapshot` (quality from ArtificialAnalysis, price from
   OpenRouter, throughput/latency). Normalization: `src/server/scoring/normalize.ts`.
 - **Access + residency:** latest `capability_probe` per model (`accessible`, `residency`).
-- **Catalog:** `src/db/iu-catalog.ts` / `models` table.
+- **Catalog:** `src/db/iu-catalog.ts` / `models` table (synced by `make models`; `owned_by` = backend routes, `legs` = accepting legs).
 
 To query live data, prefer a short read against the DB or rerun `bun run recommend` /
 `bun run probe`; if no DB is available, reason from `iu-catalog.ts` + the latest committed

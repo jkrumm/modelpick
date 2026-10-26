@@ -205,7 +205,7 @@ export function metricNameOf(sourceFile: string): string {
 
 // ── Generated snapshot (src/server/collectors/epoch-benchmarks.ts) ──────────
 // Regenerated wholesale on every collection run — same shape as
-// src/db/iu-catalog.ts's relationship to import-portal.ts. The helper function
+// src/db/iu-catalog.ts's relationship to sync-catalog.ts. The helper function
 // text is a fixed template (not derived from Epoch's data), so the output is
 // byte-stable across runs whenever the underlying metadata doesn't change.
 

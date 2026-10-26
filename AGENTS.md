@@ -27,6 +27,7 @@ single SQLite file (`modelpick.db`, gitignored).
   interactively signed in there. IU key in `op://common/anthropic`, leaderboard keys in
   `op://vps/modelpick`.
 - **Makefile targets**: `make dev`, `make build`, `make db-push`, `make db-seed`,
+  `make models|probe|collect|refresh` (catalog sync, access probe, metrics, full refresh),
   `make check`, `make deploy`, `make verify`, `make logs`,
   `make refresh-setup|refresh-check|refresh-teardown` (the 06:00 LaunchAgent). The
   picking commands that matter day to day are bun scripts, not Makefile targets:
@@ -230,16 +231,26 @@ syncs to the SQLite file with `bun run db:push` (`drizzle-kit push`, dialect `sq
 
 ## IU model catalog — how it stays current
 
-The IU model list comes from the self-service portal (Blazor behind SSO, not fetchable
-programmatically): <https://ue-self-service.app.iu-it.org/check-key>. Flow:
-`save page HTML → bun run scripts/import-portal.ts <file>` → regenerates the committed
-snapshot `src/db/iu-catalog.ts` + upserts models. Live `/v1/models` aliases (`tts`,
-`whisper`, …) merge in at probe time. **Listed ≠ callable** — `bun run probe` is what
-verifies real access and residency.
+The catalog comes from the IU gateway's live per-leg `GET /models` endpoints (OpenAI,
+Anthropic, Gemini, Decisions), which return exactly what the check-key page shows and
+need only `IU_API_KEY` — no SSO, no HTML export. `make models` (`scripts/sync-catalog.ts`,
+step 0 of `bun run refresh`) merges the legs by exact id (case-sensitive, verbatim),
+rewrites the committed snapshot `src/db/iu-catalog.ts`, upserts `models` (adds `owned_by`
+= the backend route list, the best residency hint, and `legs` = the legs that accept the
+id), prints an added/removed diff and sets `iu_listed=false` on vanished ids. It never
+deletes rows: probes and metrics hang off them. `make models` also refreshes the
+Replicate speech catalog. **Listed ≠ callable** — `make probe` (`bun run probe`) proves
+real access and residency.
+
+**`/models` is not complete.** `HIDDEN_CALLABLE` in `src/server/iu/catalog.ts` lists ids that
+are callable and billed but in no leg (start: `claude-haiku-5-5-eu`); add one only after
+`make probe` proves it callable. An id referenced by `deployments.ts` or `MY_STACK` is
+never delisted by the sync — the summary prints it as "referenced but unlisted"
+(today also `claude-sonnet-5[1m]`, a Claude Code alias, and `grok-4.20-reasoning`, external).
 
 ## Daily refresh pipeline
 
-`bun run refresh` runs `scripts/refresh.ts` locally: probe access → collect external
+`bun run refresh` runs `scripts/refresh.ts` locally: sync catalog → probe access → collect external
 metrics (OpenRouter, ArtificialAnalysis, Epoch AI, EQ-Bench, LMArena) → recommend (re-score + persist picks +
 rationale). Steps are independent; one failure doesn't abort the rest, but the exit is 1.
 A collector that fails or returns 0 rows is a *degraded source*: its siblings' metrics are still
@@ -250,7 +261,7 @@ Green tests ≠ working pipeline — confirm against live data after changes. On
 `com.jkrumm.modelpick-refresh` LaunchAgent (`make refresh-setup`, 06:00, no `KeepAlive` —
 a failed step must not retry all day) runs it; `make refresh-check` shows the last exit.
 After the run, `src/server/snapshot-commit.ts` commits and pushes ONLY the regenerated
-`epoch-benchmarks.ts` to `origin master` (`git commit --only`) when it differs from HEAD, so the
+`epoch-benchmarks.ts` and `iu-catalog.ts` (one commit each) to `origin master` (`git commit --only`) when it differs from HEAD, so the
 mini's checkout never stays dirty; it skips with a log line off `master`, mid merge/rebase/
 cherry-pick, or when the file has someone else's staged changes; it pushes only when the snapshot commit is the sole unpushed one, and a failed push leaves the
 local commit. It never fails the refresh.
@@ -319,12 +330,9 @@ are committed snapshots in `models.ts` (`ROUTE_RESIDENCY`, `CLAUDE_CONTEXT_WINDO
 
 ## Project skills
 
-Two skills live in `.claude/skills/` and load only inside this repo. **Proactively suggest
+The skills live in `.claude/skills/` and load only inside this repo. **Proactively suggest
 them** when the situation matches — I rarely remember to invoke them by name:
 
-- **`/update-iu-models`** — refresh the IU catalog from a check-key HTML export (import →
-  diff → push → seed → optional probe → commit snapshot). Trigger when I mention a new
-  IU model list, the check-key page, an export/HTML I saved, or that models look stale.
 - **`/investigate-models`** — analyze catalog + metrics to recommend the optimal model for a
   use-case, and surface My Stack drift. Trigger when I ask "which model for X", "is there
   something better for Y", or to review my stack.
