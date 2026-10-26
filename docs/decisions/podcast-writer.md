@@ -310,5 +310,24 @@ the output side (verbose), not the loop.
 Blind letters on `/tts` → "Podcast writer — rematch": B Haiku, D Flash, E Sonnet, G Sol, J Luna (letters kept in
 audio-gateway `data/wave3/letters.json`, not shown in the UI).
 
-**A/B fixture (`503c28f0` v1 vs v2):** pending — the v2 job is still in its research stage.
+**A/B fixture (`503c28f0` v1 old pipeline vs `b78cb035` v2 current pipeline, same topic and source).** Both scripts linted
+by today's rules (`scripts/ab-fixture.ts` in audio-gateway); v2 cost $4.90 for the job (default writer `claude-opus-5-5`).
+
+| Metric | v1 | v2 |
+|-|-|-|
+| words / turns | 2364 / 70 | 1500 / 62 |
+| meta-hedge / notes-ignorance | 3 / 5 | 0 / 0 |
+| host-imbalance findings | 1 | 0 |
+| host A word share | 74% | 30% |
+| questions asked A / B | 0 / 29 | 19 / 1 |
+| tags / deliveries | 3 / 0 | 10 / 12 |
+| tags per ten turns | 0.4 | 1.6 |
+| expression findings / all lint findings | 6 / 17 | 1 / 3 |
+| unintroduced terms | 2 | 2 |
+| brief humor | sparse | natural |
+
+The Wave 3 fixes show up in the numbers: no meta-hedging, no "not in your notes", the turn ownership flipped from one host
+lecturing to the other asking (v2 swaps who leads), tags inside the band, deliveries in use, humor raised by the listener
+brief. v2 is 37% shorter than v1 — whether that is the 15-minute target working or content lost is for the ears; the two
+unintroduced terms are the same in both.
 
