@@ -1,3 +1,5 @@
+import { resolveListPrice, weightedAverage } from "./list-price.js";
+import type { PricePoint } from "./list-price.js";
 import { clamp } from "./utils.js";
 
 // Accepts both NormalizedMetric (collectors) and MetricSnapshot (DB reads)
@@ -22,29 +24,6 @@ export interface ModelMetrics {
   cost: number | null; // 0-1, higher = cheaper
   speed: number | null; // 0-1, higher = faster
   writing: number | null; // 0-1, higher = better (prose quality; no fallback to quality)
-}
-
-type PricePoint = { value: number; confidence: number };
-
-// List-price precedence: models.dev when it covers the model, else the average of
-// every other source (AA, OpenRouter). Measured IU rates (price_*_per_m) are not read
-// by this scorer; they price ccbench rows in bench/summary.ts and win there.
-const PREFERRED_PRICE_SOURCE = "modelsdev";
-
-function listPrice(bySource: Map<string, PricePoint[]> | undefined): number | null {
-  if (bySource === undefined) return null;
-  const preferred = bySource.get(PREFERRED_PRICE_SOURCE);
-  if (preferred !== undefined) return weightedAverage(preferred);
-  return weightedAverage([...bySource.values()].flat());
-}
-
-function weightedAverage(values: { value: number; confidence: number }[]): number | null {
-  if (values.length === 0) return null;
-  const totalWeight = values.reduce((sum, v) => sum + v.confidence, 0);
-  if (totalWeight === 0) {
-    return values.reduce((sum, v) => sum + v.value, 0) / values.length;
-  }
-  return values.reduce((sum, v) => sum + v.value * v.confidence, 0) / totalWeight;
 }
 
 function minmax(values: (number | null)[]): (number | null)[] {
@@ -132,8 +111,8 @@ export function normalizeMetrics(rawMetrics: MetricInput[]): ModelMetrics[] {
   const rawCoding = modelIds.map((id) =>
     weightedAverage(grouped.get(id)?.get("coding_index") ?? []),
   );
-  const rawPriceIn = modelIds.map((id) => listPrice(prices.get(id)?.get("price_in")));
-  const rawPriceOut = modelIds.map((id) => listPrice(prices.get(id)?.get("price_out")));
+  const rawPriceIn = modelIds.map((id) => resolveListPrice(prices.get(id)?.get("price_in")));
+  const rawPriceOut = modelIds.map((id) => resolveListPrice(prices.get(id)?.get("price_out")));
   const rawThroughput = modelIds.map((id) =>
     weightedAverage(grouped.get(id)?.get("throughput") ?? []),
   );
