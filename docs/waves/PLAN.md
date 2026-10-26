@@ -87,26 +87,32 @@ Left behind.
   (`data/tts-compare/manifest.json`, `src/server/audio/{compare,experiments}.ts`, `src/routes/-tts-workbench.tsx`,
   `src/__tests__/tts-experiments.test.ts`). Wave 2 deletes that code; decide whether to commit or drop them first.
 
-## Wave 2 — Cut the bloat            <!-- status: active -->
+## Wave 2 — Cut the bloat (TTS frozen)            <!-- status: active -->
+**TTS freeze (orchestrator, 2026-10-26):** audio-gateway's active Wave 3 ends with the owner picking a podcast
+writer in a blind rematch on modelpick `/tts`, and it edits modelpick's TTS files right now (the uncommitted
+`data/tts-compare/manifest.json`, `src/server/audio/{compare,experiments}.ts`, `src/routes/-tts-workbench.tsx`,
+`src/__tests__/tts-experiments.test.ts` are **its** work: never stage, revert, stash or delete them). Everything
+TTS stays untouched in this wave: `tts*` routes, `-tts-*`, `-gemini-tts-docs`, `-audio-server-fns`,
+`api.tts-audio.*`, the TTS modules in `src/server/audio/`, `scripts/tts-*`, `data/tts-compare`,
+`docs/gemini-tts.md`, the `demo` table if `/tts` reads it, and their tests. Wave 5 removes or moves them
+once that rematch has its verdict. `git add` explicit paths only.
 - [ ] Scripts: delete `adhoc-*`, `benchmark-bakeoff`, `benchmark-crossprovider`, `benchmark-tool-calling`,
-      `bench-fast`, `bench-writing`, `bench-review-judge`, `bench-decision`, `tts-compare`, `tts-audition`,
-      `tts-wave5`, `stt-compare`, `stt-testset`, `seed-demos`, `pick`, `cap`, `route-map`, plus their
-      package.json entries. Keep `benchmark-throughput` (live speed metrics feed scoring).
-- [ ] Server + tests: delete `src/server/audio/*`, `bench/{fast-metrics,fast-tasks,iu-client,rates,writing-*,
-      review-judge,decision-*}`, `pick/*` except `anthropic.ts`, `iu/index.ts`, and the matching tests
-      (fast-metrics, fast-tasks, writing-metrics, review-judge, decision-metrics/summary/tasks, audio,
-      stt-coverage, stt-score, tts-experiments; shrink `pick.test` to the anthropic cases). Check whether
-      `rates.ts` has non-cut importers first.
-- [ ] Routes: delete `tts*`, `stt*`, `-tts-*`, `-stt-*`, `-gemini-tts-docs`, `-audio-server-fns`,
-      `api.*-audio.*`, `decision*`, `bench.tsx` + `-bench-server-fns`. Prune `NAV_ITEMS`. Fold `index.tsx`
-      ("Decider") into `/stack` or `/catalog` if it duplicates them; otherwise leave it. Drop the `demo`
-      table and its queries (`bunx drizzle-kit push --force`).
-- [ ] Data/docs: `git rm` `data/tts-compare`, `data/stt-compare`, `docs/gemini-tts.md`,
-      `docs/experiments/*` except anything a `docs/decisions/*` file links to (re-point or inline the
-      numbers). Keep `docs/decisions/*`. Update AGENTS.md, README, `docs/pipelines.md` and
-      `docs/GUIDELINES.md`, which still name the cut commands.
-- [ ] `make check`, then `bun run build` and a fallow/dead-code pass (`/analyze` or `bunx fallow`) to catch
-      orphans the cut left behind. Record LOC before/after.
+      `bench-fast`, `bench-writing`, `bench-review-judge`, `bench-decision`, `stt-compare`, `stt-testset`,
+      `seed-demos` (if TTS does not need it), `pick`, `cap`, `route-map`, plus their package.json entries.
+      Keep `benchmark-throughput`, which feeds scoring with live speed metrics.
+- [ ] Server + tests: delete the STT modules of `src/server/audio/` (`stt-compare`, `stt-score`), `bench/{fast-metrics,
+      fast-tasks,iu-client,rates,writing-*,review-judge,decision-*}`, `pick/*` except `anthropic.ts`, `iu/index.ts`,
+      and the matching tests (fast-metrics, fast-tasks, writing-metrics, review-judge,
+      decision-metrics/summary/tasks, stt-coverage, stt-score; shrink `pick.test` to the anthropic cases).
+      Check importers first. If a TTS file imports something on this list, keep that thing.
+- [ ] Routes: delete `stt*`, `-stt-*`, `api.stt-audio.*`, `decision*`, `bench.tsx` + `-bench-server-fns`. Prune
+      `NAV_ITEMS`. Fold `index.tsx` ("Decider") into `/stack` or `/catalog` only if it duplicates them.
+- [ ] Data/docs: `git rm` `data/stt-compare` and `docs/experiments/*`, except anything a `docs/decisions/*`
+      file or audio-gateway's PLAN links to (re-point or inline the numbers). Keep `docs/decisions/*`. Update
+      AGENTS.md, README, `docs/pipelines.md` and `docs/GUIDELINES.md` wherever they name cut commands.
+- [ ] `make check` (the foreign uncommitted TTS edits are part of the tree. If they break the check, say so in
+      Left behind and do not fix them), then `bun run build`, then a fallow/dead-code pass to catch orphans.
+      Record LOC before and after.
 **Left behind:**
 
 ## Wave 3 — Better sources            <!-- status: pending -->
@@ -139,6 +145,9 @@ Left behind.
 **Left behind:**
 
 ## Wave 5 — Close            <!-- status: pending -->
+- [ ] Only if audio-gateway's rematch wave is `done` (check its PLAN.md): remove the TTS workbench, or move it
+      to audio-gateway if the owner still uses it. That covers the routes, `src/server/audio/*`, `scripts/tts-*`,
+      `data/tts-compare` and `docs/gemini-tts.md`. Otherwise leave it and say so.
 - [ ] Full `make check`, `/review` of the overhaul diff since `97ac178`, fix findings.
 - [ ] Delete this PLAN's finished waves (git history keeps them) or replace PLAN.md with a one-line "no active wave".
 - [ ] Hand back for `make deploy` + `make verify` (orchestrator runs it).
