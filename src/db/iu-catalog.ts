@@ -2054,10 +2054,10 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "openai",
     "family": null,
     "modality": "llm",
-    "display_name": "gpt-6.1-terra",
-    "context_window": null,
+    "display_name": "GPT-6.1 Terra",
+    "context_window": 1050000,
     "iu_listed": true,
-    "owned_by": "system",
+    "owned_by": "OpenAI Vendor Group Key,IU AI Middleware Sweden Central Global Sink,AWS mantle us-east-1 GPT-5.4 chat,IU GDPR Sink Sweden",
     "legs": "openai"
   },
   {
