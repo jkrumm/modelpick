@@ -2050,6 +2050,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-6.1-terra",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-6.1-terra",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-audio",
     "provider": "openai",
     "family": null,
@@ -2473,6 +2484,28 @@ export const IU_CATALOG: ModelInsert[] = [
     "family": null,
     "modality": "llm",
     "display_name": "Kimi K3",
+    "context_window": 1048576,
+    "iu_listed": true,
+    "owned_by": "Requesty-Global",
+    "legs": "openai"
+  },
+  {
+    "id": "kimi-k3.1-pro",
+    "provider": "moonshot",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Kimi K3.1 Pro",
+    "context_window": 1048576,
+    "iu_listed": true,
+    "owned_by": "Requesty-Global",
+    "legs": "openai"
+  },
+  {
+    "id": "kimi-k3.1-pro-highspeed",
+    "provider": "moonshot",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Kimi K3.1 Pro Highspeed",
     "context_window": 1048576,
     "iu_listed": true,
     "owned_by": "Requesty-Global",
