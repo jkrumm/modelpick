@@ -1,7 +1,7 @@
 # Execution-Mode Framework — Where Work Runs
 
 > **Current verdict (2026-10-05):** four lanes start agent work — `@implementer` (native
-> subagent), `agw dispatch` (OpenCode worker), an `rd wave` tab, `warden run` — plus the
+> subagent), `agw-legacy dispatch` (OpenCode worker), an `rd wave` tab, `warden run` — plus the
 > inline, MCP (`check`/`review`/`otel`) and `/research` modes; this is the rationale record behind
 > dotfiles' operational table and `docs/agent-platform.md`. **A settled multi-file edit now
 > defaults to `mcp__agent-gateway__dispatch`** (tier `implement`, off Max), not a native subagent —
@@ -88,7 +88,7 @@ Escalate a tier only when the one below can't do the job:
 
 1. **Parallel `mcp__agent-gateway__*` calls in one turn** — near-zero marginal cost. The default for
    independent, verifiable units. Under-used relative to its value.
-2. **`agw dispatch`** — near-zero (IU per-token, off Max), for a bounded episode that
+2. **`agw-legacy dispatch`** — near-zero (IU per-token, off Max), for a bounded episode that
    doesn't need this session's context.
 3. **Background `Agent` driving workers** — moderate (a thin Max orchestrator that delegates,
    doesn't grind), for long detachable work.
