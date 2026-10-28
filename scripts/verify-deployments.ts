@@ -13,7 +13,7 @@
  * agent-gateway rows are the exception: their `config_ref` (routing.ts) keeps
  * naming retired ids in comments and constants, so a substring match passes
  * falsely. Their model_id is compared with `routes[slot].model` of the live
- * routing table instead (`agw routing --json`); when `agw` is unavailable they
+ * routing table instead (`agw-legacy routing --json`); when `agw-legacy` is unavailable they
  * fall back to the substring check, with a notice. The reverse drift is caught
  * too: a live route with no agent-gateway row is reported as `unrecorded` and
  * fails the run like a broken row.
@@ -52,10 +52,10 @@ function pathOf(configRef: string): string {
   return colon === -1 ? configRef : configRef.slice(0, colon);
 }
 
-/** Route name → live model id from `agw routing --json`, or null when agw cannot answer. */
+/** Route name → live model id from `agw-legacy routing --json`, or null when agw-legacy cannot answer. */
 function liveRoutes(): Map<string, string> | null {
   try {
-    const res = spawnSync("agw", ["routing", "--json"], { encoding: "utf8" });
+    const res = spawnSync("agw-legacy", ["routing", "--json"], { encoding: "utf8" });
     if (res.status !== 0) return null;
     const parsed = JSON.parse(res.stdout) as {
       routes?: Record<string, { model?: string }>;
@@ -74,7 +74,7 @@ function liveRoutes(): Map<string, string> | null {
 const live = liveRoutes();
 if (live === null) {
   console.log(
-    `notice: agw routing unavailable — ${LIVE_SERVICE} rows fall back to the routing.ts substring check\n`,
+    `notice: agw-legacy routing unavailable — ${LIVE_SERVICE} rows fall back to the routing.ts substring check\n`,
   );
 }
 

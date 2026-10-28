@@ -147,7 +147,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
 
   // ── agent-gateway ──────────────────────────────────────────────────────────────
   // The model_id of every row below is checked against the LIVE routing table
-  // (`agw routing --json`) by scripts/verify-deployments.ts, not against routing.ts
+  // (`agw-legacy routing --json`) by scripts/verify-deployments.ts, not against routing.ts
   // text — a substring grep let these rows pass for weeks after the 2026-10-14/15
   // move to Haiku 5.5 EU, because routing.ts still names the old ids in comments.
   {
@@ -560,7 +560,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
       "inherited: submits no model, so it runs agent-gateway's `dispatch` route (backend iu, harness opencode, fallback claude-sonnet-5[1m] on max). Changing agent-gateway's dispatch route silently changes this slot",
     config_ref: "warden/scripts/loop/work.py:2168-2172",
     rationale:
-      "Warden defers: it sends no model, so the model is whatever agent-gateway's `dispatch` route says — claude-haiku-5-5-eu since 2026-10-14 (before: deepseek-v4.1-flash). The earlier glm-5.3-flash pin (TRIAGE_AUTO_DISPATCH_MODEL) died with triage.py in the 2026-10-04 split. Verify against `agw routing --json`, not warden's files.",
+      "Warden defers: it sends no model, so the model is whatever agent-gateway's `dispatch` route says — claude-haiku-5-5-eu since 2026-10-14 (before: deepseek-v4.1-flash). The earlier glm-5.3-flash pin (TRIAGE_AUTO_DISPATCH_MODEL) died with triage.py in the 2026-10-04 split. Verify against `agw-legacy routing --json`, not warden's files.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
     decided_at: "2026-10-14",
     verified_at: VERIFIED,
