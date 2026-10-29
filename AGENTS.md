@@ -88,6 +88,13 @@ wired in which file". They are different questions and the gap between them is t
   `VERIFIED` when nothing is broken. Rows whose config uses a tier alias, an inherited
   value, or a deliberate unset set `literal_id: false` and are reported as *indirect*
   rather than passing silently.
+- **Workloads that moved to agent-workflows** (review, check, research, otel, prose, diagram,
+  triage, podcast, audio, image) have `config_ref: "agw-route:<route-id>"` (comma-separated for
+  a slot spanning routes). They are verified against `agw routes --format json`, the platform's
+  route table, not a source file; `agw` unavailable fails the run. The `service` column keeps
+  its old value (the `SERVICE` enum in `schema.ts` has no `agent-workflows` yet). Rows still
+  in agent-gateway (`dispatch*`, `prose_write`, `read_image`, `read_drawing`) are compared
+  with `agw-legacy routing --json`.
 - `/stack` flags each slot: `unresolvable` (id not in the catalog), `inaccessible`,
   `drift` (the category recommendation names a different model), `stale` (`verified_at`
   > 30 days). There is deliberately **no residency flag** — residency stays a fact on
@@ -118,7 +125,8 @@ The four facts that decide most questions before they are asked:
   Claude Code (and so every agent-gateway job on the `claude` harness) can only run Anthropic-leg
   ids. agent-gateway `dispatch` and warden episodes run **OpenCode**, which reaches the OpenAI leg, so
   `deepseek-v4.1-flash` and the other OpenAI-route ids are reachable there. Which model each
-  route uses: agent-gateway `GET /api/routing`. GLM is retired from routing (2026-09-23).
+  route uses: `agw routes` (agent-workflows workloads) or `agw-legacy routing --json`
+  (agent-gateway `dispatch`). GLM is retired from routing (2026-09-23).
 - **Thinking is the quality lever, not overhead.** Luna runs 16.8 at `none` to 37.5 at `max`.
   Set the effort explicitly — `glm-5.3-flash` defaults to `max`, which is its worst setting.
 - **When a call returns empty, raise the budget before lowering the effort.** Unused budget is
