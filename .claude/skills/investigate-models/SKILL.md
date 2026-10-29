@@ -19,9 +19,9 @@ can act on it (e.g. update My Stack).
 Four facts that resolve a large share of "which model for X":
 
 1. **`gpt-5.6-luna`, `deepseek-v4.1-flash` and `gemini-3.8-flash` 404 on the Anthropic leg.**
-   If the slot is Claude Code or an agent-gateway route on the `claude` harness, the candidate set is
-   only Anthropic-leg ids. An agent-gateway `dispatch` route or warden episode runs OpenCode, which
-   reaches the OpenAI leg too. Check the slot's harness (`agw routes --format json`; `agw-legacy routing --json` for `dispatch`) before
+   If the slot is Claude Code or an `agw` route on the `claude` harness, the candidate set is
+   only Anthropic-leg ids. A route on the OpenCode harness reaches the OpenAI leg too. Check the
+   slot's harness (`agw routes --format json`) before
    comparing anything.
 2. **The question is often the effort, not the model.** `glm-5.3-flash` defaults to `max`, which
    spends 56x the reasoning of `high` for no better output. Ask what effort the slot runs at

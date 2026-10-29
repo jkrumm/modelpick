@@ -17,7 +17,6 @@ export const RESIDENCY = ["eu", "us", "unknown"] as const;
 export const SERVICE = [
   "claude-code",
   "agent-workflows",
-  "warden",
   "hermes",
   "research",
   "audio",

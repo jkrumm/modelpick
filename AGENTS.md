@@ -79,7 +79,7 @@ wired in which file". They are different questions and the gap between them is t
 (the `/stack` slot-count column exists to expose exactly that).
 
 - Rows live in **`src/db/deployments.ts`**, one per real slot across claude-code, agent-workflows,
-  warden, hermes, research, audio, argo, image-gen, rb, homelab, email-gateway. Seeded by
+  hermes, research, audio, argo, image-gen, rb, homelab, email-gateway. Seeded by
   `seedDeployments()` (delete-then-insert: a slot that disappears from a service's config
   must disappear here too).
 - Every row carries `config_ref` — the file in the *other* repo that actually wires it —
@@ -124,9 +124,8 @@ The four facts that decide most questions before they are asked:
 
 - **`gpt-5.6-luna`, `deepseek-v4.1-flash` and `gemini-3.8-flash` 404 on the Anthropic leg.**
   Claude Code (and so every job on the `claude` harness) can only run Anthropic-leg
-  ids. OpenCode-run episodes (warden) reach the OpenAI leg, so
-  `deepseek-v4.1-flash` and the other OpenAI-route ids are reachable there. Which model each
-  route uses: `agw routes`. GLM is retired from routing (2026-09-23).
+  ids. Routes on the OpenAI leg (OpenCode harness) reach `deepseek-v4.1-flash` and the other
+  OpenAI-route ids. Which model each route uses: `agw routes`. GLM is retired from routing (2026-09-23).
 - **Thinking is the quality lever, not overhead.** Luna runs 16.8 at `none` to 37.5 at `max`.
   Set the effort explicitly — `glm-5.3-flash` defaults to `max`, which is its worst setting.
 - **When a call returns empty, raise the budget before lowering the effort.** Unused budget is
