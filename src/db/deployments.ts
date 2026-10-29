@@ -163,7 +163,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend iu; fallback claude-sonnet-5[1m] on max; transport session; harness opencode (agw-check profile, selected by the handler); no effort variant — Haiku 5.5 exposes none; override AGENT_GATEWAY_MODEL_CHECK",
-    config_ref: "agent-gateway/server/lib/routing.ts:256-262,287",
+    config_ref: "agw-route:check",
     rationale:
       "Reading tool output and deciding pass/fail — the cheapest tier that holds an agent loop. 2026-10-15 (Wave 10 bench, 7bb7015): moved onto Haiku 5.5 EU on OpenCode; before, Haiku 4.5 over `claude -p` took 45-718 s per check run and gave one wrong verdict, at ~20x the cost.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
@@ -181,7 +181,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode (tool-less profile); no effort variant; override AGENT_GATEWAY_MODEL_OVERVIEW",
-    config_ref: "agent-gateway/server/lib/routing.ts:256-262,288",
+    config_ref: "agw-route:cheap.summarize",
     rationale:
       "Same CLASSIFY tier as check (Wave 10 bench, 2026-10-15). Before: Haiku 4.5 over `claude -p`, 170-180 s per overview.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
@@ -199,7 +199,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend iu; NO fallback; transport iu-openai (one tool-less JSON completion via singleShotJson, no runSession), harness inert; override AGENT_GATEWAY_MODEL_TRIAGE",
-    config_ref: "agent-gateway/server/lib/routing.ts:278-284,289",
+    config_ref: "agw-route:triage",
     rationale:
       "2026-10-02 (5063a2a): a single-shot JSON completion instead of a claude -p session — the session was pure overhead, 20-100x the cost of one call. Same deepseek-v4.1-flash id as review_router and review_ocr, over the iu-openai transport. Stayed on it through the 2026-10-14 Wave 5 Haiku 5.5 EU moves, which cover session routes only.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
@@ -217,7 +217,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend iu; NO fallback; transport iu-openai (one tool-less JSON completion, no runSession), harness inert; override AGENT_GATEWAY_MODEL_REVIEW_ROUTER",
-    config_ref: "agent-gateway/server/lib/routing.ts:278-284,290",
+    config_ref: "agw-route:review.router",
     rationale:
       "Picks which review angles run — one short structured completion. 2026-10-02 (5063a2a): moved off the worker-session CLASSIFY tier onto the single-shot iu-openai transport shared with triage. Unaffected by the 2026-10-14/15 Haiku 5.5 EU moves, which cover session routes only.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
@@ -235,7 +235,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode; no effort variant; override AGENT_GATEWAY_MODEL_REVIEW. Angle reviewers are separate routes: review_angle_{senior_dev,typescript,frontend,qa} also run claude-haiku-5-5-eu (ANGLE_OC)",
-    config_ref: "agent-gateway/server/lib/routing.ts:256-262,292",
+    config_ref: "agw-route:review.synthesis",
     rationale:
       "2026-10-15 (Wave 10): review's synthesis and keyless angles moved off Sonnet on Max — on two real ranges Haiku 5.5 EU found the same top blocking findings in ~0.5-0.65x the wall time (298 s vs 585 s, 473 s vs 705 s). The 2026-09-11 'cheap model fails on synthesis' measurement was GLM looping on a large diff. Sonnet on Max stays as the reverse lane after an IU failure.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
@@ -253,7 +253,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none; override AGENT_GATEWAY_MODEL_REVIEW_ANGLE_SENIOR_DEV",
-    config_ref: "agent-gateway/server/lib/routing.ts:233-239,293",
+    config_ref: "agw-route:review.angle",
     rationale:
       "2026-10-05 (Wave 4 A/B, one blinded Sonnet judge): cheap angle model 87.0% recall vs Sonnet 28.3%, 0% false positives, ~1/25th the cost, adopted. 2026-10-14 (4a013b0, Wave 5): deepseek-v4.1-flash -> Haiku 5.5 EU on OpenCode, 12/12 vs 10/12 implement + investigate passes, ~6x faster, 100% cache reads. Sonnet on Max stays the reverse lane.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
@@ -271,7 +271,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none; override AGENT_GATEWAY_MODEL_REVIEW_ANGLE_TYPESCRIPT",
-    config_ref: "agent-gateway/server/lib/routing.ts:233-239,294",
+    config_ref: "agw-route:review.angle",
     rationale:
       "2026-10-05 (Wave 4 A/B, one blinded Sonnet judge): cheap angle model 90.0% recall vs Sonnet 25.0%, 5.3% false positives, ~1/25th the cost, adopted. 2026-10-14 (4a013b0, Wave 5): deepseek-v4.1-flash -> Haiku 5.5 EU on OpenCode, 12/12 vs 10/12 implement + investigate passes, ~6x faster, 100% cache reads. Sonnet on Max stays the reverse lane.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
@@ -289,7 +289,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none; override AGENT_GATEWAY_MODEL_REVIEW_ANGLE_FRONTEND",
-    config_ref: "agent-gateway/server/lib/routing.ts:233-239,295",
+    config_ref: "agw-route:review.angle",
     rationale:
       "Last angle to leave Sonnet on Max: the 2026-10-05 flash A/B failed the false-positive clause (12.5% vs 0%). 2026-10-15 (Wave 11, bench-frontend.ts): re-measured on three real weatherorb commits, Haiku 5.5 EU on OpenCode named the defects the repo's own fix commit corrected at least as often as Sonnet in ~18 s vs 107-169 s. It files roughly twice the findings, mostly improvement/discussion nits; n=3 commits is thin. Revert is three env vars (docs/routing-and-quota.md Wave 11).",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
@@ -307,7 +307,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none; override AGENT_GATEWAY_MODEL_REVIEW_ANGLE_QA",
-    config_ref: "agent-gateway/server/lib/routing.ts:233-239,296",
+    config_ref: "agw-route:review.angle",
     rationale:
       "2026-10-05 (Wave 4 A/B, one blinded Sonnet judge): cheap angle model 81.6% recall vs Sonnet 55.1%, 0% false positives, ~1/25th the cost, adopted. 2026-10-14 (4a013b0, Wave 5): deepseek-v4.1-flash -> Haiku 5.5 EU on OpenCode, 12/12 vs 10/12 implement + investigate passes, ~6x faster, 100% cache reads. Sonnet on Max stays the reverse lane.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
@@ -325,7 +325,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode (tool-less profile); no effort variant; override AGENT_GATEWAY_MODEL_NARRATIVE. The rendered page is then polished in-process by the prose pipeline (prose_write/prose_review slots; polish:false skips)",
-    config_ref: "agent-gateway/server/lib/routing.ts:256-262,291",
+    config_ref: "agw-route:cheap.title",
     rationale:
       "Short-prose summary tier, moved from Sonnet on Max to Haiku 5.5 EU on OpenCode in Wave 10 (2026-10-15). The writing stack pick is claude-opus-5-5 — this slot deliberately runs a cheaper model because the output is a summary, not authored prose.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
@@ -357,7 +357,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend iu; no fallback; transport iu-openai (single-shot chat completions, json_object); notes and rubric scores only, never rewrites; override AGENT_GATEWAY_MODEL_PROSE_REVIEW",
-    config_ref: "agent-gateway/server/lib/routing.ts:314-320",
+    config_ref: "agw-route:prose.review",
     rationale:
       "Structural: the reviewer must come from a different lab than the writer (cross-model review beats same-model on documents, F1 30-42% vs 17-25%) and must be chat-wire, since the single-shot JSON path speaks chat completions only. DeepSeek V4.1 Flash is the verified non-Anthropic id on that path; gpt-6.1-sol is Responses-only.",
     decision_doc: "docs/decisions/writing-model.md",
@@ -372,7 +372,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: null,
     thinking: "default",
     params: "backend iu; NO fallback; transport iu-openai (direct fetch, never runSession)",
-    config_ref: "agent-gateway/server/lib/routing.ts:306-312",
+    config_ref: "agw-route:review.adversary",
     rationale:
       "Structural, not scored: the value is that it is a different family from the model that produced the finding. No category recommendation can express 'not the same vendor'.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
@@ -396,7 +396,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend iu; NO fallback; transport external-iu (the `ocr` CLI over IU's OpenAI chat route, ocrProtocolFor); ocr --effort low; override AGENT_GATEWAY_MODEL_REVIEW_OCR",
-    config_ref: "agent-gateway/server/lib/routing.ts:299-305",
+    config_ref: "agw-route:review.ocr",
     rationale:
       "Structural: measured inside ocr's own tool loop, which no leaderboard scores. v4.1-flash at --effort low finds the cross-file and config drift the angle reviewers miss, in ~2.5-3 min, parallel to the angle phase. Unchanged by the 2026-10-14/15 Haiku moves: an external CLI that only consumes `.model`, so the OpenCode Haiku route does not apply.",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
@@ -489,7 +489,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend max (fallback: iu, same route); harness claude; runs inline via runSession, never queued — the one tool exempt from the job contract",
-    config_ref: "agent-gateway/server/lib/routing.ts:263-269,317",
+    config_ref: "agw-route:otel.agent",
     rationale:
       "Interactive debugging: a jobId round-trip would cost more than the query. The only route left on Claude/Max by default — it needs a per-session MCP server, which OpenCode v2 has only at server scope (Wave 10).",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
@@ -505,7 +505,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "default",
     params:
       "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode; no effort variant; override AGENT_GATEWAY_MODEL_EXCALIDRAW",
-    config_ref: "agent-gateway/server/lib/routing.ts:256-262,318",
+    config_ref: "agw-route:diagram.agent",
     rationale:
       "Structural: generating valid Excalidraw JSON is a format-fidelity job no category scores. Moved from Sonnet on Max to Haiku 5.5 EU on OpenCode in Wave 10 (2026-10-15).",
     decision_doc: "docs/decisions/agent-gateway-tiers.md",
@@ -786,7 +786,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "high",
     params:
       "IU_LEAD_MODEL; reasoning_effort high and per-role output budgets (plan 8000 / synthesis 32000) in lib/llm-settings.ts:16,18; consumed in agent/plan.ts, agent/synthesize.ts",
-    config_ref: "research-gateway/src/env.ts:19",
+    config_ref: "agw-route:research.agent",
     rationale:
       "Off Max by design. env.ts:9-11 documents the failure this replaced: a dead IU_MODEL var still set to DeepSeek-V4-Pro was read as the lead long after it was not. 2026-09-13: moved onto the estate-wide deepseek-v4.1-flash default per the owner's capability-over-cost decision (hermes-brain.md §2026-09-13), superseding the 2026-08-20 move to gpt-5.6-luna.",
     decision_doc: "docs/decisions/hermes-brain.md",
@@ -804,7 +804,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "high",
     params:
       "IU_WORKER_MODEL; reasoning_effort high; WORKER_MAX_CONCURRENCY=8; per-call output budget 16000 (workerStep, lib/llm-settings.ts:17)",
-    config_ref: "research-gateway/src/env.ts:20",
+    config_ref: "agw-route:research.agent",
     rationale: "Eight concurrent workers make per-call cost and TTFT the binding constraints.",
     decision_doc: "docs/decisions/hermes-brain.md",
     decided_at: "2026-09-13",
@@ -822,7 +822,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "tts",
     thinking: "n/a",
     params: "gateway owns the choice; a caller's model id is remapped (model-resolution.ts:56-62). Prep off; briefings name gemini-3.8-flash-tts (TTS_GEMINI_PREP_MODELS) for prep on.",
-    config_ref: "audio-gateway/src/config.ts:166",
+    config_ref: "agw-route:audio.tts.gemini-flash-lite",
     rationale:
       "The gateway default for callers that name nothing; the same model as the tts stack pick and Hermes' chat lane.",
     decision_doc: "docs/decisions/audio-stack.md",
@@ -837,7 +837,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "stt",
     thinking: "n/a",
     params: "allowlist (STT_MODELS): whisper, voxtral-{mini,small}-transcribe-3-0, gpt-transcribe, gpt-4o-transcribe, gpt-4o-mini-transcribe; anything else remapped; outage fallback chain gpt-transcribe, then whisper",
-    config_ref: "audio-gateway/src/config.ts:185",
+    config_ref: "agw-route:audio.stt.voxtral-mini",
     rationale: "Voxtral mini (Mistral, EU-resident) is the default since 2026-10-25; Whisper stays allowlisted only for timestamps/verbose_json, which the gpt-* ids reject.",
     decision_doc: "docs/decisions/audio-stack.md",
     decided_at: "2026-10-25",
@@ -852,7 +852,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "low",
     params:
       "ttsPrepEffort low (config.ts:217, no tools so the gpt-6-luna tools+effort rejection cannot trigger); consumed by gemini-tts.ts and replicate-tts.ts via config.ttsPrepModel; prep runs only for allowlisted models (elevenlabs/v3)",
-    config_ref: "audio-gateway/src/config.ts:209",
+    config_ref: "agw-route:audio.tts.prep",
     rationale:
       "The prep pass is why Gemini TTS measured ~10s per reply end to end — it is counted against the TTS latency, not hidden behind it. 2026-09-23: gpt-5.6-luna -> gpt-6-luna; live prep rows 2.0-2.4s on vps and mini, engine tbt 5 ms.",
     decision_doc: "docs/decisions/audio-stack.md",
@@ -869,7 +869,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "fast",
     thinking: "n/a",
     params: "latency-optimised path",
-    config_ref: "audio-gateway/src/config.ts:216",
+    config_ref: "agw-route:audio.tts.summary",
     rationale:
       "Flash-Lite spends zero thinking tokens, which is the whole point on a latency path.",
     decision_doc: "docs/decisions/iu-vs-ai-studio.md",
@@ -885,7 +885,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "high",
     params:
       "native Anthropic Messages wire, adaptive thinking + output_config effort high, 32k max_tokens floor; brain/voice.md (PODCAST_VOICE_PATH) ahead of the show bible; used by podcasts.ts:665",
-    config_ref: "audio-gateway/src/config.ts:426",
+    config_ref: "agw-route:podcast.write",
     rationale:
       "Follows the writing pick (claude-opus-5-5: LMArena creative_writing #1, level or better on bench:writing). Moved off the chat-completions shim, which gave Opus no thinking control, onto the native wire with adaptive thinking; a same-input script A/B against claude-opus-4-6 preceded the switch. claude-opus-4-6 stays a one-line PODCAST_WRITE_MODEL rollback.",
     decision_doc: "docs/decisions/writing-model.md",
@@ -903,7 +903,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "high",
     params:
       "podcastOutlineEffort=high via resolveReasoningEffort; used by podcasts.ts:664 (write: :665). NOTE .env.tpl:65 shows a commented claude-opus-5 example — not the live value.",
-    config_ref: "audio-gateway/src/config.ts:392,394",
+    config_ref: "agw-route:podcast.outline",
     rationale:
       "Structure, not prose — moved off the writing tier deliberately. 2026-09-13: moved off gpt-5.6-luna onto the estate default per the owner's capability-over-cost decision (hermes-brain.md §2026-09-13).",
     decision_doc: "docs/decisions/podcast-writer.md",
@@ -919,7 +919,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "high",
     params:
       "PODCAST_REVIEW_MODELS csv, every role runs on every listed model; podcastReviewEffort=high via resolveReasoningEffort (deepseek-v4.1-flash accepts it; gemini-3.8-flash on this leg omits it regardless). 2026-09-13: gpt-5.6-luna swapped for deepseek-v4.1-flash in the panel.",
-    config_ref: "audio-gateway/src/config.ts:408,414",
+    config_ref: "agw-route:podcast.review.a,podcast.review.b",
     rationale:
       "Structural: a panel is valuable because its members disagree, so 'the best model' is the wrong question and no category scores it.",
     decision_doc: "docs/decisions/podcast-writer.md",
@@ -936,7 +936,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "fast",
     thinking: "high",
     params: "moved off Opus deliberately; podcastEditorialEffort=high via resolveReasoningEffort",
-    config_ref: "audio-gateway/src/config.ts:501,503",
+    config_ref: "agw-route:podcast.editorial",
     rationale:
       "Editorial checks are mechanical; the authored-prose model is podcast-write. 2026-09-13: moved off gpt-5.6-luna onto the estate default, same owner decision as the outline pass.",
     decision_doc: "docs/decisions/podcast-writer.md",
@@ -954,7 +954,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "high",
     params:
       "moved off gpt-5.6-terra 2026-09-13 (OpenAI leg, reasoning_effort high, function tools alongside it — live-probed to accept both together, unlike gpt-5.6-luna); output budget 32000 (podcast-research.ts:476)",
-    config_ref: "audio-gateway/src/config.ts:492,494",
+    config_ref: "agw-route:podcast.research",
     rationale:
       "Tool-calling researcher (brain search/read, past episodes, research gateway). 2026-09-13: moved off gpt-5.6-terra onto the estate default, same owner decision as the other podcast passes.",
     decision_doc: "docs/decisions/podcast-writer.md",
@@ -971,7 +971,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "fast",
     thinking: "high",
     params: "podcastMetadataEffort=high via resolveReasoningEffort",
-    config_ref: "audio-gateway/src/config.ts:416,418",
+    config_ref: "agw-route:podcast.metadata",
     rationale:
       "Chapters, titles, descriptions — a structured-output job. 2026-09-13: moved off gpt-5.6-luna onto the estate default, same owner decision as the other podcast passes.",
     decision_doc: "docs/decisions/podcast-writer.md",
@@ -988,7 +988,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "tts",
     thinking: "n/a",
     params: "two-speaker runs (<= 3000 chars) per request, voices Charon + Erinome, per-host style string, inline <short pause>/<laugh>/<sigh> tags; elevenlabs/v3 per turn stays selectable by model id",
-    config_ref: "audio-gateway/src/config.ts:470",
+    config_ref: "agw-route:audio.tts.gemini-flash",
     rationale:
       "Owner decision 2026-10-25: one multi-speaker call keeps both voices coherent, 1/7 of v3's cost. The stack pick is the lite chat model; this lane needs the full flash model for expression.",
     decision_doc: "docs/decisions/audio-stack.md",
@@ -1024,7 +1024,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "high",
     params:
       "ENHANCE_MODEL + ENHANCE_REASONING_EFFORT=high (enum none|low|medium|high, luna's probed ladder); max_completion_tokens 16000 (lib/enhance.ts:314); response_format json_object probed live at high/medium/none. No VPS override — the env.ts default is what ships.",
-    config_ref: "image-gateway/gateway/src/env.ts:24,26",
+    config_ref: "agw-route:image.enhance",
     rationale:
       "2026-10-08: moved off deepseek-v4.1-flash — expanding a brief into a JSON plan is short single-shot work; gpt-6-luna passed bench-fast 15/15 at every effort at a third of DeepSeek's token price. No tools, so luna's tools+effort 503 does not apply. Deployed 147b98c, live /enhance smoke green.",
     decision_doc: "docs/decisions/hermes-brain.md",
@@ -1040,7 +1040,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     thinking: "n/a",
     params:
       "DEFAULT_MODEL; its sibling gpt-image-2.5-sunburst serves the finals — model auto routes in shared/src/rules.ts: edits and high/xhigh/max generates -> sunburst, low/medium/auto -> flare; legacy gpt-image-2 requests routed like auto",
-    config_ref: "image-gateway/shared/src/contract.ts:31",
+    config_ref: "agw-route:image.flare",
     rationale:
       "2026-09-23: gpt-image-2 retired from the generate path. The two 2.5 models price and tokenize identically and trade latency only (flare high 20s vs sunburst 32s; flare streams no partials). 2.5 high costs ~$0.053, about 4x less than gpt-image-2 high; both support real alpha transparency, which gpt-image-2 lacked.",
     decision_doc: "docs/decisions/vision-and-image.md",
