@@ -145,13 +145,13 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
 
-  // ── agent-gateway ──────────────────────────────────────────────────────────────
-  // The model_id of every row below is checked against the LIVE routing table
-  // (`agw-legacy routing --json`) by scripts/verify-deployments.ts, not against routing.ts
-  // text — a substring grep let these rows pass for weeks after the 2026-10-14/15
-  // move to Haiku 5.5 EU, because routing.ts still names the old ids in comments.
+  // ── agent-workflows ────────────────────────────────────────────────────────────
+  // The model_id of every row below is checked against the LIVE route table
+  // (`agw routes --format json`) by scripts/verify-deployments.ts, not against source
+  // text — a substring grep let rows pass for weeks after a move because the source
+  // kept naming the old ids in comments.
   {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "check",
     // CLASSIFY moved off DeepSeek-V4-Flash (rejected by IU from 2026-10-04,
     // unrecognized_model) onto Haiku 5.5 EU over the OpenCode harness in the
@@ -162,7 +162,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; fallback claude-sonnet-5[1m] on max; transport session; harness opencode (agw-check profile, selected by the handler); no effort variant — Haiku 5.5 exposes none; override AGENT_GATEWAY_MODEL_CHECK",
+      "backend iu; fallback claude-sonnet-5[1m] on max; transport session; harness opencode (agw-check profile, selected by the handler); no effort variant — Haiku 5.5 exposes none",
     config_ref: "agw-route:check",
     rationale:
       "Reading tool output and deciding pass/fail — the cheapest tier that holds an agent loop. 2026-10-15 (Wave 10 bench, 7bb7015): moved onto Haiku 5.5 EU on OpenCode; before, Haiku 4.5 over `claude -p` took 45-718 s per check run and gave one wrong verdict, at ~20x the cost.",
@@ -171,7 +171,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
   {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "overview",
     // Same CLASSIFY move as check — see its comment.
     follows_recommendation: false,
@@ -180,7 +180,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode (tool-less profile); no effort variant; override AGENT_GATEWAY_MODEL_OVERVIEW",
+      "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode (tool-less profile); no effort variant",
     config_ref: "agw-route:cheap.summarize",
     rationale:
       "Same CLASSIFY tier as check (Wave 10 bench, 2026-10-15). Before: Haiku 4.5 over `claude -p`, 170-180 s per overview.",
@@ -189,7 +189,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
   {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "triage",
     // SINGLE_SHOT, same tier and model as review_router below.
     follows_recommendation: false,
@@ -198,7 +198,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; NO fallback; transport iu-openai (one tool-less JSON completion via singleShotJson, no runSession), harness inert; override AGENT_GATEWAY_MODEL_TRIAGE",
+      "backend iu; NO fallback; transport iu-openai (one tool-less JSON completion via singleShotJson, no runSession), harness inert",
     config_ref: "agw-route:triage",
     rationale:
       "2026-10-02 (5063a2a): a single-shot JSON completion instead of a claude -p session — the session was pure overhead, 20-100x the cost of one call. Same deepseek-v4.1-flash id as review_router and review_ocr, over the iu-openai transport. Stayed on it through the 2026-10-14 Wave 5 Haiku 5.5 EU moves, which cover session routes only.",
@@ -207,7 +207,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
   {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "review_router",
     // SINGLE_SHOT: one tool-less JSON completion, no session, no Max lane.
     follows_recommendation: false,
@@ -216,7 +216,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; NO fallback; transport iu-openai (one tool-less JSON completion, no runSession), harness inert; override AGENT_GATEWAY_MODEL_REVIEW_ROUTER",
+      "backend iu; NO fallback; transport iu-openai (one tool-less JSON completion, no runSession), harness inert",
     config_ref: "agw-route:review.router",
     rationale:
       "Picks which review angles run — one short structured completion. 2026-10-02 (5063a2a): moved off the worker-session CLASSIFY tier onto the single-shot iu-openai transport shared with triage. Unaffected by the 2026-10-14/15 Haiku 5.5 EU moves, which cover session routes only.",
@@ -225,7 +225,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
   {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "review",
     // A deliberately cheap tier — the synthesis no longer needs Max.
     follows_recommendation: false,
@@ -234,7 +234,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode; no effort variant; override AGENT_GATEWAY_MODEL_REVIEW. Angle reviewers are separate routes: review_angle_{senior_dev,typescript,frontend,qa} also run claude-haiku-5-5-eu (ANGLE_OC)",
+      "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode; no effort variant. Angle reviewers are separate routes: review_angle_{senior_dev,typescript,frontend,qa} also run claude-haiku-5-5-eu (ANGLE_OC)",
     config_ref: "agw-route:review.synthesis",
     rationale:
       "2026-10-15 (Wave 10): review's synthesis and keyless angles moved off Sonnet on Max — on two real ranges Haiku 5.5 EU found the same top blocking findings in ~0.5-0.65x the wall time (298 s vs 585 s, 473 s vs 705 s). The 2026-09-11 'cheap model fails on synthesis' measurement was GLM looping on a large diff. Sonnet on Max stays as the reverse lane after an IU failure.",
@@ -243,7 +243,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
   {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "review_angle_senior_dev",
     // Angle reviewer on the cheap OpenCode shape shared with the other ANGLE_OC angles.
     follows_recommendation: false,
@@ -252,7 +252,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none; override AGENT_GATEWAY_MODEL_REVIEW_ANGLE_SENIOR_DEV",
+      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none",
     config_ref: "agw-route:review.angle",
     rationale:
       "2026-10-05 (Wave 4 A/B, one blinded Sonnet judge): cheap angle model 87.0% recall vs Sonnet 28.3%, 0% false positives, ~1/25th the cost, adopted. 2026-10-14 (4a013b0, Wave 5): deepseek-v4.1-flash -> Haiku 5.5 EU on OpenCode, 12/12 vs 10/12 implement + investigate passes, ~6x faster, 100% cache reads. Sonnet on Max stays the reverse lane.",
@@ -261,7 +261,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
   {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "review_angle_typescript",
     // Angle reviewer on the cheap OpenCode shape shared with the other ANGLE_OC angles.
     follows_recommendation: false,
@@ -270,7 +270,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none; override AGENT_GATEWAY_MODEL_REVIEW_ANGLE_TYPESCRIPT",
+      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none",
     config_ref: "agw-route:review.angle",
     rationale:
       "2026-10-05 (Wave 4 A/B, one blinded Sonnet judge): cheap angle model 90.0% recall vs Sonnet 25.0%, 5.3% false positives, ~1/25th the cost, adopted. 2026-10-14 (4a013b0, Wave 5): deepseek-v4.1-flash -> Haiku 5.5 EU on OpenCode, 12/12 vs 10/12 implement + investigate passes, ~6x faster, 100% cache reads. Sonnet on Max stays the reverse lane.",
@@ -279,7 +279,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
   {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "review_angle_frontend",
     // Moved off JUDGE (Sonnet on Max) in Wave 11, 2026-10-15, after the senior-dev/typescript/qa angles.
     follows_recommendation: false,
@@ -288,7 +288,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none; override AGENT_GATEWAY_MODEL_REVIEW_ANGLE_FRONTEND",
+      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none",
     config_ref: "agw-route:review.angle",
     rationale:
       "Last angle to leave Sonnet on Max: the 2026-10-05 flash A/B failed the false-positive clause (12.5% vs 0%). 2026-10-15 (Wave 11, bench-frontend.ts): re-measured on three real weatherorb commits, Haiku 5.5 EU on OpenCode named the defects the repo's own fix commit corrected at least as often as Sonnet in ~18 s vs 107-169 s. It files roughly twice the findings, mostly improvement/discussion nits; n=3 commits is thin. Revert is three env vars (docs/routing-and-quota.md Wave 11).",
@@ -297,7 +297,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
   {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "review_angle_qa",
     // Angle reviewer on the cheap OpenCode shape shared with the other ANGLE_OC angles.
     follows_recommendation: false,
@@ -306,7 +306,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none; override AGENT_GATEWAY_MODEL_REVIEW_ANGLE_QA",
+      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant — Haiku 5.5 exposes none",
     config_ref: "agw-route:review.angle",
     rationale:
       "2026-10-05 (Wave 4 A/B, one blinded Sonnet judge): cheap angle model 81.6% recall vs Sonnet 55.1%, 0% false positives, ~1/25th the cost, adopted. 2026-10-14 (4a013b0, Wave 5): deepseek-v4.1-flash -> Haiku 5.5 EU on OpenCode, 12/12 vs 10/12 implement + investigate passes, ~6x faster, 100% cache reads. Sonnet on Max stays the reverse lane.",
@@ -315,7 +315,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
   {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "narrative",
     // A deliberately different tier from the category winner.
     follows_recommendation: false,
@@ -324,7 +324,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: "writing",
     thinking: "default",
     params:
-      "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode (tool-less profile); no effort variant; override AGENT_GATEWAY_MODEL_NARRATIVE. The rendered page is then polished in-process by the prose pipeline (prose_write/prose_review slots; polish:false skips)",
+      "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode (tool-less profile); no effort variant. The rendered page is then polished in-process by the prose pipeline (prose_write/prose_review slots; polish:false skips)",
     config_ref: "agw-route:cheap.title",
     rationale:
       "Short-prose summary tier, moved from Sonnet on Max to Haiku 5.5 EU on OpenCode in Wave 10 (2026-10-15). The writing stack pick is claude-opus-5-5 — this slot deliberately runs a cheaper model because the output is a summary, not authored prose.",
@@ -333,15 +333,15 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
   {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "prose_write",
     label: "prose writer (voice owner)",
     model_id: "claude-opus-5-5",
     category: "writing",
     thinking: "high",
     params:
-      "backend iu; no fallback; transport iu-anthropic (one native Messages call); adaptive thinking, output_config.effort high; max_tokens 32000; voice.md as system prompt; override AGENT_GATEWAY_MODEL_PROSE_WRITE",
-    config_ref: "agent-gateway/server/lib/routing.ts:298-313",
+      "backend iu; no fallback; transport iu-anthropic (one native Messages call); adaptive thinking, output_config.effort high; max_tokens 32000; voice.md as system prompt",
+    config_ref: "agw-route:prose.write",
     rationale:
       "The prose tool's rewrite seat follows the writing stack pick. Opus 5.5 over Opus 4.6 on 2026-10-17: LMArena creative_writing #1 vs #4, bench:writing judges 4.10 vs 3.96, cheaper ($4/$20 vs $5/$25 per M). Gemini 4 Argon is ruled out by wire: the seat is anthropic-wire only.",
     decision_doc: "docs/decisions/writing-model.md",
@@ -349,14 +349,14 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: "2026-10-17",
   },
   {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "prose_review",
     label: "prose reviewer (cross-lab, notes only)",
     model_id: "deepseek-v4.1-flash",
     category: null,
     thinking: "default",
     params:
-      "backend iu; no fallback; transport iu-openai (single-shot chat completions, json_object); notes and rubric scores only, never rewrites; override AGENT_GATEWAY_MODEL_PROSE_REVIEW",
+      "backend iu; no fallback; transport iu-openai (single-shot chat completions, json_object); notes and rubric scores only, never rewrites",
     config_ref: "agw-route:prose.review",
     rationale:
       "Structural: the reviewer must come from a different lab than the writer (cross-model review beats same-model on documents, F1 30-42% vs 17-25%) and must be chat-wire, since the single-shot JSON path speaks chat completions only. DeepSeek V4.1 Flash is the verified non-Anthropic id on that path; gpt-6.1-sol is Responses-only.",
@@ -365,7 +365,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: "2026-10-17",
   },
   {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "adversary",
     label: "adversary — finding verification",
     model_id: "gpt-5.6-terra",
@@ -380,7 +380,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
   {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "review_ocr",
     // Second, larger bake-off 2026-09-25 on the same range (agent-gateway 819bcc7..4898afb,
     // every finding checked by hand). ocr wall time = LLM rounds x ~5 s per round, equal
@@ -395,7 +395,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     category: null,
     thinking: "default",
     params:
-      "backend iu; NO fallback; transport external-iu (the `ocr` CLI over IU's OpenAI chat route, ocrProtocolFor); ocr --effort low; override AGENT_GATEWAY_MODEL_REVIEW_OCR",
+      "backend iu; NO fallback; transport external-iu (the `ocr` CLI over IU's OpenAI chat route, ocrProtocolFor); ocr --effort low",
     config_ref: "agw-route:review.ocr",
     rationale:
       "Structural: measured inside ocr's own tool loop, which no leaderboard scores. v4.1-flash at --effort low finds the cross-file and config drift the angle reviewers miss, in ~2.5-3 min, parallel to the angle phase. Unchanged by the 2026-10-14/15 Haiku moves: an external CLI that only consumes `.model`, so the OpenCode Haiku route does not apply.",
@@ -404,82 +404,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
   {
-    service: "agent-gateway",
-    slot: "dispatch",
-    // Investigate/author tier only — implement runs the same model on its own
-    // route, see the dispatch_implement row below.
-    follows_recommendation: false,
-    label: "dispatch — investigate/author episode in a named repo (AGENT_OC tier)",
-    model_id: "claude-haiku-5-5-eu",
-    category: "coding",
-    thinking: "default",
-    params:
-      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode (opencode run, NOT claude -p — Haiku 5.5 EU ran 4x slower than Haiku 4.5 on claude -p, so it only ever serves OpenCode); NO effort variant (Haiku 5.5 exposes none); override AGENT_GATEWAY_MODEL_DISPATCH / AGENT_GATEWAY_HARNESS_DISPATCH. Warden's investigate episodes inherit this route",
-    config_ref: "agent-gateway/server/lib/routing.ts:192-211,313",
-    rationale:
-      "2026-10-14 (4a013b0, Wave 5 bench): moved off deepseek-v4.1-flash onto Haiku 5.5 EU — 12/12 vs 10/12 implement + investigate passes, ~6x faster, lower cost, 100% cache reads. Caveat: Haiku bills 5x above 100K prompt tokens PER REQUEST (measured mean 38-64K), so a long episode costs more than the registry rate says. Chain: DeepSeek-V4-Flash on claude -p (retired) -> deepseek-v4.1-flash on OpenCode (2026-09-24) -> Haiku 5.5 EU on OpenCode.",
-    decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-10-14",
-    verified_at: VERIFIED,
-  },
-  {
-    service: "agent-gateway",
-    slot: "dispatch_implement",
-    // Shares AGENT_OC's model and evidence with dispatch above; only the route
-    // object (and its override keys) is separate for the higher-stakes write tier.
-    follows_recommendation: false,
-    label: "dispatch_implement — write episode in a named repo (AGENT_OC_IMPLEMENT tier)",
-    model_id: "claude-haiku-5-5-eu",
-    category: "coding",
-    thinking: "default",
-    params:
-      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode (opencode run, NOT claude -p); NO effort variant — the former variant max went with deepseek-v4.1-flash; override AGENT_GATEWAY_MODEL_DISPATCH_IMPLEMENT / AGENT_GATEWAY_HARNESS_DISPATCH_IMPLEMENT. Warden implement attempts 1-2 inherit this route; attempt 3+ use the dispatch_implement_escalation route (DeepSeek-V4-Pro, opencode, variant max, no Max fallback). dispatch_editorial shares this route object",
-    config_ref: "agent-gateway/server/lib/routing.ts:192-218,314",
-    rationale:
-      "2026-10-14 (4a013b0): same move and evidence as dispatch — Haiku 5.5 EU on OpenCode, 12/12 implement passes vs 10/12 for deepseek-v4.1-flash, ~6x faster, 100% cache reads. The escalation seat stays on DeepSeek-V4-Pro for attempt 3+, so a stalled Haiku attempt escalates to a different model family rather than retrying itself.",
-    decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-10-14",
-    verified_at: VERIFIED,
-  },
-  {
-    service: "agent-gateway",
-    slot: "dispatch_implement_escalation",
-    // The attempt-3+ retry seat, deliberately a different model family from the
-    // Haiku attempts it escalates from.
-    follows_recommendation: false,
-    label: "dispatch_implement_escalation — attempt 3+ implement seat (AGENT_OC_ESCALATION tier)",
-    model_id: "DeepSeek-V4-Pro",
-    category: "coding",
-    thinking: "max",
-    params:
-      "backend iu; NO fallback (a gateway id cannot run on Max, so the caller retries instead); transport session; harness opencode (opencode run, NOT claude -p); variant max; override AGENT_GATEWAY_MODEL_DISPATCH_IMPLEMENT_ESCALATION. Used by warden implement attempts >= 3 (core.ESCALATION_ATTEMPT): warden reads routes.dispatch_implement_escalation.model from GET /api/routing",
-    config_ref: "agent-gateway/server/lib/routing.ts:219-226,315",
-    rationale:
-      "2026-10-05 (b2a3884): chosen over gpt-6.1-sol on two replayed real implement briefs, one run each — DeepSeek-V4-Pro passed both reference tests in 8/5 turns, 51 s/70 s, $0.061/$0.067; gpt-6.1-sol passed both at 18/19 turns, 1330 s (one run hit the 300 s idle watchdog)/594 s, $0.32/$0.39. Stayed here through the 2026-10-14 Wave 5 Haiku 5.5 EU moves so a stalled Haiku attempt escalates to a different model family rather than retrying itself.",
-    decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-10-05",
-    verified_at: VERIFIED,
-  },
-  {
-    service: "agent-gateway",
-    slot: "dispatch_editorial",
-    // Shares dispatch_implement's route object (AGENT_OC_IMPLEMENT) and evidence.
-    follows_recommendation: false,
-    label: "dispatch_editorial — prose/docs episode in a named repo (AGENT_OC_IMPLEMENT tier)",
-    model_id: "claude-haiku-5-5-eu",
-    category: "writing",
-    thinking: "default",
-    params:
-      "backend iu; fallback claude-sonnet-5[1m] on max (a fallback attempt always runs the claude harness, never opencode); harness opencode; no effort variant; override AGENT_GATEWAY_MODEL_DISPATCH_EDITORIAL (still pins a Claude model if wanted). `kind: \"editorial\"` on a dispatch selects this route",
-    config_ref: "agent-gateway/server/lib/routing.ts:212-218,316",
-    rationale:
-      "2026-10-15 (Wave 10, 7bb7015): moved from Sonnet on Max (Claude harness, since 2026-10-10) to Haiku 5.5 EU on OpenCode — it matched Sonnet on two editorial briefs (README fold-in 1 of 2 complete on both, numbered-checklist rewrite 3 of 3 on both) at ~14 s vs ~30 s and ~$0.003 vs ~$0.13, so prose briefs no longer need a Claude route.",
-    decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-10-15",
-    verified_at: VERIFIED,
-  },
-  {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "otel",
     // Runs on the Max plan, where the category's cost term is meaningless.
     follows_recommendation: false,
@@ -497,14 +422,13 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
   {
-    service: "agent-gateway",
+    service: "agent-workflows",
     slot: "excalidraw",
     label: "excalidraw_diagram (CLASSIFY tier)",
     model_id: "claude-haiku-5-5-eu",
     category: null,
     thinking: "default",
-    params:
-      "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode; no effort variant; override AGENT_GATEWAY_MODEL_EXCALIDRAW",
+    params: "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode; no effort variant",
     config_ref: "agw-route:diagram.agent",
     rationale:
       "Structural: generating valid Excalidraw JSON is a format-fidelity job no category scores. Moved from Sonnet on Max to Haiku 5.5 EU on OpenCode in Wave 10 (2026-10-15).",
@@ -512,41 +436,13 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     decided_at: "2026-10-15",
     verified_at: VERIFIED,
   },
-  {
-    service: "agent-gateway",
-    slot: "read_image",
-    label: "read_image (VISION tier)",
-    model_id: "gemini-3.5-flash",
-    category: null,
-    thinking: "n/a",
-    params: "backend iu; NO fallback; transport iu-openai",
-    config_ref: "agent-gateway/server/lib/routing.ts:270-276,319",
-    rationale:
-      "Vision is a manual stack category — no leaderboard scores document/diagram reading, so there is no algorithmic recommendation to drift against.",
-    decision_doc: "docs/decisions/vision-and-image.md",
-    decided_at: "2026-06-17",
-    verified_at: VERIFIED,
-  },
-  {
-    service: "agent-gateway",
-    slot: "read_drawing",
-    label: "read_drawing (VISION tier)",
-    model_id: "gemini-3.5-flash",
-    category: null,
-    thinking: "n/a",
-    params: "backend iu; NO fallback; transport iu-openai",
-    config_ref: "agent-gateway/server/lib/routing.ts:270-276,320",
-    rationale: "Same VISION tier as read_image.",
-    decision_doc: "docs/decisions/vision-and-image.md",
-    decided_at: "2026-06-17",
-    verified_at: VERIFIED,
-  },
 
   // ── warden ────────────────────────────────────────────────────────────────
   // Warden carries NO model id of its own since the 2026-10-04 split of triage.py into
   // scripts/loop + scripts/lifecycle: every slot below inherits an agent-gateway route.
-  // `literal_id: false` — there is no id in warden's files to grep. Changing
-  // agent-gateway routing silently changes all three.
+  // `literal_id: false` — there is no id in warden's files to grep. agent-gateway retired
+  // 2026-10-29 with its dispatch/review routes, so these three rows record the last model
+  // that route served and are stale until warden is re-pointed at an agent-workflows route.
   {
     service: "warden",
     slot: "investigate",

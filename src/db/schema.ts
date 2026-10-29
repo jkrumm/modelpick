@@ -16,7 +16,7 @@ export const RESIDENCY = ["eu", "us", "unknown"] as const;
 // slots that legitimately run different models.
 export const SERVICE = [
   "claude-code",
-  "agent-gateway",
+  "agent-workflows",
   "warden",
   "hermes",
   "research",
