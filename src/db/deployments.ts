@@ -437,68 +437,6 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     verified_at: VERIFIED,
   },
 
-  // ── warden ────────────────────────────────────────────────────────────────
-  // Warden carries NO model id of its own since the 2026-10-04 split of triage.py into
-  // scripts/loop + scripts/lifecycle: every slot below inherits an agent-gateway route.
-  // `literal_id: false` — there is no id in warden's files to grep. agent-gateway retired
-  // 2026-10-29 with its dispatch/review routes, so these three rows record the last model
-  // that route served and are stale until warden is re-pointed at an agent-workflows route.
-  {
-    service: "warden",
-    slot: "investigate",
-    follows_recommendation: false,
-    literal_id: false,
-    label: "auto investigate episode",
-    model_id: "claude-haiku-5-5-eu",
-    category: "coding",
-    thinking: "default",
-    params:
-      "inherited: submits no model, so it runs agent-gateway's `dispatch` route (backend iu, harness opencode, fallback claude-sonnet-5[1m] on max). Changing agent-gateway's dispatch route silently changes this slot",
-    config_ref: "warden/scripts/loop/work.py:2168-2172",
-    rationale:
-      "Warden defers: it sends no model, so the model is whatever agent-gateway's `dispatch` route says — claude-haiku-5-5-eu since 2026-10-14 (before: deepseek-v4.1-flash). The earlier glm-5.3-flash pin (TRIAGE_AUTO_DISPATCH_MODEL) died with triage.py in the 2026-10-04 split. Verify against `agw-legacy routing --json`, not warden's files.",
-    decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-10-14",
-    verified_at: VERIFIED,
-  },
-  {
-    service: "warden",
-    slot: "implement",
-    follows_recommendation: false,
-    literal_id: false,
-    label: "auto implement episode",
-    model_id: "claude-haiku-5-5-eu",
-    category: "coding",
-    thinking: "default",
-    params:
-      "inherited: attempts 1-2 submit no model and run agent-gateway's `dispatch_implement` route (backend iu, harness opencode, fallback claude-sonnet-5[1m] on max); attempt core.ESCALATION_ATTEMPT onward sends agent-gateway's escalation model — today DeepSeek-V4-Pro from `dispatch_implement_escalation` (opencode, variant max, no Max fallback). Changing either agent-gateway route silently changes this slot",
-    config_ref: "warden/scripts/loop/work.py:2168-2172",
-    rationale:
-      "Warden defers: implement_model(attempt) sends None for attempts 1-2 and agent-gateway's registry escalation model from attempt 3, never an id of its own. The recorded model is the attempt-1/2 default (claude-haiku-5-5-eu since 2026-10-14, before: deepseek-v4.1-flash); a stalled item escalates to DeepSeek-V4-Pro.",
-    decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-10-14",
-    verified_at: VERIFIED,
-  },
-  {
-    service: "warden",
-    slot: "review",
-    // A deliberately cheap tier — inherited, not pinned.
-    follows_recommendation: false,
-    literal_id: false,
-    label: "step-7 review validation",
-    model_id: "claude-haiku-5-5-eu",
-    category: "coding",
-    thinking: "default",
-    params:
-      "inherited: submit_review() passes model=None, so the review runs agent-gateway's `review` route (backend iu, harness opencode, fallback claude-sonnet-5[1m] on max). Changing agent-gateway's review route silently changes this slot",
-    config_ref: "warden/scripts/lifecycle/dispatch.py:224",
-    rationale:
-      "Unset on purpose so the gate inherits agent-gateway's review routing rather than pinning a second copy of it. 2026-10-15 (Wave 10): that route moved from Sonnet on Max to Haiku 5.5 EU, which moved this slot with it.",
-    decision_doc: "docs/decisions/agent-gateway-tiers.md",
-    decided_at: "2026-10-15",
-    verified_at: VERIFIED,
-  },
-
   // ── hermes ────────────────────────────────────────────────────────────────
   {
     service: "hermes",
