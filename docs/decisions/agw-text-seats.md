@@ -3,8 +3,9 @@
 > **Current verdict (2026-10-30):** agent-workflows runs its text routes on four seats, chosen once in
 > `packages/routes/src/table/_shared.ts`: **TRIVIAL** `gpt-6-luna` low, **EASY** `gpt-6.1-terra` low, **STRONG**
 > `gpt-6.1-terra` medium, **CHEAP** `deepseek-v4.1-flash` (research, otel, cross-lab reviewers, the GPT routes' balance
-> fallback). `claude-haiku-5-5` stays for the private vault (`brain.agent`) and as the balance fallback of the four routes
-> owner-directed off Requesty. Owner decision; the evidence below.
+> fallback, pending a research eval). **Haiku 5.5 is dropped from the platform** (owner decision, 2026-10-30): the vault
+> agent (`brain.agent`) runs Terra low, and the four routes owner-directed off Requesty fall back across Terra and Luna.
+> Owner decision; the evidence below.
 > **Status of this record:** current
 
 ## Artificial Analysis, Intelligence Index v5.0 (read 2026-10-30)
@@ -40,8 +41,11 @@ precision are too sparse at n=12 to separate any arm; Sonnet 5.5 reached recall 
 ## Constraints that shaped the seats
 
 - **Requesty:** DeepSeek flash is a Requesty-hosted model; the four routes owner-directed off it (`cheap.classify`,
-  `review.router`, `review.ocr`, `review.adversary`) fall back to Haiku on the chat wire, `triage` has no fallback.
+  `review.router`, `review.ocr`, `review.adversary`) fall back across Luna (Azure Sweden Central) and Terra (AWS
+  us-east-1) on the chat wire, two backends; `triage` has no fallback.
+- **IU's DeepSeek price:** IU bills the list peak rate ($0.30 / $1.20) at every hour, off-peak included (billed over list
+  = 1.00 at 00:00-02:00 UTC, 10 days of steps); the OpenRouter price ($0.045 / $0.50) comes from cheaper hosts.
 - **Vendor split on balance failure:** GPT routes fall back to DeepSeek, DeepSeek routes to Terra; OpenAI's balance is
   not DeepSeek's.
-- **Residency:** Terra answers from AWS us-east-1 (probed 2026-10-29). The private vault stays on Haiku's EU leg.
+- **Residency:** not a criterion (owner, 2026-10-30). For the record: Terra answers from AWS us-east-1 on chat and Responses, Luna from Azure Sweden Central on chat and from AWS us-east-1 on Responses, DeepSeek from Requesty-Global.
 - **Spend:** Haiku's 7-day production spend was about $17, nearly all review angles; Terra medium puts that near $115.
