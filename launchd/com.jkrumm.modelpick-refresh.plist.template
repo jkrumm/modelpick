@@ -8,8 +8,8 @@
        run in `secrets-run run --env-file=.env.tpl`, which resolves the keys
        from the mini's offline cache — no biometric, no network for secrets.
        Wrapped in `jobrun` (dotfiles): every run is recorded in
-       ~/.local/state/jobs and graded by `jobs-grade`; warden turns a red grade
-       into a `job` item for this repo. The refresh exits 1 on a failed step or a
+       ~/.local/state/jobs and graded by `jobs-grade`; a red grade posts to
+       Slack #alerts. The refresh exits 1 on a failed step or a
        degraded source (0 rows), so a half-empty refresh is red, not green.
        Rendered by `make refresh-setup`; __HOME__ and __REPO__ are substituted. -->
   <key>ProgramArguments</key>
