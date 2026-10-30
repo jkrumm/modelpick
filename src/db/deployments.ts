@@ -99,16 +99,17 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
   {
     service: "claude-code",
     slot: "analyze",
-    // A deliberately different tier from the category winner.
+    // Runs on the Max plan, where the category's cost term is meaningless.
     follows_recommendation: false,
-    label: "/analyze — fallow static-analysis subprocess",
-    model_id: "claude-haiku-4-5",
-    category: "fast",
-    thinking: "n/a",
-    params: "via claude_iu",
-    config_ref: "dotfiles/skills/analyze/SKILL.md:127",
+    literal_id: false,
+    label: "/analyze — fallow static-analysis subagent",
+    model_id: "claude-sonnet-5",
+    category: "coding",
+    thinking: "default",
+    params: "native subagent on the pinned CLAUDE_CODE_SUBAGENT_MODEL",
+    config_ref: "dotfiles/skills/analyze/SKILL.md:33",
     rationale:
-      "Summarising a tool's structured output — the cheapest tier that reads a report reliably.",
+      "Runs inside the Max session as one general-purpose subagent, so the report stays out of the main context at no metered cost.",
     decision_doc: null,
     decided_at: "2026-06-17",
     verified_at: VERIFIED,
