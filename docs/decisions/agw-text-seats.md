@@ -49,3 +49,16 @@ precision are too sparse at n=12 to separate any arm; Sonnet 5.5 reached recall 
   not DeepSeek's.
 - **Residency:** not a criterion (owner, 2026-10-30). For the record: Terra answers from AWS us-east-1 on chat and Responses, Luna from Azure Sweden Central on chat and from AWS us-east-1 on Responses, DeepSeek from Requesty-Global.
 - **Spend:** Haiku's 7-day production spend was about $17, nearly all review angles; Terra medium puts that near $115.
+
+## Addendum 2026-10-31: Claude on the direct API, and why the review eval cannot rank models
+
+- Claude agent steps now run on the direct Anthropic API (agent-workflows 5e1a871). Before that, OpenCode's Anthropic
+  protocol ignored `reasoningEffort`, so every Haiku arm above ran at the model default: the 0.08 and 0.17 rows measure
+  Haiku at an effort nobody chose.
+- Direct-API arms on the same 12 deep cases (`agent-workflows/docs/evals/2026-10-31-review-claude-direct.md`): Haiku
+  none / low / high / max agreement 0.08 / 0.08 / 0.50 / 0.08 at $0.04 / $0.07 / $0.15 / $1.17 per review; Sonnet 5.5
+  low 0.08 at $0.52. Haiku max overflows its context (23 failed steps, 31 min p50) and is unusable for agent steps.
+- The review eval's reference is the retired gateway's outcome; agreement tracks how readily a model rates a finding
+  `blocking` (Terra 87, DeepSeek 23, Haiku high 15, Sonnet low 5 blocking findings over 12 reviews), and recall sits
+  at 0 to 0.05 on every arm. **The Terra-over-Haiku verdict above rests on severity calibration, not review quality.**
+  The seats stand until a planted-defect eval exists (agent-workflows `docs/waves/PLAN.md`, Wave 1).
