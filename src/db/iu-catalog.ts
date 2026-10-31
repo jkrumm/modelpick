@@ -1170,6 +1170,116 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-3.5-turbo",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-3.5-turbo",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "openai",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-3.5-turbo-0125",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-3.5-turbo-0125",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-3.5-turbo-1106",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-3.5-turbo-1106",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-3.5-turbo-16k",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-3.5-turbo-16k",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "openai-internal",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-3.5-turbo-instruct",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-3.5-turbo-instruct",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-3.5-turbo-instruct-0914",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-3.5-turbo-instruct-0914",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-4",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "openai",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4-0613",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-4-0613",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "openai",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4-turbo",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-4-turbo",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4-turbo-2024-04-09",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-4-turbo-2024-04-09",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-4.1",
     "provider": "openai",
     "family": null,
@@ -1178,6 +1288,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": 1000000,
     "iu_listed": true,
     "owned_by": "Middleware Westeurope OAI Server,Middleware Francecentral OAI Server,Middleware Italynorth OAI Server,Middleware Spaincentral OAI Server,Middleware Germanywestcentral OAI Server,OpenAI Vendor Group Key,Middleware NG OpenAI Azure",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4.1-2025-04-14",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-4.1-2025-04-14",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
     "legs": "openai"
   },
   {
@@ -1192,6 +1313,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-4.1-mini-2025-04-14",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-4.1-mini-2025-04-14",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-4.1-nano",
     "provider": "openai",
     "family": null,
@@ -1200,6 +1332,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": 1000000,
     "iu_listed": true,
     "owned_by": "OpenAI Vendor Group Key,Middleware NG OpenAI Azure",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4.1-nano-2025-04-14",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-4.1-nano-2025-04-14",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
     "legs": "openai"
   },
   {
@@ -1214,6 +1357,39 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-4o-2024-05-13",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-4o-2024-05-13",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4o-2024-08-06",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-4o-2024-08-06",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4o-2024-11-20",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-4o-2024-11-20",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-4o-mini",
     "provider": "openai",
     "family": null,
@@ -1222,6 +1398,149 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": 128000,
     "iu_listed": true,
     "owned_by": "Middleware Spaincentral OAI Server,OpenAI Vendor Group Key,IU Global Sink Azure,IU GDPR Sink Azure,IU AI Middleware Sweden Central Azure,IU AI Middleware Sweden Central Global Sink",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4o-mini-2024-07-18",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-4o-mini-2024-07-18",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4o-mini-search-preview",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-4o-mini-search-preview",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4o-mini-search-preview-2025-03-11",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-4o-mini-search-preview-2025-03-11",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4o-mini-transcribe",
+    "provider": "openai",
+    "family": null,
+    "modality": "stt",
+    "display_name": "gpt-4o-mini-transcribe",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4o-mini-transcribe-2025-03-20",
+    "provider": "openai",
+    "family": null,
+    "modality": "stt",
+    "display_name": "gpt-4o-mini-transcribe-2025-03-20",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4o-mini-transcribe-2025-12-15",
+    "provider": "openai",
+    "family": null,
+    "modality": "stt",
+    "display_name": "gpt-4o-mini-transcribe-2025-12-15",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4o-mini-tts",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-4o-mini-tts",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4o-mini-tts-2025-03-20",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-4o-mini-tts-2025-03-20",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4o-mini-tts-2025-12-15",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-4o-mini-tts-2025-12-15",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4o-search-preview",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-4o-search-preview",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4o-search-preview-2025-03-11",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-4o-search-preview-2025-03-11",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4o-transcribe",
+    "provider": "openai",
+    "family": null,
+    "modality": "stt",
+    "display_name": "gpt-4o-transcribe",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-4o-transcribe-diarize",
+    "provider": "openai",
+    "family": null,
+    "modality": "stt",
+    "display_name": "gpt-4o-transcribe-diarize",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
     "legs": "openai"
   },
   {
@@ -1236,6 +1555,39 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-5-2025-08-07",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5-2025-08-07",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5-chat-latest",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5-chat-latest",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5-codex",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5-codex",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-5-mini",
     "provider": "openai",
     "family": null,
@@ -1244,6 +1596,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": 272000,
     "iu_listed": true,
     "owned_by": "Middleware Francecentral OAI Server,OpenAI Vendor Group Key,IU AI Middleware Sweden Central Azure,Middleware Azure US East 2,IU AI Middleware East US 2 (CPG),IU AI Middleware Sweden Central Global Sink (CPG),IU AI Middleware Sweden Central (CPG),IU AI Middleware Sweden Central Global Sink",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5-mini-2025-08-07",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5-mini-2025-08-07",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
     "legs": "openai"
   },
   {
@@ -1258,6 +1621,61 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-5-nano-2025-08-07",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5-nano-2025-08-07",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5-pro",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5-pro",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5-pro-2025-10-06",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5-pro-2025-10-06",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5-search-api",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5-search-api",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5-search-api-2025-10-14",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5-search-api-2025-10-14",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-5.1",
     "provider": "openai",
     "family": null,
@@ -1266,6 +1684,127 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": 400000,
     "iu_listed": true,
     "owned_by": "Middleware Francecentral OAI Server,OpenAI Vendor Group Key,IU AI Middleware Sweden Central Azure,IU AI Middleware Sweden Central Global Sink",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.1-2025-11-13",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.1-2025-11-13",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.1-chat-latest",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.1-chat-latest",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.1-codex",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.1-codex",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.1-codex-max",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.1-codex-max",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.1-codex-mini",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.1-codex-mini",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.2",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.2",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.2-2025-12-11",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.2-2025-12-11",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.2-chat-latest",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.2-chat-latest",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.2-codex",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.2-codex",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.2-pro",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.2-pro",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.2-pro-2025-12-11",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.2-pro-2025-12-11",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
     "legs": "openai"
   },
   {
@@ -1280,6 +1819,28 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-5.3-chat-latest",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.3-chat-latest",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.3-codex",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.3-codex",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-5.4",
     "provider": "openai",
     "family": null,
@@ -1288,6 +1849,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": 1000000,
     "iu_listed": true,
     "owned_by": "Middleware Germanywestcentral OAI Server,OpenAI Vendor Group Key,IU AI Middleware Sweden Central Global Sink,AWS mantle us-east-1 GPT-5.4 chat",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.4-2026-03-05",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.4-2026-03-05",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
     "legs": "openai"
   },
   {
@@ -1302,6 +1874,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-5.4-mini-2026-03-17",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.4-mini-2026-03-17",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-5.4-nano",
     "provider": "openai",
     "family": null,
@@ -1313,6 +1896,39 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-5.4-nano-2026-03-17",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.4-nano-2026-03-17",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.4-pro",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.4-pro",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.4-pro-2026-03-05",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.4-pro-2026-03-05",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-5.5",
     "provider": "openai",
     "family": null,
@@ -1321,6 +1937,39 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": 1000000,
     "iu_listed": true,
     "owned_by": "OpenAI Vendor Group Key,IU AI Middleware Sweden Project,IU AI Middleware Sweden Central Global Sink",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.5-2026-04-23",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.5-2026-04-23",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.5-pro",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.5-pro",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-5.5-pro-2026-04-23",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-5.5-pro-2026-04-23",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
     "legs": "openai"
   },
   {
@@ -1412,6 +2061,94 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-audio",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-audio",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-audio-1.5",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-audio-1.5",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-audio-2025-08-28",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-audio-2025-08-28",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-audio-mini",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-audio-mini",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-audio-mini-2025-10-06",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-audio-mini-2025-10-06",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-audio-mini-2025-12-15",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-audio-mini-2025-12-15",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-image-1",
+    "provider": "openai",
+    "family": null,
+    "modality": "image",
+    "display_name": "gpt-image-1",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-image-1-mini",
+    "provider": "openai",
+    "family": null,
+    "modality": "image",
+    "display_name": "gpt-image-1-mini",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-image-1.5",
     "provider": "openai",
     "family": null,
@@ -1434,6 +2171,83 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-image-2-2026-04-21",
+    "provider": "openai",
+    "family": null,
+    "modality": "image",
+    "display_name": "gpt-image-2-2026-04-21",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-image-2.5-flare",
+    "provider": "openai",
+    "family": null,
+    "modality": "image",
+    "display_name": "gpt-image-2.5-flare",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-image-2.5-flare-2026-09-08",
+    "provider": "openai",
+    "family": null,
+    "modality": "image",
+    "display_name": "gpt-image-2.5-flare-2026-09-08",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-image-2.5-sunburst",
+    "provider": "openai",
+    "family": null,
+    "modality": "image",
+    "display_name": "gpt-image-2.5-sunburst",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-image-2.5-sunburst-2026-09-08",
+    "provider": "openai",
+    "family": null,
+    "modality": "image",
+    "display_name": "gpt-image-2.5-sunburst-2026-09-08",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-live-1",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-live-1",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-live-transcribe",
+    "provider": "openai",
+    "family": null,
+    "modality": "stt",
+    "display_name": "gpt-live-transcribe",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-oss-120b",
     "provider": "openai",
     "family": null,
@@ -1442,6 +2256,127 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": 128000,
     "iu_listed": true,
     "owned_by": "OpenAI Vendor Group Key,Nebius AI Cloud,IU AI Middleware Sweden Project,AWS mantle us-east-1 openai chat",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-realtime",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-realtime",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-realtime-1.5",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-realtime-1.5",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-realtime-2",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-realtime-2",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-realtime-2.1",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-realtime-2.1",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-realtime-2.1-mini",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-realtime-2.1-mini",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-realtime-2025-08-28",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-realtime-2025-08-28",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-realtime-mini",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-realtime-mini",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-realtime-mini-2025-12-15",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-realtime-mini-2025-12-15",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-realtime-translate",
+    "provider": "openai",
+    "family": null,
+    "modality": "tts",
+    "display_name": "gpt-realtime-translate",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-realtime-whisper",
+    "provider": "openai",
+    "family": null,
+    "modality": "stt",
+    "display_name": "gpt-realtime-whisper",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-transcribe",
+    "provider": "openai",
+    "family": null,
+    "modality": "stt",
+    "display_name": "gpt-transcribe",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
     "legs": "openai"
   },
   {
@@ -2105,6 +3040,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "o1-2024-12-17",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "o1-2024-12-17",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "o1-eu",
     "provider": "openai",
     "family": null,
@@ -2127,6 +3073,28 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "o1-pro",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "o1-pro",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "o1-pro-2025-03-19",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "o1-pro-2025-03-19",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "o3",
     "provider": "openai",
     "family": null,
@@ -2135,6 +3103,39 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": 200000,
     "iu_listed": true,
     "owned_by": "OpenAI Vendor Group Key,Middleware NG OpenAI Azure,IU GDPR Sink Azure",
+    "legs": "openai"
+  },
+  {
+    "id": "o3-2025-04-16",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "o3-2025-04-16",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "o3-deep-research",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "o3-deep-research",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "o3-deep-research-2025-06-26",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "o3-deep-research-2025-06-26",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
     "legs": "openai"
   },
   {
@@ -2149,6 +3150,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "o3-mini-2025-01-31",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "o3-mini-2025-01-31",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "o3-pro",
     "provider": "openai",
     "family": null,
@@ -2160,6 +3172,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "o3-pro-2025-06-10",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "o3-pro-2025-06-10",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "o4-mini",
     "provider": "openai",
     "family": null,
@@ -2168,6 +3191,61 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": 200000,
     "iu_listed": true,
     "owned_by": "OpenAI Vendor Group Key,Middleware NG OpenAI Azure",
+    "legs": "openai"
+  },
+  {
+    "id": "o4-mini-2025-04-16",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "o4-mini-2025-04-16",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "o4-mini-deep-research",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "o4-mini-deep-research",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "o4-mini-deep-research-2025-06-26",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "o4-mini-deep-research-2025-06-26",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "omni-moderation-2024-09-26",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "omni-moderation-2024-09-26",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
+    "id": "omni-moderation-latest",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "omni-moderation-latest",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
     "legs": "openai"
   },
   {
