@@ -5,7 +5,7 @@
 
 | Job | Model | Settings | Leg | $/1M in / out | Runs in | Drift | Why | Decision |
 |-|-|-|-|-|-|-|-|-|
-| Estate default / fast | `deepseek-v4.1-flash` | reasoning_effort high | iu-openai | 0.25 / 1.16 | agent-workflows:triage, agent-workflows:review_router, agent-workflows:prose_review, agent-workflows:review_ocr +9 | review: DeepSeek-V4-Flash | Capability over cost: one mid-size model across every service. | [hermes-brain.md](docs/decisions/hermes-brain.md) |
+| Estate default / fast | `deepseek-v4.1-flash` | reasoning_effort high | iu-openai | 0.27 / 1.20 | agent-workflows:triage, agent-workflows:review_router, agent-workflows:prose_review, agent-workflows:review_ocr +9 | review: DeepSeek-V4-Flash | Capability over cost: one mid-size model across every service. | [hermes-brain.md](docs/decisions/hermes-brain.md) |
 | Coding (unattended worker) | `glm-5.3-flash` | MAX_THINKING_TOKENS 2048 classify / 8192 agent | iu-anthropic | 0.075 / 0.25 | none recorded | review: claude-opus-5-5 | 10/10 on ccbench, best AA coding index in the Anthropic-route field at a fraction of the cost. | [claude-code-model.md](docs/decisions/claude-code-model.md) |
 | Writing | `claude-opus-5-5` | adaptive thinking | iu-anthropic | 4.00 / 20.00 | agent-workflows:prose_write, audio:podcast-write | review: gemini-4-argon | Voice owner for prose; wins the Arena creative-writing comparison. | [writing-model.md](docs/decisions/writing-model.md) |
 | Orchestrator | `claude-fable-5-1` | Max plan default | max subscription | 10.00 / 50.00 | claude-code:orchestrator-max | review: claude-opus-5-5 | Tops the orchestrator profile and runs on the subscription, so capability dominates. | [execution-modes.md](docs/decisions/execution-modes.md) |
