@@ -87,8 +87,8 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
   },
   {
     "benchmark": "SWE-Bench verified",
-    "metric": "swe_bench_verified",
-    "in_eci": true,
+    "metric": null,
+    "in_eci": false,
     "random_baseline": 0,
     "score_ceiling": 1,
     "release_date": "2024-08-13",
@@ -276,8 +276,8 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
   },
   {
     "benchmark": "Lech Mazur Writing",
-    "metric": "lech_mazur_writing_external",
-    "in_eci": true,
+    "metric": null,
+    "in_eci": false,
     "random_baseline": 0,
     "score_ceiling": 1,
     "release_date": "2025-01-31",
