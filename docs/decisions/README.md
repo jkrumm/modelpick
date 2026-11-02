@@ -66,7 +66,7 @@ current verdict clause:
 - [vision-and-image.md](./vision-and-image.md) — diagram/screenshot reading + image generation →
   `gemini-3.5-flash` holds for reading, `gpt-image-2` for generation.
 - [writing-model.md](./writing-model.md) — the `writing` category pick → `claude-opus-4-6`
-- [agw-text-seats.md](./agw-text-seats.md) — agent-workflows' text routes by effort: Luna low, Terra low, Terra medium, DeepSeek, Haiku for the vault only
+- [agw-text-seats.md](./agw-text-seats.md) — agent-workflows' text seats: Claude tiers FAST/EASY/HARD/DECIDE measured on agw evals (Wave 6), cross-lab reviewers off Claude
   holds, explicitly under-evidenced for German.
 - [audio-stack.md](./audio-stack.md) — cloud TTS + STT → ElevenLabs via Replicate for TTS,
   `gpt-4o-transcribe` for STT with `whisper` for EU/diarization gaps.

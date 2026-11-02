@@ -1,14 +1,41 @@
-# agent-workflows text seats — the GPT stack by effort
+# agent-workflows text seats — Claude tiers, measured
 
-> **Current verdict (2026-10-30):** agent-workflows runs its text routes on four seats, chosen once in
-> `packages/routes/src/table/_shared.ts`: **TRIVIAL** `gpt-6-luna` low, **EASY** `gpt-6.1-terra` low, **STRONG**
-> `gpt-6.1-terra` medium, **CHEAP** `deepseek-v4.1-flash` (research, otel, cross-lab reviewers, the GPT routes' balance
-> fallback, pending a research eval). **Haiku 5.5 is dropped from the platform** (owner decision, 2026-10-30): the vault
-> agent (`brain.agent`) runs Terra low, and the four routes owner-directed off Requesty fall back across Terra and Luna.
-> Owner decision; the evidence below.
-> **Status of this record:** current
+> **Current verdict (2026-11-02, agent-workflows Wave 6):** every agw text and agent seat is a Claude tier, chosen once
+> in `packages/routes/src/table/_shared.ts` and paid from the Claude subscriptions' API credit through the local
+> inference gateway; each falls back onto GPT on IU, never onto IU's Claude. **FAST** Haiku 5.5 effort none (titles,
+> classify, `diagram.agent`), **EASY** Haiku 5.5 high (summaries, triage, `review.router`, `review.angle`, `check`,
+> `brain.agent`, `podcast.metadata`), **HARD** Sonnet 5.5 medium (`research.agent`, `otel.agent`, `review.angle.deep`,
+> `review.synthesis`, `prose.write`, `narrative`, `retro.analyze`, the podcast writers' room), **DECIDE** `decision-1`
+> (IU decision API; also the eval judge). Reviewers of Claude-written output stay on another lab: `prose.review`
+> DeepSeek flash, `review.adversary` and `podcast.review.b` Terra medium, `podcast.review.a` Gemini flash. No seat runs
+> Opus: no arm showed it beating Sonnet beyond the CI. Owner decisions (2026-11-01 seats onto Claude, 2026-11-02 measured
+> picks and the `review.angle` cost hotfix); evidence in the 2026-11-02 section below and in agent-workflows
+> `docs/evals/2026-11-02-claude-seats.md`.
+> **Re-open when:** Wave 11's review v2 sweep sets the review seats; a seat's eval suite grows past 30 cases or gains a
+> scorer that separates arms; the credit runs out before the month does (then cost counts in the pick); a new Claude
+> or GPT generation lands.
+> **Status of this record:** current. The sections from "Artificial Analysis" to the 2026-10-31 addendum are
+> **superseded** (the GPT stack of 2026-10-30); they stay as history.
 
-## Artificial Analysis, Intelligence Index v5.0 (read 2026-10-30)
+## 2026-11-02: the seats measured (agent-workflows Wave 6)
+
+Arms on agw's own eval suites with run-scoped route patches, purpose `eval`, on the `me` credit pool under the
+gateway's pacing reserve. Rule: score first, then wall time; cost counts only past the credit pacing line.
+
+| Route | Pick | Evidence (paired, seeded bootstrap 95% CI of B − A) |
+|-|-|-|
+| `research.agent` | Sonnet medium (was DeepSeek flash) | 20 cases: ties DeepSeek on every score, 6.2 s faster [−16.2, −0.1]; beats Haiku high on `supported` +0.08 [0.01, 0.18]; Opus medium +0.06 [0, 0.17], 6 s slower, 3x the cost |
+| `otel.agent` | Sonnet medium (was DeepSeek flash) | 8 cases, two reruns: ties DeepSeek and Haiku high on score, 13 s faster than Haiku high [−17.0, −9.8]; one `invalid_output` in 16 runs; Opus no better beyond the CI, 23 s slower, 4.5x the cost |
+| `diagram.agent` | Haiku none (was Sonnet medium) | 6 cases, two reruns: pass 1.00 vs 0.92 (tie), 3.9 s faster [−8.5, −0.2], 15x cheaper |
+| `brain.agent`, `check` | Haiku high, unchanged | Sonnet ties or adds +0.05 inside the noise at 11-20x the cost |
+| `prose.review` | DeepSeek flash, unchanged | score agreement 0.91 against 0.83-0.85 for Terra low/medium and Luna low |
+| podcast stages | Sonnet medium; metadata Haiku high; `review.b` Terra medium | no eval suite; by principle (the tool loop speaks Messages since agent-workflows #107) |
+| `review.angle` | Haiku high (owner hotfix, cost) | on Sonnet, 67 reviews spent $52.50 in two days ($46.29 on the angles); a live standard review after the move cost $0.158 |
+
+Caveat: at effort low and medium Sonnet 5.5 spent almost no reasoning tokens in OpenCode agent steps (adaptive
+thinking), so its two effort arms are close to one. Eval spend: $6.91 Claude credit, $0.36 IU.
+
+## Artificial Analysis, Intelligence Index v5.0 (read 2026-10-30) — superseded 2026-11-02
 
 Do not mix index versions: v4.x scored Haiku 5.5 at 43 and Luna at 38; v5.0 (27 Oct) says 36 and 28.
 
@@ -50,7 +77,7 @@ precision are too sparse at n=12 to separate any arm; Sonnet 5.5 reached recall 
 - **Residency:** not a criterion (owner, 2026-10-30). For the record: Terra answers from AWS us-east-1 on chat and Responses, Luna from Azure Sweden Central on chat and from AWS us-east-1 on Responses, DeepSeek from Requesty-Global.
 - **Spend:** Haiku's 7-day production spend was about $17, nearly all review angles; Terra medium puts that near $115.
 
-## Addendum 2026-10-31: Claude on the direct API, and why the review eval cannot rank models
+## Addendum 2026-10-31: Claude on the direct API, and why the review eval cannot rank models — superseded 2026-11-02
 
 - Claude agent steps now run on the direct Anthropic API (agent-workflows 5e1a871). Before that, OpenCode's Anthropic
   protocol ignored `reasoningEffort`, so every Haiku arm above ran at the model default: the 0.08 and 0.17 rows measure
