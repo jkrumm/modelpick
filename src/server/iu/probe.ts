@@ -1,5 +1,11 @@
 import { eq, inArray, sql } from "drizzle-orm";
-import { dialectForProvider, gatewayChat, parseResidency, rawFetch } from "./client.js";
+import {
+  IU_UPSTREAM_HEADER,
+  dialectForProvider,
+  gatewayChat,
+  parseResidency,
+  rawFetch,
+} from "./client.js";
 import { classifyProbe, isAccessible } from "./classify.js";
 import { probeReplicate } from "./replicate.js";
 import { buildDecisionRequest, type DecisionQuestion } from "./decision-client.js";
@@ -55,7 +61,11 @@ async function generateReferenceAudio(): Promise<Blob | null> {
     try {
       const resp = await fetch(`${openaiBase()}/audio/speech`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`,
+          ...IU_UPSTREAM_HEADER,
+        },
         body: JSON.stringify({
           model,
           input: "The quick brown fox jumps over the lazy dog.",

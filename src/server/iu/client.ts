@@ -18,6 +18,11 @@ export interface IuResponse<T = unknown> {
 
 const MAX_ATTEMPTS = 3;
 
+/** Probes and the catalog sync measure IU itself. Behind the local inference
+ *  gateway the Anthropic leg may otherwise route to a credit org, so every
+ *  request pins IU as the upstream. IU ignores the header when called directly. */
+export const IU_UPSTREAM_HEADER = { "x-agw-upstream": "iu" } as const;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -40,6 +45,7 @@ export async function iuFetch<T = unknown>(
 
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${key}`);
+  headers.set("x-agw-upstream", "iu");
 
   let lastError: IuFetchError | null = null;
 
@@ -90,6 +96,7 @@ export async function rawFetch(url: string, init: RequestInit = {}): Promise<Raw
   const key = process.env["IU_API_KEY"] ?? "";
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${key}`);
+  headers.set("x-agw-upstream", "iu");
   try {
     const resp = await fetch(url, { ...init, headers });
     return { status: resp.status, body: await resp.text(), headers: resp.headers };

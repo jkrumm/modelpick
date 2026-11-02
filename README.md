@@ -84,8 +84,13 @@ offline cache on the headless mini — a raw `op run` hangs there since `op` isn
 signed in). IU key lives in `op://common/anthropic`, the leaderboard keys in
 `op://vps/modelpick`.
 
+Scripts run through `scripts/with-keys`. On the mini, when the inference gateway issued a
+`modelpick=` door token (`~/.agent-workflows/data/door-tokens`), the wrapper points `IU_API_KEY` and
+the five IU base URLs at the gateway on `127.0.0.1:7794` through a 0600 override file; without the
+token `.env.tpl` is what runs.
+
 Run a one-off script manually:
 
 ```bash
-secrets-run run --env-file=.env.tpl -- bun run scripts/probe.ts
+scripts/with-keys bun run scripts/probe.ts
 ```

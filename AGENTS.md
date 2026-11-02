@@ -21,11 +21,18 @@ single SQLite file (`modelpick.db`, gitignored).
 - **Drizzle ORM + local SQLite** (libsql, `@libsql/client`), schema in `src/db/schema.ts`.
   The driver (`drizzle-orm/libsql`) runs under both node (the SSR server) and bun (the scripts).
 - **Secrets via 1Password** — no plaintext `.env`. `.env.tpl` (tracked) holds `op://` refs; the
-  secret-needing scripts wrap their command in `secrets-run run --env-file=.env.tpl`, the
+  secret-needing scripts wrap their command in `scripts/with-keys` (→ `secrets-run run --env-file=.env.tpl`), the
   machine-role-aware shim that resolves the backend from `~/.config/secrets/backend` (cache on
   the headless mini, `op` on the MacBook) — a raw `op run` hangs on the mini since `op` isn't
   interactively signed in there. IU key in `op://common/anthropic`, leaderboard keys in
   `op://vps/modelpick`.
+- **Local inference gateway (mini)** — package scripts go through `scripts/with-keys`, which runs
+  `secrets-run run --env-file=.env.tpl` and, when `~/.agent-workflows/data/door-tokens` has a
+  `modelpick=` line, appends a 0600 override (`~/.local/state/modelpick/gateway.env`) with
+  `IU_API_KEY` = that door token and the five `IU_*_BASE_URL` on `http://127.0.0.1:7794`. Elsewhere
+  `.env.tpl` is what runs. Every probe/catalog request carries `x-agw-upstream: iu` so the Anthropic
+  leg measures IU, never a credit org. `bun run bench` (`bench/spawn.ts`) prefers the Keychain and
+  stays on IU direct, not through the gateway.
 - **Makefile targets**: `make dev`, `make build`, `make db-push`, `make db-seed`,
   `make models|probe|collect|stack|refresh` (catalog sync, access probe, metrics, STACK.md render, full refresh),
   `make check`, `make deploy`, `make verify`, `make logs`,
