@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { classifyModality, deriveProvider, prettifyName } from "./discover.js";
+import { IU_UPSTREAM_HEADER } from "./client.js";
 import { decisionSpec, isDecisionModel } from "../../db/decision-models.js";
 import type { Modality, ModelInsert } from "../../db/schema.js";
 
@@ -69,7 +70,7 @@ async function getJson(
 ) {
   if (!base) throw new Error(`IU_${leg.toUpperCase()}_BASE_URL is not set`);
   const resp = await fetch(`${base.replace(/\/+$/, "")}/models`, {
-    headers,
+    headers: { ...headers, ...IU_UPSTREAM_HEADER },
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!resp.ok) throw new Error(`IU ${name} /models returned HTTP ${resp.status}`);

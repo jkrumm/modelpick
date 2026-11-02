@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Run a command with modelpick's keys: `scripts/with-keys <cmd> [args...]`.
+#
+# `.env.tpl` is what runs everywhere. On the mini, the local inference gateway
+# (127.0.0.1:7794) takes over: when ~/.agent-workflows/data/door-tokens holds a
+# `modelpick=` line, a 0600 override file under ~/.local/state/modelpick/ carries
+# IU_API_KEY = that door token plus the five IU bases on the gateway, and is
+# appended as a later --env-file (later files win in secrets-run). The token only
+# ever sits in that file and the child's environment: never in argv, never echoed.
+set -euo pipefail
+
+GATEWAY="${MODELPICK_GATEWAY_URL:-http://127.0.0.1:7794}"
+TOKENS="${AGW_DOOR_TOKENS:-$HOME/.agent-workflows/data/door-tokens}"
+STATE="$HOME/.local/state/modelpick"
+
+[ "$#" -gt 0 ] || { echo "usage: with-keys <cmd> [args...]" >&2; exit 2; }
+
+args=(--env-file=.env.tpl)
+
+token=""
+if [ -r "$TOKENS" ]; then
+  token="$(sed -n 's/^modelpick=//p' "$TOKENS" | head -n1)"
+fi
+
+if [ -n "$token" ]; then
+  mkdir -p "$STATE"
+  chmod 700 "$STATE"
+  override="$STATE/gateway.env"
+  umask 077
+  cat > "$override" <<ENV
+IU_API_KEY=$token
+IU_ANTHROPIC_BASE_URL=$GATEWAY/anthropic/v1
+IU_OPENAI_BASE_URL=$GATEWAY/openai/v1
+IU_DECISIONS_BASE_URL=$GATEWAY/decisions/v1
+IU_GEMINI_BASE_URL=$GATEWAY/gemini/v1beta
+IU_REPLICATE_BASE_URL=$GATEWAY/replicate/v1
+ENV
+  chmod 600 "$override"
+  args+=("--env-file=$override")
+fi
+
+exec secrets-run run "${args[@]}" -- "$@"

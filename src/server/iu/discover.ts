@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { iuFetch } from "./client.js";
+import { IU_UPSTREAM_HEADER, iuFetch } from "./client.js";
 import type { ModelInsert, Modality } from "../../db/schema.js";
 import { isDecisionModel, isKnownDecisionName } from "../../db/decision-models.js";
 
@@ -110,7 +110,7 @@ export async function discoverDecisionModelNames(): Promise<string[]> {
   const base = (process.env["IU_DECISIONS_BASE_URL"] ?? "").replace(/\/+$/, "");
   if (base === "") throw new Error("IU_DECISIONS_BASE_URL is not set");
   const resp = await fetch(`${base}/models`, {
-    headers: { Authorization: `Bearer ${process.env["IU_API_KEY"] ?? ""}` },
+    headers: { Authorization: `Bearer ${process.env["IU_API_KEY"] ?? ""}`, ...IU_UPSTREAM_HEADER },
     signal: AbortSignal.timeout(30_000),
   });
   if (!resp.ok) throw new Error(`IU decisions /models returned HTTP ${resp.status}`);
