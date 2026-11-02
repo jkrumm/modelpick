@@ -159,7 +159,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     // Wave 10 bench (2026-10-15). A deliberately cheap tier, not the category winner.
     follows_recommendation: false,
     label: "check — format · lint · tsc · test (CLASSIFY tier)",
-    model_id: "claude-haiku-5-5-eu",
+    model_id: "claude-haiku-5-5",
     category: "coding",
     thinking: "default",
     params:
@@ -177,7 +177,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     // Same CLASSIFY move as check — see its comment.
     follows_recommendation: false,
     label: "overview (CLASSIFY tier)",
-    model_id: "claude-haiku-5-5-eu",
+    model_id: "claude-haiku-5-5",
     category: "coding",
     thinking: "default",
     params:
@@ -231,11 +231,11 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     // A deliberately cheap tier — the synthesis no longer needs Max.
     follows_recommendation: false,
     label: "review — multi-angle code review synthesis (CLASSIFY tier)",
-    model_id: "claude-haiku-5-5-eu",
+    model_id: "claude-haiku-5-5",
     category: "coding",
     thinking: "default",
     params:
-      "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode; no effort variant. Angle reviewers are separate routes: review_angle_{senior_dev,typescript,frontend,qa} also run claude-haiku-5-5-eu (ANGLE_OC)",
+      "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode; no effort variant. Angle reviewers are separate routes: review_angle_{senior_dev,typescript,frontend,qa} also run claude-haiku-5-5 (ANGLE_OC)",
     config_ref: "agw-route:review.synthesis",
     rationale:
       "2026-10-15 (Wave 10): review's synthesis and keyless angles moved off Sonnet on Max — on two real ranges Haiku 5.5 EU found the same top blocking findings in ~0.5-0.65x the wall time (298 s vs 585 s, 473 s vs 705 s). The 2026-09-11 'cheap model fails on synthesis' measurement was GLM looping on a large diff. Sonnet on Max stays as the reverse lane after an IU failure.",
@@ -249,7 +249,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     // Angle reviewer on the cheap OpenCode shape shared with the other ANGLE_OC angles.
     follows_recommendation: false,
     label: "review_angle_senior_dev — senior-dev review angle (ANGLE_OC tier)",
-    model_id: "claude-haiku-5-5-eu",
+    model_id: "claude-haiku-5-5",
     category: "coding",
     thinking: "default",
     params:
@@ -267,7 +267,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     // Angle reviewer on the cheap OpenCode shape shared with the other ANGLE_OC angles.
     follows_recommendation: false,
     label: "review_angle_typescript — typescript review angle (ANGLE_OC tier)",
-    model_id: "claude-haiku-5-5-eu",
+    model_id: "claude-haiku-5-5",
     category: "coding",
     thinking: "default",
     params:
@@ -285,7 +285,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     // Moved off JUDGE (Sonnet on Max) in Wave 11, 2026-10-15, after the senior-dev/typescript/qa angles.
     follows_recommendation: false,
     label: "review_angle_frontend — frontend review angle (ANGLE_OC tier)",
-    model_id: "claude-haiku-5-5-eu",
+    model_id: "claude-haiku-5-5",
     category: "coding",
     thinking: "default",
     params:
@@ -303,7 +303,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     // Angle reviewer on the cheap OpenCode shape shared with the other ANGLE_OC angles.
     follows_recommendation: false,
     label: "review_angle_qa — qa review angle (ANGLE_OC tier)",
-    model_id: "claude-haiku-5-5-eu",
+    model_id: "claude-haiku-5-5",
     category: "coding",
     thinking: "default",
     params:
@@ -321,7 +321,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     // A deliberately different tier from the category winner.
     follows_recommendation: false,
     label: "narrative (CLASSIFY tier)",
-    model_id: "claude-haiku-5-5-eu",
+    model_id: "claude-haiku-5-5",
     category: "writing",
     thinking: "default",
     params:
@@ -426,7 +426,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     service: "agent-workflows",
     slot: "excalidraw",
     label: "excalidraw_diagram (CLASSIFY tier)",
-    model_id: "claude-haiku-5-5-eu",
+    model_id: "claude-haiku-5-5",
     category: null,
     thinking: "default",
     params: "backend iu; fallback claude-sonnet-5[1m] on max; harness opencode; no effort variant",
@@ -498,7 +498,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     // Residency-gated — the category winner is not region-verified.
     follows_recommendation: false,
     label: "approval classifier",
-    model_id: "claude-haiku-5-5-eu",
+    model_id: "claude-haiku-5-5",
     category: "fast",
     thinking: "medium",
     params:
@@ -530,7 +530,7 @@ export const DEPLOYMENTS: DeploymentInsert[] = [
     service: "hermes",
     slot: "vision",
     label: "vision auxiliary",
-    model_id: "gemini-3.5-flash",
+    model_id: "claude-sonnet-5-5",
     category: null,
     thinking: "n/a",
     params: "provider custom, IU OpenAI leg (api_mode chat_completions); timeout 120",
