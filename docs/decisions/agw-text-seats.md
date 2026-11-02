@@ -4,12 +4,12 @@
 > in `packages/routes/src/table/_shared.ts` and paid from the Claude subscriptions' API credit through the local
 > inference gateway; each falls back onto GPT on IU, never onto IU's Claude. **FAST** Haiku 5.5 effort none (titles,
 > classify, `diagram.agent`), **EASY** Haiku 5.5 high (summaries, triage, `review.router`, `review.angle`, `check`,
-> `brain.agent`, `podcast.metadata`), **HARD** Sonnet 5.5 medium (`research.agent`, `otel.agent`, `review.angle.deep`,
+> `brain.agent`, `podcast.metadata`, `otel.agent`), **HARD** Sonnet 5.5 medium (`research.agent`, `review.angle.deep`,
 > `review.synthesis`, `prose.write`, `narrative`, `retro.analyze`, the podcast writers' room), **DECIDE** `decision-1`
 > (IU decision API; also the eval judge). Reviewers of Claude-written output stay on another lab: `prose.review`
 > DeepSeek flash, `review.adversary` and `podcast.review.b` Terra medium, `podcast.review.a` Gemini flash. No seat runs
 > Opus: no arm showed it beating Sonnet beyond the CI. Owner decisions (2026-11-01 seats onto Claude, 2026-11-02 measured
-> picks and the `review.angle` cost hotfix); evidence in the 2026-11-02 section below and in agent-workflows
+> picks, the `review.angle` cost hotfix and `otel.agent` onto Haiku high for cost); evidence in the 2026-11-02 section below and in agent-workflows
 > `docs/evals/2026-11-02-claude-seats.md`.
 > **Re-open when:** Wave 11's review v2 sweep sets the review seats; a seat's eval suite grows past 30 cases or gains a
 > scorer that separates arms; the credit runs out before the month does (then cost counts in the pick); a new Claude
@@ -25,7 +25,7 @@ gateway's pacing reserve. Rule: score first, then wall time; cost counts only pa
 | Route | Pick | Evidence (paired, seeded bootstrap 95% CI of B − A) |
 |-|-|-|
 | `research.agent` | Sonnet medium (was DeepSeek flash) | 20 cases: ties DeepSeek on every score, 6.2 s faster [−16.2, −0.1]; beats Haiku high on `supported` +0.08 [0.01, 0.18]; Opus medium +0.06 [0, 0.17], 6 s slower, 3x the cost |
-| `otel.agent` | Sonnet medium (was DeepSeek flash) | 8 cases, two reruns: ties DeepSeek and Haiku high on score, 13 s faster than Haiku high [−17.0, −9.8]; one `invalid_output` in 16 runs; Opus no better beyond the CI, 23 s slower, 4.5x the cost |
+| `otel.agent` | Haiku high (owner override 2026-11-02 18:10; measured pick Sonnet medium; was DeepSeek flash) | 8 cases, two reruns: ties DeepSeek and Sonnet medium on score; Sonnet 13 s faster [−17.0, −9.8], Haiku $0.039 a run cheaper [0.030, 0.042]; production is over the credit pace, so the tie goes to cost. Opus no better beyond the CI, 23 s slower, 4.5x the cost |
 | `diagram.agent` | Haiku none (was Sonnet medium) | 6 cases, two reruns: pass 1.00 vs 0.92 (tie), 3.9 s faster [−8.5, −0.2], 15x cheaper |
 | `brain.agent`, `check` | Haiku high, unchanged | Sonnet ties or adds +0.05 inside the noise at 11-20x the cost |
 | `prose.review` | DeepSeek flash, unchanged | score agreement 0.91 against 0.83-0.85 for Terra low/medium and Luna low |
