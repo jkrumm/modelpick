@@ -1,21 +1,37 @@
 # agent-workflows text seats — Claude tiers, measured
 
-> **Current verdict (2026-11-02, agent-workflows Wave 6):** every agw text and agent seat is a Claude tier, chosen once
-> in `packages/routes/src/table/_shared.ts` and paid from the Claude subscriptions' API credit through the local
-> inference gateway; each falls back onto GPT on IU, never onto IU's Claude. **FAST** Haiku 5.5 effort none (titles,
-> classify, `diagram.agent`), **EASY** Haiku 5.5 high (summaries, triage, `review.router`, `review.angle`, `check`,
-> `brain.agent`, `podcast.metadata`, `otel.agent`, `research.agent`), **HARD** Sonnet 5.5 medium (`review.angle.deep`,
-> `review.synthesis`, `prose.write`, `narrative`, `retro.analyze`, the podcast writers' room), **DECIDE** `decision-1`
-> (IU decision API; also the eval judge). Reviewers of Claude-written output stay on another lab: `prose.review`
-> DeepSeek flash, `review.adversary` and `podcast.review.b` Terra medium, `podcast.review.a` Gemini flash. No seat runs
-> Opus: no arm showed it beating Sonnet beyond the CI. Owner decisions (2026-11-01 seats onto Claude, 2026-11-02 measured
-> picks, the `review.angle` cost hotfix, `otel.agent` and, 2026-11-03, `research.agent` onto Haiku high for cost); evidence in the 2026-11-02 section below and in agent-workflows
-> `docs/evals/2026-11-02-claude-seats.md`.
-> **Re-open when:** Wave 11's review v2 sweep sets the review seats; a seat's eval suite grows past 30 cases or gains a
+> **Current verdict (2026-11-03, agent-workflows Wave 12):** every agw text and agent seat is one of four tiers or a
+> named cross-lab constant, chosen once in `packages/routes/src/table/_shared.ts`; a route spreads one and adds only its
+> wire (guard tests refuse a model literal, an override after the spread, and Haiku at effort `low` or `max` on an agent
+> step). Claude tiers are paid from the subscriptions' API credit through the local inference gateway and fall back
+> onto GPT on IU, never onto IU's Claude. **FAST** Haiku 5.5 effort none, 16k output (titles, classify, `digest.items`,
+> `factory.classify`, audio prep, `diagram.agent`), **EASY** Haiku 5.5 high, 32k (summaries, extraction, triage,
+> `overview.classify`, `image.enhance`, `check`, `brain.agent`, `otel.agent`, `research.agent`, `podcast.metadata`),
+> **HARD** Sonnet 5.5 medium, 32k (`prose.write`, `narrative`, `retro.analyze`, the podcast writers' room), **DECIDE**
+> `decision-1` (IU decision API). Reviewers of Claude-written output stay on another lab: `prose.review` DeepSeek
+> flash, `podcast.review.b` Terra medium, `podcast.review.a` Gemini flash. The eval labellers and judges are pinned
+> seats outside the tiers. Code review is no route consumer any more (review v4 runs in Claude Code on Max), so the
+> `review.*` seats below are history. No seat runs Opus: no arm showed it beating Sonnet beyond the CI. Owner decisions
+> (2026-11-01 seats onto Claude, 2026-11-02 measured picks, `otel.agent` and, 2026-11-03, `research.agent` onto Haiku
+> high for cost); evidence in the sections below and in agent-workflows `docs/evals/2026-11-02-claude-seats.md`.
+> **Re-open when:** Wave 11 measures the review (from 2026-11-17); a seat's eval suite grows past 30 cases or gains a
 > scorer that separates arms; the credit runs out before the month does (then cost counts in the pick); a new Claude
 > or GPT generation lands.
 > **Status of this record:** current. The sections from "Artificial Analysis" to the 2026-10-31 addendum are
 > **superseded** (the GPT stack of 2026-10-30); they stay as history.
+
+## 2026-11-03: the tiers formalised (agent-workflows Wave 12)
+
+- The output ceiling is a tier property (FAST 16k; EASY and HARD 32k, the default an effort call got anyway). The four
+  route overrides went: `digest.items` (16k, now FAST's own), `prose.write` (32k, HARD's), `prose.review` (16k, now
+  the DeepSeek constant's), `image.enhance` (FAST raised to effort high and 32k: it is now plainly EASY, same model and
+  effort; its credit-drained fallback moves from Luna high to EASY's Terra low).
+- The provisional table of 2026-10-31 put HARD on Terra medium with a Sonnet low fallback; not adopted: Wave 6's
+  measured seats stand until Wave 11.
+- `research.agent` on Haiku high, all 28 golden cases (8 never run before: live registry versions, German retail prices
+  and specs, a multi-fact case, two not-found cases), purpose eval, agw eval run `01a1a176`: golden 28/28, complete
+  0.93, grounded 0.95, `supported` 0.78 (Wave 6 measured 0.79 on 20), $0.52 for the run. The lookup set does not separate
+  arms on golden; `supported` stays the metric that moves.
 
 ## 2026-11-02: the seats measured (agent-workflows Wave 6)
 
