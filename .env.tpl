@@ -26,6 +26,9 @@ ARTIFICIALANALYSIS_API_KEY=op://vps/modelpick/ARTIFICIALANALYSIS_API_KEY
 # The built Nitro server defaults to 3000; the Caddy entry and `vite dev` both
 # expect 7727, so pin it here where dev and the LaunchAgent both read it.
 PORT=7727
+# Loopback only: Caddy (modelpick.test, the tailnet door) is the way in; the
+# built Nitro server would otherwise listen on every interface, LAN included.
+HOST=127.0.0.1
 
 # --- Local SQLite DB (non-secret) ---
 DATABASE_URL=file:modelpick.db
