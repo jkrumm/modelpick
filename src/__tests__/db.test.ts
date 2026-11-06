@@ -131,7 +131,7 @@ describe("IU catalog", () => {
 
   it("contains known IU catalog models", () => {
     const ids = new Set(IU_CATALOG.map((m) => m.id));
-    expect(ids.has("gpt-image-1")).toBe(true);
+    expect(ids.has("gpt-image-1-mini")).toBe(true);
     expect(ids.has("gpt-4o-transcribe")).toBe(true);
     expect(ids.has("claude-opus-4-5-20251101")).toBe(true);
   });
