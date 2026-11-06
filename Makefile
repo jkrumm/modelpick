@@ -1,6 +1,6 @@
 .PHONY: dev build db-push db-seed models stack probe collect refresh refresh-setup refresh-check refresh-teardown \
 	web-setup web-check web-teardown web-restart \
-	help check deploy verify logs
+	help check deploy verify version logs
 
 # Local-only app: a single SQLite file (modelpick.db, gitignored). No docker.
 
@@ -21,6 +21,10 @@ WEB_LABEL := com.jkrumm.modelpick-web
 WEB_PLIST := $(HOME)/Library/LaunchAgents/$(WEB_LABEL).plist
 WEB_TMPL  := launchd/$(WEB_LABEL).plist.template
 WEB_URL   := http://localhost:7727
+# The commit the running dashboard was built from, stamped by web-setup and
+# web-restart right after the agent (re)starts; `make version` reads it back.
+DEPLOYED_SHA := $(HOME)/.local/state/modelpick/deployed-sha
+STAMP_SHA    := mkdir -p "$(dir $(DEPLOYED_SHA))" && git rev-parse HEAD > "$(DEPLOYED_SHA)"
 
 # Create/sync the SQLite schema from src/db/schema.ts, then seed it.
 db-push:
@@ -82,6 +86,7 @@ web-setup: build ## Build, then install + load the always-on dashboard LaunchAge
 	@# bootout returns before teardown finishes; bootstrapping too early fails with error 5.
 	@for _ in $$(seq 20); do launchctl print "gui/$$(id -u)/$(WEB_LABEL)" >/dev/null 2>&1 || break; sleep 0.5; done
 	@launchctl bootstrap "gui/$$(id -u)" "$(WEB_PLIST)"
+	@$(STAMP_SHA)
 	@$(MAKE) --no-print-directory web-check
 
 web-check: ## Is the dashboard agent loaded, and is IT the thing serving :7727
@@ -107,6 +112,7 @@ web-check: ## Is the dashboard agent loaded, and is IT the thing serving :7727
 
 web-restart: build ## Rebuild and restart the dashboard without re-rendering the plist
 	@launchctl kickstart -k "gui/$$(id -u)/$(WEB_LABEL)"
+	@$(STAMP_SHA)
 	@$(MAKE) --no-print-directory web-check
 
 web-teardown: ## Unload + remove the dashboard LaunchAgent (logs kept)
@@ -127,6 +133,9 @@ deploy: ## Ship the merged default branch: build + (re)install both LaunchAgents
 
 verify: ## Probe the running dashboard on :7727; exit 0 = healthy
 	@$(MAKE) --no-print-directory web-check
+
+version: ## Print the deployed commit sha (what the factory checks a shipped commit against)
+	@cat "$(DEPLOYED_SHA)" 2>/dev/null || { echo "unknown (no deploy recorded — make deploy)" >&2; exit 1; }
 
 logs: ## Tail the last 30 lines of each modelpick log, then exit (no -f)
 	@for f in modelpick-web.log modelpick-web.err modelpick-refresh.log modelpick-refresh.err; do \

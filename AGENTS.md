@@ -35,7 +35,7 @@ single SQLite file (`modelpick.db`, gitignored).
   stays on IU direct, not through the gateway.
 - **Makefile targets**: `make dev`, `make build`, `make db-push`, `make db-seed`,
   `make models|probe|collect|stack|refresh` (catalog sync, access probe, metrics, STACK.md render, full refresh),
-  `make check`, `make deploy`, `make verify`, `make logs`,
+  `make check`, `make deploy`, `make verify`, `make version`, `make logs`,
   `make refresh-setup|refresh-check|refresh-teardown` (the 06:00 LaunchAgent). The
   one measurement that matters day to day is a bun script, not a Makefile target:
   `bun run bench` (ccbench).
@@ -167,6 +167,9 @@ elsewhere.
   Neither pushes the schema itself: `drizzle-kit push` can stop at an interactive prompt
   (column renames, data-loss statements) and the unattended 06:00 agent has no TTY, so it
   would hang. A missing column (e.g. `models.legs`) fails the catalog step instead.
+- `project.yaml` is the factory manifest (`deploy.mode make`, target `mini`, ship by push).
+  `make version` prints the commit sha that `web-setup` / `web-restart` stamped into
+  `~/.local/state/modelpick/deployed-sha`; it exits 1 until a deploy has run.
 - `make web-restart` rebuilds and kickstarts the dashboard without re-rendering the plist;
   `make web-teardown` / `make refresh-teardown` unload and remove the respective agent.
 
