@@ -211,11 +211,11 @@ export const aaVariant = sqliteTable(
 );
 
 // ── Release alerts (one ntfy push per lineage, ever) ─────────────────────────
-// `lineage` is an AA lineage (kind `aa`) or an IU catalog id (kind `iu`). `seed` rows are
-// the first-ever run's silent baseline; `skip` rows were evaluated and judged not big.
+// `lineage` is an AA lineage (kind `aa`) or an IU catalog id (kind `iu`). `seed` / `iu_seed` rows
+// are the silent AA / IU baselines; a candidate judged not big is not recorded at all.
 export const releaseAlert = sqliteTable("release_alert", {
   lineage: text("lineage").primaryKey(),
-  kind: text("kind", { enum: ["aa", "iu", "seed", "skip"] }).notNull(),
+  kind: text("kind", { enum: ["aa", "iu", "seed", "iu_seed"] }).notNull(),
   notified_at: text("notified_at").notNull().default(now),
 });
 

@@ -222,10 +222,10 @@ describe("runRefresh", () => {
     expect(deps.upsertAaVariants).not.toHaveBeenCalled();
   });
 
-  it("hands the catalog's added ids to the release alerts", async () => {
+  it("runs the release alerts once after collect", async () => {
     const deps = makeDeps();
     await runRefresh(deps);
-    expect(deps.releaseAlerts).toHaveBeenCalledWith({ added: ["a"] });
+    expect(deps.releaseAlerts).toHaveBeenCalledOnce();
   });
 
   it("degrades, but still recommends and renders, when a publish failed", async () => {

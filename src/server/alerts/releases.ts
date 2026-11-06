@@ -38,9 +38,11 @@ export function labOfId(id: string): string | null {
 }
 
 export type AlertKind = "aa" | "iu";
+/** `seed` = AA baseline, `iu_seed` = IU baseline; neither ever alerts. */
+export type RecordKind = AlertKind | "seed" | "iu_seed";
 export interface RecordRow {
   lineage: string;
-  kind: AlertKind | "seed" | "skip";
+  kind: RecordKind;
 }
 export interface PlannedAlert {
   lineage: string;
@@ -49,8 +51,8 @@ export interface PlannedAlert {
 }
 export interface AlertPlan {
   alerts: PlannedAlert[];
-  /** Rows to record regardless of publishing (seed baseline, judged-not-big lineages). */
-  silent: RecordRow[];
+  /** Baseline rows to record regardless of publishing. */
+  seeds: RecordRow[];
 }
 
 export interface PlanInput {
@@ -58,10 +60,8 @@ export interface PlanInput {
   models: readonly Model[];
   /** model_id -> accessible per latest probe. */
   probes: ReadonlyMap<string, boolean>;
-  /** Lineages / ids already in `release_alert`. */
-  alerted: ReadonlySet<string>;
-  /** Ids the catalog sync added this run. */
-  added: readonly string[];
+  /** Everything in `release_alert`: lineage / IU id -> kind. */
+  alerted: ReadonlyMap<string, RecordKind>;
 }
 
 /** Non-dominated points of (costPerTask low, intelligence high). */
@@ -115,84 +115,82 @@ function describeLineage(input: {
 }
 
 /**
- * Decides which lineages / catalog ids deserve a push. Pure: reads nothing, writes nothing.
- * An empty `alerted` set is the first-ever run: everything currently known is recorded silently.
+ * Decides which lineages / IU ids deserve a push. Pure: reads nothing, writes nothing.
+ * Both candidate sets come from tables, never from a run-local list, so a push that failed
+ * or was skipped is a candidate again on the next run. A candidate judged not big is simply
+ * not recorded and is re-evaluated every run until it crosses the bar.
+ *
+ * Seeding is per kind: with no AA rows (`aa`/`seed`) every scored lineage is recorded
+ * silently; with no IU rows (`iu`/`iu_seed`) every listed IU llm id is. That keeps a DB
+ * seeded before IU alerts existed from firing for the whole catalog.
  */
 export function planReleaseAlerts(input: PlanInput): AlertPlan {
-  const { variants, models, probes, alerted, added } = input;
+  const { variants, models, probes, alerted } = input;
   const llm = models.filter((m) => m.modality === "llm");
+  const listed = llm.filter((m) => m.iu_listed);
   const scoredByLineage = new Map<string, AaVariant[]>();
   for (const v of variants) {
     if (v.intelligence === null) continue;
     scoredByLineage.set(v.lineage, [...(scoredByLineage.get(v.lineage) ?? []), v]);
   }
 
-  if (alerted.size === 0) {
-    return {
-      alerts: [],
-      silent: [
-        ...[...scoredByLineage.keys()].map((lineage) => ({ lineage, kind: "seed" as const })),
-        ...added.map((lineage) => ({ lineage, kind: "seed" as const })),
-      ],
-    };
+  const kinds = new Set(alerted.values());
+  const seedAa = !kinds.has("aa") && !kinds.has("seed");
+  const seedIu = !kinds.has("iu") && !kinds.has("iu_seed");
+  const plan: AlertPlan = { alerts: [], seeds: [] };
+  if (seedAa) {
+    for (const lineage of scoredByLineage.keys()) plan.seeds.push({ lineage, kind: "seed" });
+  }
+  if (seedIu) {
+    for (const m of listed) plan.seeds.push({ lineage: m.id, kind: "iu_seed" });
   }
 
   const resolveIu = createLineageResolver(llm.map((m) => m.id));
   const frontier = paretoSlugs(variants);
-  const plan: AlertPlan = { alerts: [], silent: [] };
-  const alertedCanons = new Set<string>();
+  // Canonical forms already covered: recorded ids and ids pushed in this plan (one push per lineage).
+  const coveredCanons = new Set([...alerted.keys()].map(canon));
 
-  for (const [lineage, rows] of scoredByLineage) {
-    if (alerted.has(lineage)) continue;
-    const best = Math.max(...rows.map((r) => r.intelligence!));
-    const big = (BIG_LABS.has(rows[0]!.creator) && best >= BIG_INTELLIGENCE) || rows.some((r) => frontier.has(r.slug));
-    if (!big) {
-      plan.silent.push({ lineage, kind: "skip" });
-      continue;
+  if (!seedAa) {
+    for (const [lineage, rows] of scoredByLineage) {
+      if (alerted.has(lineage)) continue;
+      const best = Math.max(...rows.map((r) => r.intelligence!));
+      const big =
+        (BIG_LABS.has(rows[0]!.creator) && best >= BIG_INTELLIGENCE) ||
+        rows.some((r) => frontier.has(r.slug));
+      if (!big) continue;
+      const iuId = resolveIu(lineage);
+      if (iuId) coveredCanons.add(canon(iuId));
+      plan.alerts.push({
+        lineage,
+        kind: "aa",
+        push: describeLineage({ rows, iuId, callable: iuId !== null && probes.get(iuId) === true }),
+      });
     }
-    const iuId = resolveIu(lineage);
-    if (iuId) alertedCanons.add(canon(iuId));
-    plan.alerts.push({
-      lineage,
-      kind: "aa",
-      push: describeLineage({ rows, iuId, callable: iuId !== null && probes.get(iuId) === true }),
-    });
   }
 
-  // New IU ids: a lab we follow, not a residency twin of an id already known, not already
-  // covered by an AA push for the same model (one push per lineage).
-  const addedSet = new Set(added);
-  const knownCanons = new Set(models.filter((m) => !addedSet.has(m.id)).map((m) => canon(m.id)));
-  for (const id of [...added].toSorted((a, b) => a.length - b.length || a.localeCompare(b))) {
-    if (alerted.has(id)) continue;
-    const model = llm.find((m) => m.id === id);
-    const lab = labOfId(id);
-    if (!model || lab === null) {
-      plan.silent.push({ lineage: id, kind: "skip" });
-      continue;
+  if (!seedIu) {
+    // Shortest id first so a residency twin (`-eu`) is covered by its base id.
+    for (const m of [...listed].toSorted((a, b) => a.id.length - b.id.length || a.id.localeCompare(b.id))) {
+      const lab = labOfId(m.id);
+      if (lab === null || alerted.has(m.id) || coveredCanons.has(canon(m.id))) continue;
+      coveredCanons.add(canon(m.id));
+      plan.alerts.push({
+        lineage: m.id,
+        kind: "iu",
+        push: {
+          title: `New on IU: ${m.id}`,
+          message: `${lab} - no AA score yet\nIU callable: ${probes.get(m.id) === true ? "yes" : "no"}`,
+          priority: "default",
+          tags: ["package"],
+        },
+      });
     }
-    const c = canon(id);
-    if (knownCanons.has(c) || alertedCanons.has(c)) {
-      plan.silent.push({ lineage: id, kind: "skip" });
-      continue;
-    }
-    alertedCanons.add(c);
-    plan.alerts.push({
-      lineage: id,
-      kind: "iu",
-      push: {
-        title: `New on IU: ${id}`,
-        message: `${lab} - no AA score yet\nIU callable: ${probes.get(id) === true ? "yes" : "no"}`,
-        priority: "default",
-        tags: ["package"],
-      },
-    });
   }
   return plan;
 }
 
 export interface ReleaseAlertDeps {
-  load(): Promise<Omit<PlanInput, "added">>;
+  load(): Promise<PlanInput>;
   record(rows: RecordRow[]): Promise<void>;
   publish(push: Push): Promise<PublishOutcome>;
 }
@@ -209,14 +207,10 @@ export interface ReleaseAlertSummary {
  * failure (or a missing NTFY_URL, or a dry run) retries on the next run. Never throws on a
  * publish failure: it is counted for the caller to degrade the run.
  */
-export async function runReleaseAlerts(input: {
-  added: readonly string[];
-  deps: ReleaseAlertDeps;
-}): Promise<ReleaseAlertSummary> {
+export async function runReleaseAlerts(input: { deps: ReleaseAlertDeps }): Promise<ReleaseAlertSummary> {
   const { deps } = input;
-  const loaded = await deps.load();
-  const plan = planReleaseAlerts({ ...loaded, added: input.added });
-  const seeded = loaded.alerted.size === 0;
+  const plan = planReleaseAlerts(await deps.load());
+  const seeded = plan.seeds.length > 0;
 
   const sent: RecordRow[] = [];
   let failed = 0;
@@ -228,6 +222,6 @@ export async function runReleaseAlerts(input: {
       console.error(`[alerts] publish failed for ${alert.lineage}: ${String(err)}`);
     }
   }
-  await deps.record([...plan.silent, ...sent]);
+  await deps.record([...plan.seeds, ...sent]);
   return { seeded, published: sent.length, failed };
 }

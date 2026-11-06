@@ -4,7 +4,7 @@ import {
   planReleaseAlerts,
   runReleaseAlerts,
   type ReleaseAlertDeps,
-  type RecordRow,
+  type RecordKind,
 } from "../server/alerts/releases.js";
 import { publish } from "../server/alerts/ntfy.js";
 import type { AaVariant, Model } from "../db/schema.js";
@@ -50,23 +50,41 @@ const base = {
   variants: [] as AaVariant[],
   models: [] as Model[],
   probes: new Map<string, boolean>(),
-  alerted: new Set<string>(["old"]),
-  added: [] as string[],
+  // Both baselines present, so nothing seeds.
+  alerted: new Map<string, RecordKind>([
+    ["old", "seed"],
+    ["old-iu", "iu_seed"],
+  ]),
 };
 
 describe("planReleaseAlerts", () => {
-  it("records everything silently on the first run", () => {
+  it("seeds AA lineages and listed IU ids silently on the first run", () => {
     const plan = planReleaseAlerts({
       ...base,
-      alerted: new Set(),
+      alerted: new Map(),
       variants: [variant("a", "a"), variant("b", "b", { intelligence: null })],
-      added: ["gpt-9"],
+      models: [model("gpt-9"), model("x", { iu_listed: false }), model("t", { modality: "tts" })],
     });
     expect(plan.alerts).toEqual([]);
-    expect(plan.silent).toEqual([
+    expect(plan.seeds).toEqual([
       { lineage: "a", kind: "seed" },
-      { lineage: "gpt-9", kind: "seed" },
+      { lineage: "gpt-9", kind: "iu_seed" },
     ]);
+  });
+
+  it("seeds per kind: an AA-seeded DB without IU rows records the IU ids and does not push them", () => {
+    const plan = planReleaseAlerts({
+      ...base,
+      alerted: new Map<string, RecordKind>([["old", "seed"]]),
+      variants: [variant("fresh", "fresh")],
+      models: [model("gpt-9"), model("claude-9")],
+    });
+    expect(plan.seeds).toEqual([
+      { lineage: "gpt-9", kind: "iu_seed" },
+      { lineage: "claude-9", kind: "iu_seed" },
+    ]);
+    // the AA side still runs in the same pass
+    expect(plan.alerts.map((a) => [a.lineage, a.kind])).toEqual([["fresh", "aa"]]);
   });
 
   it("alerts a big-lab lineage at intelligence >= 30 once, collapsing effort variants", () => {
@@ -75,11 +93,11 @@ describe("planReleaseAlerts", () => {
       variants: [
         variant("new-1", "new-1", { intelligence: 45, cost_per_task: 1 }),
         variant("new-1-low", "new-1", { effort: "low", intelligence: 31, cost_per_task: 0.1 }),
-        // dominated by new-1-low on both axes, so only the lab rule can fire
         variant("old", "old", { intelligence: 20 }),
       ],
-      models: [model("new.1")],
+      models: [model("new.1", { id: "new.1" })],
       probes: new Map([["new.1", true]]),
+      alerted: new Map<string, RecordKind>([...base.alerted, ["new.1", "iu_seed"]]),
     });
     expect(plan.alerts).toHaveLength(1);
     expect(plan.alerts[0]).toMatchObject({ lineage: "new-1", kind: "aa" });
@@ -90,7 +108,7 @@ describe("planReleaseAlerts", () => {
     expect(msg).toContain("IU callable: yes");
   });
 
-  it("alerts a small lab only when it sits on the Pareto frontier", () => {
+  it("alerts a small lab only when it sits on the Pareto frontier, and records no skip", () => {
     const plan = planReleaseAlerts({
       ...base,
       variants: [
@@ -100,7 +118,7 @@ describe("planReleaseAlerts", () => {
       ],
     });
     expect(plan.alerts.map((a) => a.lineage).toSorted()).toEqual(["big", "cheap"]);
-    expect(plan.silent).toEqual([{ lineage: "meh", kind: "skip" }]);
+    expect(plan.seeds).toEqual([]);
   });
 
   it("says IU callable: no when the lineage has no catalog id", () => {
@@ -109,26 +127,24 @@ describe("planReleaseAlerts", () => {
   });
 
   it("skips lineages already recorded", () => {
-    const plan = planReleaseAlerts({ ...base, alerted: new Set(["x"]), variants: [variant("x", "x")] });
-    expect(plan).toEqual({ alerts: [], silent: [] });
+    const alerted = new Map<string, RecordKind>([...base.alerted, ["x", "aa"]]);
+    expect(planReleaseAlerts({ ...base, alerted, variants: [variant("x", "x")] }).alerts).toEqual([]);
   });
 
-  it("alerts a new IU id of a followed lab, not a residency twin or an AA-covered id", () => {
+  it("alerts a listed IU id of a followed lab, not a residency twin, unlisted, non-llm or AA-covered id", () => {
     const plan = planReleaseAlerts({
       ...base,
       models: [
         model("claude-9"),
         model("claude-9-eu"),
-        model("gpt-5"),
-        model("gpt-5-eu"),
         model("llama-9"),
         model("zzz-1"),
         model("kimi-3", { modality: "tts" }),
+        model("qwen-9", { iu_listed: false }),
       ],
       probes: new Map([["claude-9", true]]),
-      added: ["claude-9", "claude-9-eu", "gpt-5-eu", "llama-9", "zzz-1", "kimi-3"],
     });
-    expect(plan.alerts.map((a) => a.lineage)).toEqual(["llama-9", "claude-9"].toSorted((a, b) => a.length - b.length || a.localeCompare(b)));
+    expect(plan.alerts.map((a) => a.lineage)).toEqual(["llama-9", "claude-9"]);
     expect(plan.alerts.find((a) => a.lineage === "claude-9")!.push.message).toContain("IU callable: yes");
     expect(plan.alerts.find((a) => a.lineage === "llama-9")!.push.message).toContain("IU callable: no");
   });
@@ -138,7 +154,6 @@ describe("planReleaseAlerts", () => {
       ...base,
       variants: [variant("gpt-9", "gpt-9")],
       models: [model("gpt-9")],
-      added: ["gpt-9"],
     });
     expect(plan.alerts.map((a) => a.kind)).toEqual(["aa"]);
   });
@@ -151,46 +166,89 @@ describe("planReleaseAlerts", () => {
   });
 });
 
-describe("runReleaseAlerts", () => {
-  const makeDeps = (alerted: string[], publishImpl: ReleaseAlertDeps["publish"]) => {
-    const recorded: RecordRow[] = [];
-    const deps: ReleaseAlertDeps = {
-      load: async () => ({
-        ...base,
-        alerted: new Set(alerted),
-        variants: [variant("a", "a"), variant("b", "b")],
-      }),
-      record: async (rows) => void recorded.push(...rows),
-      publish: publishImpl,
-    };
-    return { deps, recorded };
+/** An in-memory release_alert plus the rows the plan reads, to replay several days. */
+function simulate(opts: { variants: () => AaVariant[]; models?: () => Model[]; publish: ReleaseAlertDeps["publish"] }) {
+  const table = new Map<string, RecordKind>();
+  const deps: ReleaseAlertDeps = {
+    load: async () => ({
+      variants: opts.variants(),
+      models: opts.models?.() ?? [],
+      probes: new Map(),
+      alerted: new Map(table),
+    }),
+    record: async (rows) => {
+      for (const r of rows) table.set(r.lineage, r.kind);
+    },
+    publish: opts.publish,
   };
+  return { table, run: () => runReleaseAlerts({ deps }) };
+}
 
+describe("runReleaseAlerts", () => {
   it("seeds on the first run and then is a no-op", async () => {
     const pub = vi.fn().mockResolvedValue("sent");
-    const first = makeDeps([], pub);
-    expect(await runReleaseAlerts({ added: [], deps: first.deps })).toEqual({ seeded: true, published: 0, failed: 0 });
-    expect(first.recorded.map((r) => r.kind)).toEqual(["seed", "seed"]);
-
-    const second = makeDeps(first.recorded.map((r) => r.lineage), pub);
-    expect(await runReleaseAlerts({ added: [], deps: second.deps })).toEqual({ seeded: false, published: 0, failed: 0 });
+    const sim = simulate({
+      variants: () => [variant("a", "a"), variant("b", "b")],
+      models: () => [model("gpt-9")],
+      publish: pub,
+    });
+    expect(await sim.run()).toEqual({ seeded: true, published: 0, failed: 0 });
+    expect([...sim.table.values()].toSorted()).toEqual(["iu_seed", "seed", "seed"]);
+    expect(await sim.run()).toEqual({ seeded: false, published: 0, failed: 0 });
     expect(pub).not.toHaveBeenCalled();
-    expect(second.recorded).toEqual([]);
   });
 
-  it("records only the lineages whose publish succeeded and counts failures", async () => {
-    const pub = vi.fn().mockRejectedValueOnce(new Error("ntfy 500")).mockResolvedValue("sent");
-    const { deps, recorded } = makeDeps(["old"], pub);
-    const summary = await runReleaseAlerts({ added: [], deps });
-    expect(summary).toEqual({ seeded: false, published: 1, failed: 1 });
-    expect(recorded).toHaveLength(1);
-    expect(recorded[0]?.kind).toBe("aa");
+  it("retries a failed publish the next day, for AA and IU candidates alike", async () => {
+    const pub = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("ntfy 500"))
+      .mockRejectedValueOnce(new Error("ntfy 500"))
+      .mockResolvedValue("sent");
+    let day2 = false;
+    const sim = simulate({
+      variants: () => (day2 ? [variant("a", "a"), variant("new", "new")] : [variant("a", "a")]),
+      models: () => (day2 ? [model("llama-1"), model("llama-9")] : [model("llama-1")]),
+      publish: pub,
+    });
+    await sim.run(); // seed
+    day2 = true;
+    expect(await sim.run()).toEqual({ seeded: false, published: 0, failed: 2 });
+    expect(sim.table.has("new")).toBe(false);
+    expect(sim.table.has("llama-9")).toBe(false);
+    expect(await sim.run()).toEqual({ seeded: false, published: 2, failed: 0 });
+    expect(sim.table.get("new")).toBe("aa");
+    expect(sim.table.get("llama-9")).toBe("iu");
+    expect(await sim.run()).toEqual({ seeded: false, published: 0, failed: 0 });
+  });
+
+  it("pushes a lineage that is weak on day 1 and strong on day 3, exactly once", async () => {
+    const pub = vi.fn().mockResolvedValue("sent");
+    let day = 1;
+    const sim = simulate({
+      variants: () => [
+        variant("anchor", "anchor", { intelligence: 60, cost_per_task: 0.01 }),
+        variant("late", "late", { intelligence: day >= 3 ? 45 : 12, cost_per_task: 5 }),
+      ],
+      publish: pub,
+    });
+    await sim.run(); // seed: both lineages known
+    sim.table.delete("late"); // late appears after the seed
+    for (day = 1; day <= 4; day++) await sim.run();
+    expect(pub).toHaveBeenCalledTimes(1);
+    expect(pub.mock.calls[0]![0].title).toContain("late");
+    expect(sim.table.has("late")).toBe(true);
   });
 
   it("records nothing for a dry or skipped publish, so it retries", async () => {
-    const { deps, recorded } = makeDeps(["old"], async () => "dry");
-    expect(await runReleaseAlerts({ added: [], deps })).toEqual({ seeded: false, published: 0, failed: 0 });
-    expect(recorded).toEqual([]);
+    const sim = simulate({
+      variants: () => [variant("a", "a")],
+      publish: async () => "dry",
+    });
+    await sim.run();
+    sim.table.set("other", "aa");
+    sim.table.delete("a");
+    expect(await sim.run()).toEqual({ seeded: false, published: 0, failed: 0 });
+    expect(sim.table.has("a")).toBe(false);
   });
 });
 

@@ -54,7 +54,7 @@ const result = await runRefresh({
     );
   },
   upsertAaVariants: (rows) => upsertAaVariants(rows),
-  releaseAlerts: ({ added }) => runReleaseAlerts({ added, deps: createReleaseAlertDeps() }),
+  releaseAlerts: () => runReleaseAlerts({ deps: createReleaseAlertDeps() }),
   runRecommender,
   renderStack: writeStackFile,
 });

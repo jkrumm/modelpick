@@ -223,15 +223,18 @@ Contract: `src/server/efficiency/types.ts` (change it only together with Argo).
 ## New-release alerts (ntfy)
 
 Refresh step after `collect` (`src/server/alerts/`); also `bun run alerts` standalone (no catalog
-sync, so no `iu` kind). One push per lineage, effort variants collapsed. State is the
-`release_alert` table (`aa` / `iu` = pushed, `seed` = first-run baseline, `skip` = judged not big).
+sync). One push per lineage, effort variants collapsed. State is the `release_alert` table
+(`aa` / `iu` = pushed, `seed` / `iu_seed` = silent baselines). Candidates come from tables, never from a
+run-local list: scored `aa_variant` lineages and `iu_listed` llm ids with no row. Not-big candidates
+are not recorded and re-evaluated every run, so a lineage that crosses the bar later still pushes.
 
 - **Big** = a lineage first seen and now scored where (creator in OpenAI, Anthropic, Google,
   DeepSeek, SpaceXAI, Meta, Alibaba, Kimi, Z AI, Mistral and best intelligence >= 30) or a variant
-  sits on the current intelligence-vs-costPerTask Pareto frontier. Kind `iu`: a new IU llm id from
-  the catalog sync whose name maps to one of those labs, that is not a residency twin (`-eu`) of a
+  sits on the current intelligence-vs-costPerTask Pareto frontier. Kind `iu`: a listed IU llm id
+  with no row whose name maps to one of those labs, that is not a residency twin (`-eu`) of a
   known id and not already covered by an `aa` push.
-- **First-ever run** (empty table) records everything silently.
+- **Seeding is per kind.** With no `aa`/`seed` rows every scored lineage is recorded silently; with
+  no `iu`/`iu_seed` rows every listed IU id is (so a DB seeded before IU alerts existed stays quiet).
 - **Marked only after a successful publish**, so a failure retries the next day. A failed publish
   degrades the refresh (`release-alerts` in `degraded`) and never aborts it. A missing `NTFY_URL`
   warns and skips; nothing is recorded.

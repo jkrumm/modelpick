@@ -13,13 +13,13 @@ export function createReleaseAlertDeps(db: typeof defaultDb = defaultDb): Releas
         db.select().from(aaVariant).orderBy(desc(aaVariant.release_date)),
         db.select().from(models),
         getLatestProbes(),
-        db.select({ lineage: releaseAlert.lineage }).from(releaseAlert),
+        db.select({ lineage: releaseAlert.lineage, kind: releaseAlert.kind }).from(releaseAlert),
       ]);
       return {
         variants,
         models: modelRows,
         probes: new Map(Object.entries(probes).map(([id, p]) => [id, p.accessible])),
-        alerted: new Set(alerted.map((a) => a.lineage)),
+        alerted: new Map(alerted.map((a) => [a.lineage, a.kind])),
       };
     },
     async record(rows) {

@@ -34,8 +34,8 @@ export interface RefreshDeps {
   insertMetrics: (metrics: NormalizedMetric[]) => Promise<void>;
   /** Persists the ArtificialAnalysis variants from the same fetch. Called only when the collector returned some. */
   upsertAaVariants: (rows: AaVariantRow[]) => Promise<void>;
-  /** After collect: pushes new big releases (AA lineages, IU ids from this run's catalog sync). */
-  releaseAlerts: (input: { added: string[] }) => Promise<ReleaseAlertSummary>;
+  /** After collect: pushes new big releases (AA lineages, listed IU ids). */
+  releaseAlerts: () => Promise<ReleaseAlertSummary>;
   runRecommender: () => Promise<void>;
   /** Last step: re-renders STACK.md from the fresh prices and recommendations. */
   renderStack: () => Promise<string>;
@@ -60,10 +60,8 @@ async function runStep(name: string, fn: () => Promise<string>): Promise<Refresh
  */
 export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
   const degraded: string[] = [];
-  let added: string[] = [];
   const catalog = await runStep("catalog", async () => {
     const r = await deps.syncCatalog();
-    added = r.added;
     return `${r.total} models (+${r.added.length} / -${r.removed.length})`;
   });
 
@@ -111,7 +109,7 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
   });
 
   const alerts = await runStep("alerts", async () => {
-    const r = await deps.releaseAlerts({ added });
+    const r = await deps.releaseAlerts();
     if (r.failed > 0) degraded.push("release-alerts");
     return r.seeded
       ? "first run: baseline recorded silently"
