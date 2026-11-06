@@ -199,8 +199,9 @@ Contract: `src/server/efficiency/types.ts` (change it only together with Argo).
 
 - **Source.** The ArtificialAnalysis free API fetch the metrics collector already makes. The same
   fetch fills `aa_variant` (one row per AA slug, `store.ts` upserts it daily). Effort variants are
-  separate slugs: `-non-reasoning` = `none`, `-low|-medium|-high|-xhigh`, and the bare slug is `max`
-  when the lineage has any other effort row, else `default`. Slugs that vanish keep their row;
+  separate slugs: `-non-reasoning` = `none`, `-low|-medium|-high|-xhigh`, and a bare slug takes the effort
+  AA names in its `name` parenthetical (`Gemini 3.8 Flash (High)` -> `high`; first comma part only),
+  else `max` when the lineage has any other effort row, else `default`. Slugs that vanish keep their row;
   `updated_at` shows how stale. AA terms: API only, never scrape the website, attribution required
   (`source.attribution` in the response).
 - **Estimates.** AA's free tier has no tokens or time per task, so `tokensPerTaskEst =

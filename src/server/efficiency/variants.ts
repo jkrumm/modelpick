@@ -31,15 +31,44 @@ export function parseVariant(slug: string): ParsedVariant {
   return { lineage: slug, effort: null };
 }
 
+const NAMED_EFFORTS: Readonly<Record<string, Effort>> = {
+  "non-reasoning": "none",
+  none: "none",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  xhigh: "xhigh",
+  max: "max",
+};
+
 /**
- * Effort per slug. A bare slug is `max` when its lineage has any other effort row in the
- * set, else `default` (a model with no effort control).
+ * The effort AA states in a model name's trailing parenthetical: "Gemini 3.8 Flash (High)" ->
+ * high. Only the first comma part counts ("Max, Default Fallback" -> max); anything else
+ * ("Reasoning", "Dec '24", "Preview") is not an effort.
  */
-export function resolveEfforts(slugs: readonly string[]): Map<string, Effort> {
-  const parsed = slugs.map((slug) => [slug, parseVariant(slug)] as const);
+export function effortFromName(name: string): Effort | null {
+  const paren = /\(([^)]*)\)\s*$/.exec(name)?.[1];
+  if (paren === undefined) return null;
+  return NAMED_EFFORTS[paren.split(",")[0]!.trim().toLowerCase()] ?? null;
+}
+
+/**
+ * Effort per slug. A suffix slug carries its effort. A bare slug takes the effort AA names in
+ * parentheses (Gemini's top tier is High, not Max); without one it is `max` when its lineage
+ * has any other effort row in the set, else `default` (a model with no effort control).
+ */
+export function resolveEfforts(
+  rows: ReadonlyArray<{ slug: string; name?: string }>,
+): Map<string, Effort> {
+  const parsed = rows.map((r) => [r, parseVariant(r.slug)] as const);
   const lineagesWithEfforts = new Set(parsed.filter(([, p]) => p.effort !== null).map(([, p]) => p.lineage));
   return new Map(
-    parsed.map(([slug, p]) => [slug, p.effort ?? (lineagesWithEfforts.has(p.lineage) ? "max" : "default")]),
+    parsed.map(([r, p]) => [
+      r.slug,
+      p.effort ??
+        (r.name === undefined ? null : effortFromName(r.name)) ??
+        (lineagesWithEfforts.has(p.lineage) ? "max" : "default"),
+    ]),
   );
 }
 

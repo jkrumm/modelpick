@@ -85,8 +85,8 @@ export const BENCH_FAILURE = [
 // card); 'unpriced' = no rate card resolved, so cost_usd is null.
 export const COST_BASIS = ["measured", "list", "unpriced"] as const;
 export const LANG = ["de", "en"] as const;
-// Reasoning effort of an AA variant. `max` = the bare slug of a lineage that also has other
-// effort rows; `default` = the bare slug of a lineage with none.
+// Reasoning effort of an AA variant. A bare slug takes the effort AA names in its name
+// parenthetical, else `max` (lineage has other effort rows) or `default` (none).
 export const AA_EFFORT = ["none", "low", "medium", "high", "xhigh", "max", "default"] as const;
 // 'live' = measured directly against the IU endpoint (scripts/benchmark-throughput.ts),
 // as opposed to the external leaderboard collectors.

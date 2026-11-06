@@ -77,8 +77,7 @@ const num = (v: number | null | undefined): number | null =>
 
 /** One row per AA slug, effort parsed from the slug (bare slug: `max` or `default`). */
 export function toVariantRows(models: AAModel[]): AaVariantRow[] {
-  const slugs = models.flatMap((m) => (m.slug ? [m.slug] : []));
-  const efforts = resolveEfforts(slugs);
+  const efforts = resolveEfforts(models.flatMap((m) => (m.slug ? [{ slug: m.slug, name: m.name }] : [])));
   return models.flatMap((m): AaVariantRow[] => {
     if (!m.slug) return [];
     return [

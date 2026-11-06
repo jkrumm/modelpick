@@ -7,6 +7,7 @@ import { buildEfficiency } from "../server/efficiency/build.js";
 import {
   accessOf,
   computeSuperseded,
+  effortFromName,
   estimateTask,
   parseVariant,
   resolveEfforts,
@@ -48,7 +49,9 @@ describe("parseVariant / resolveEfforts", () => {
   });
 
   it("names a bare slug max when siblings exist, default when alone", () => {
-    const efforts = resolveEfforts(["a", "a-low", "b", "c-non-reasoning", "c"]);
+    const efforts = resolveEfforts(
+      ["a", "a-low", "b", "c-non-reasoning", "c"].map((slug) => ({ slug })),
+    );
     expect(efforts.get("a")).toBe("max");
     expect(efforts.get("a-low")).toBe("low");
     expect(efforts.get("b")).toBe("default");
@@ -56,9 +59,30 @@ describe("parseVariant / resolveEfforts", () => {
     expect(efforts.get("c-non-reasoning")).toBe("none");
   });
 
+  it("takes a bare slug's effort from the parenthetical in AA's name", () => {
+    expect(effortFromName("Gemini 3.8 Flash (High)")).toBe("high");
+    expect(effortFromName("Claude Opus 5.5 (Max, Default Fallback)")).toBe("max");
+    expect(effortFromName("Claude Sonnet 4.6 (Non-reasoning, High)")).toBe("none");
+    expect(effortFromName("GPT-6.1 Terra (XHigh)")).toBe("xhigh");
+    expect(effortFromName("GLM-4.5 (Reasoning)")).toBeNull();
+    expect(effortFromName("Grok 2 (Dec '24)")).toBeNull();
+    expect(effortFromName("Plain Name")).toBeNull();
+    const efforts = resolveEfforts([
+      { slug: "gemini-3-8-flash", name: "Gemini 3.8 Flash (High)" },
+      { slug: "gemini-3-8-flash-high", name: "Gemini 3.8 Flash (High)" },
+      { slug: "gemini-3-8-flash-low", name: "Gemini 3.8 Flash (Low)" },
+      { slug: "x", name: "X (Reasoning)" },
+      { slug: "x-low", name: "X (Low)" },
+    ]);
+    expect(efforts.get("gemini-3-8-flash")).toBe("high");
+    expect(efforts.get("x")).toBe("max");
+  });
+
   it("derives the real rows", () => {
     const bySlug = new Map(rows.map((r) => [r.slug, r]));
     expect(bySlug.get("gpt-6-1-terra")?.effort).toBe("max");
+    expect(bySlug.get("gemini-3-8-flash")?.effort).toBe("high");
+    expect(bySlug.get("gemini-4-carbon")?.effort).toBe("high");
     expect(bySlug.get("gpt-6-1-terra-medium")).toMatchObject({ effort: "medium", lineage: "gpt-6-1-terra" });
     expect(bySlug.get("claude-opus-5")?.effort).toBe("max");
     expect(bySlug.get("gpt-3-5-turbo-0613")?.effort).toBe("default");
