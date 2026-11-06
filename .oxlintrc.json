@@ -26,23 +26,5 @@
     "import/no-duplicates": "error",
     "import/no-unassigned-import": "off"
   },
-  "ignorePatterns": ["src/routeTree.gen.ts", "fixtures/**"],
-  "overrides": [
-    {
-      "files": ["src/charts/**"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "paths": [
-              {
-                "name": "@visx/tooltip",
-                "message": "Use ChartTooltip + TooltipHeader/Row/Body from src/charts/primitives."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ]
+  "ignorePatterns": ["src/routeTree.gen.ts", "fixtures/**"]
 }

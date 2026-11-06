@@ -60,7 +60,7 @@ whose value is being a different vendor).
 
 ### 1.4 A category pick with zero running slots is fiction
 
-`/stack` shows a slot count per category pick. A `0` means nothing runs it. Either wire it or
+`STACK.md` shows a slot count per category pick (live routes: `agw routes`, Argo `/models`). A `0` means nothing runs it. Either wire it or
 retire it; do not keep scoring it.
 
 ---
@@ -200,7 +200,7 @@ floor was cleared, never that the model is smart.
 1. **Every running slot goes in `src/db/deployments.ts`** with the file that wires it
    (`config_ref`) and the date that file was last read (`verified_at`).
 2. **`bun run verify-deployments`** checks those claims mechanically against the other repos.
-   It caught two wrong rows on its first run. Run it before trusting `/stack`.
+   It caught two wrong rows on its first run. Run it before trusting `STACK.md`; the live config is `agw routes` (Argo `/models`).
 3. **Every pick gets a decision record** in `decisions/` with the evidence and a stated
    re-open trigger. A pick without a re-open trigger is a pick nobody will revisit.
    Each record opens with a **Current verdict** block; when a later section reverses an earlier
@@ -220,5 +220,5 @@ floor was cleared, never that the model is smart.
 
 ## 5. The current picks
 
-Not restated here — they live in `src/stack.ts` (rendered to `STACK.md`), the `deployment` table, and the
-live `/stack` page, so this file cannot drift from them. Each carries a link to its record.
+Not restated here — they live in `src/stack.ts` (rendered to `STACK.md`), the `deployment` table, and
+`agw routes` (rendered at Argo `/models`), so this file cannot drift from them. Each carries a link to its record.

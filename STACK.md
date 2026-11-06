@@ -19,4 +19,4 @@
 
 Prices: measured IU rate, else models.dev, else the AA/OpenRouter average. Drift compares the pick
 with the latest recommender top pick for its category (`n/a` for jobs no leaderboard scores).
-Rationale and caveats per pick: `src/stack.ts`. Per-service slots: `src/db/deployments.ts` and the `/stack` page.
+Rationale and caveats per pick: `src/stack.ts`. Per-service slots: `src/db/deployments.ts`; the live config is `agw routes` (Argo `/models`).
