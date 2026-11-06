@@ -1,4 +1,4 @@
-import type { NormalizedMetric, CollectorResult } from "./collectors/normalize.js";
+import type { AaVariantRow, NormalizedMetric, CollectorResult } from "./collectors/normalize.js";
 
 export interface RefreshStepResult {
   ok: boolean;
@@ -29,6 +29,8 @@ export interface RefreshDeps {
   collectLmarena: () => Promise<CollectorResult>;
   /** Persists the merged metrics list to the DB. Called only when metrics.length > 0. */
   insertMetrics: (metrics: NormalizedMetric[]) => Promise<void>;
+  /** Persists the ArtificialAnalysis variants from the same fetch. Called only when the collector returned some. */
+  upsertAaVariants: (rows: AaVariantRow[]) => Promise<void>;
   runRecommender: () => Promise<void>;
   /** Last step: re-renders STACK.md from the fresh prices and recommendations. */
   renderStack: () => Promise<string>;
@@ -76,6 +78,7 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
     const settled = await Promise.allSettled(collectors.map(([, , run]) => run()));
 
     const metrics: NormalizedMetric[] = [];
+    const aaVariants: AaVariantRow[] = [];
     const statuses: string[] = [];
     collectors.forEach(([name, label], i) => {
       const result = settled[i];
@@ -86,11 +89,16 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
       }
       if (result.value.metrics.length === 0) degraded.push(name);
       for (const m of result.value.metrics) metrics.push(m);
+      for (const v of result.value.aaVariants ?? []) aaVariants.push(v);
       statuses.push(`${result.value.metrics.length} ${label}`);
     });
 
     if (metrics.length > 0) {
       await deps.insertMetrics(metrics);
+    }
+    if (aaVariants.length > 0) {
+      await deps.upsertAaVariants(aaVariants);
+      statuses.push(`${aaVariants.length} AA variants`);
     }
     return `${metrics.length} metrics (${statuses.join(", ")})`;
   });

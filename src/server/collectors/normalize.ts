@@ -1,4 +1,4 @@
-import type { MetricSource } from "../../db/schema.js";
+import type { AaVariant, MetricSource } from "../../db/schema.js";
 
 export interface NormalizedMetric {
   model_id: string;
@@ -8,9 +8,14 @@ export interface NormalizedMetric {
   confidence: number;
 }
 
+/** One ArtificialAnalysis slug as stored in `aa_variant` (timestamps are set by the upsert). */
+export type AaVariantRow = Omit<AaVariant, "first_seen_at" | "updated_at">;
+
 export interface CollectorResult {
   metrics: NormalizedMetric[];
   unmatched: { externalId: string; name: string }[];
+  /** ArtificialAnalysis only: every slug of the fetch, for the `aa_variant` upsert. */
+  aaVariants?: AaVariantRow[];
 }
 
 export type IdResolver = (externalId: string) => string | null;

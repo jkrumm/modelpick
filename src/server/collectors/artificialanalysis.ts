@@ -1,9 +1,19 @@
-import type { CollectorResult, IdResolver, NormalizedMetric } from "./normalize.js";
+import type {
+  AaVariantRow,
+  CollectorResult,
+  IdResolver,
+  NormalizedMetric,
+} from "./normalize.js";
+import { SNAPSHOT_PINS } from "./snapshot-pins.js";
+import { parseVariant, resolveEfforts } from "../efficiency/variants.js";
 
 // Free-tier Data API. The legacy /api/v2/data/llms/models sunsets 2026-11-04 (410 after);
 // the Pro list (/api/v2/language/models) 403s on our key. Free drops every per-benchmark
 // eval (gpqa, hle, mmlu_pro, …) — Epoch covers those — and keeps the indices, pricing and
 // speed, which is all the scorer reads from AA.
+//
+// Terms: use this API only, never scrape artificialanalysis.ai, and show attribution
+// ("Source: Artificial Analysis (artificialanalysis.ai)") wherever the data is displayed.
 interface AAEvaluations {
   artificial_analysis_intelligence_index?: number | null;
   artificial_analysis_coding_index?: number | null;
@@ -12,17 +22,26 @@ interface AAEvaluations {
 interface AAPricing {
   price_1m_input_tokens?: number | null;
   price_1m_output_tokens?: number | null;
+  price_1m_cache_hit_tokens?: number | null;
+  price_1m_cache_write_tokens?: number | null;
 }
 
 interface AAPerformance {
   median_output_tokens_per_second?: number | null;
   median_time_to_first_token_seconds?: number | null;
+  median_time_to_first_answer_token_seconds?: number | null;
+  median_end_to_end_response_time_seconds?: number | null;
 }
 
 interface AAModel {
   id: string;
   name: string;
   slug?: string | null;
+  release_date?: string | null;
+  model_creator?: { name?: string | null } | null;
+  artificial_analysis_intelligence_index_cost?: {
+    cost_per_task?: { total_cost?: number | null } | null;
+  } | null;
   evaluations?: AAEvaluations | null;
   pricing?: AAPricing | null;
   performance?: AAPerformance | null;
@@ -37,14 +56,7 @@ const AA_MODELS_URL = "https://artificialanalysis.ai/api/v2/language/models/free
 // 4 pages of 200 today; the cap only guards against a has_more that never turns false.
 const MAX_PAGES = 20;
 
-// Local id → the dated AA slug its route verifiably serves. The resolver never strips a
-// 4-digit snapshot suffix (`-1017`) — that would collapse every DeepSeek snapshot onto one
-// id — so a route that silently moved to a new snapshot needs an explicit pin.
-// deepseek-v4.1-flash: IU → Requesty deepseek/deepseek-v4.1-flash, updated to 1017 on
-// 2026-10-17 (docs/decisions/agent-gateway-tiers.md, 2026-10-19).
-export const SNAPSHOT_PINS: Readonly<Record<string, string>> = {
-  "deepseek-v4.1-flash": "deepseek-v4-1-flash-1017",
-};
+export { SNAPSHOT_PINS };
 
 async function fetchAllModels(key: string): Promise<AAModel[]> {
   const models: AAModel[] = [];
@@ -58,6 +70,38 @@ async function fetchAllModels(key: string): Promise<AAModel[]> {
     if (!body.pagination?.has_more) break;
   }
   return models;
+}
+
+const num = (v: number | null | undefined): number | null =>
+  v !== null && v !== undefined && isFinite(v) ? v : null;
+
+/** One row per AA slug, effort parsed from the slug (bare slug: `max` or `default`). */
+export function toVariantRows(models: AAModel[]): AaVariantRow[] {
+  const slugs = models.flatMap((m) => (m.slug ? [m.slug] : []));
+  const efforts = resolveEfforts(slugs);
+  return models.flatMap((m): AaVariantRow[] => {
+    if (!m.slug) return [];
+    return [
+      {
+        slug: m.slug,
+        name: m.name,
+        lineage: parseVariant(m.slug).lineage,
+        effort: efforts.get(m.slug) ?? "default",
+        creator: m.model_creator?.name ?? "Unknown",
+        release_date: m.release_date ?? null,
+        intelligence: num(m.evaluations?.artificial_analysis_intelligence_index),
+        cost_per_task: num(m.artificial_analysis_intelligence_index_cost?.cost_per_task?.total_cost),
+        price_in: num(m.pricing?.price_1m_input_tokens),
+        price_out: num(m.pricing?.price_1m_output_tokens),
+        price_cache_read: num(m.pricing?.price_1m_cache_hit_tokens),
+        price_cache_write: num(m.pricing?.price_1m_cache_write_tokens),
+        tps: num(m.performance?.median_output_tokens_per_second),
+        ttft_sec: num(m.performance?.median_time_to_first_token_seconds),
+        ttfat_sec: num(m.performance?.median_time_to_first_answer_token_seconds),
+        e2e_sec: num(m.performance?.median_end_to_end_response_time_seconds),
+      },
+    ];
+  });
 }
 
 function addMetric(
@@ -148,5 +192,5 @@ export async function collectArtificialAnalysis(resolve: IdResolver): Promise<Co
     addMetric(metrics, localId, "price_out", model.pricing?.price_1m_output_tokens, 0.9);
   }
 
-  return { metrics, unmatched };
+  return { metrics, unmatched, aaVariants: toVariantRows(models) };
 }

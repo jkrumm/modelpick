@@ -20,6 +20,7 @@ const makeDeps = (overrides: Partial<RefreshDeps> = {}): RefreshDeps => ({
   collectModelsDev: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
   collectLmarena: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
   insertMetrics: vi.fn().mockResolvedValue(undefined),
+  upsertAaVariants: vi.fn().mockResolvedValue(undefined),
   runRecommender: vi.fn().mockResolvedValue(undefined),
   renderStack: vi.fn().mockResolvedValue("wrote STACK.md"),
   ...overrides,
@@ -203,5 +204,20 @@ describe("runRefresh", () => {
     expect(result.collect.ok).toBe(true);
     expect(result.recommend.ok).toBe(false);
     expect(result.allOk).toBe(false);
+  });
+
+  it("upserts the AA variants a collector returned, once", async () => {
+    const aaVariants = [{ slug: "s", name: "S", lineage: "s", effort: "default" as const, creator: "C" }];
+    const deps = makeDeps({
+      collectArtificialAnalysis: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [], aaVariants }),
+    });
+    await runRefresh(deps);
+    expect(deps.upsertAaVariants).toHaveBeenCalledWith(aaVariants);
+  });
+
+  it("skips the variant upsert when no collector returned any", async () => {
+    const deps = makeDeps();
+    await runRefresh(deps);
+    expect(deps.upsertAaVariants).not.toHaveBeenCalled();
   });
 });

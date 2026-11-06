@@ -192,6 +192,33 @@ Three things fall out of that table:
    completion that is indistinguishable from a failure. Same trap as the bake-off's Gemini
    note and the 600-token cap that used to sit in `benchmark-throughput.ts`.
 
+## Efficiency feed (`GET /api/efficiency`)
+
+Argo renders the model decision surface by relaying this endpoint; modelpick only serves data.
+Contract: `src/server/efficiency/types.ts` (change it only together with Argo).
+
+- **Source.** The ArtificialAnalysis free API fetch the metrics collector already makes. The same
+  fetch fills `aa_variant` (one row per AA slug, `store.ts` upserts it daily). Effort variants are
+  separate slugs: `-non-reasoning` = `none`, `-low|-medium|-high|-xhigh`, and the bare slug is `max`
+  when the lineage has any other effort row, else `default`. Slugs that vanish keep their row;
+  `updated_at` shows how stale. AA terms: API only, never scrape the website, attribution required
+  (`source.attribution` in the response).
+- **Estimates.** AA's free tier has no tokens or time per task, so `tokensPerTaskEst =
+  costPerTask / priceOut * 1e6` and `timePerTaskEstSec = tokensPerTaskEst / tps`. Validated once:
+  rank correlation 0.69 with AA's published time per task, overstated 2-4x for Anthropic/OpenAI and
+  up to 21x for input-heavy models. Compare within a vendor, never as an absolute.
+- **Superseded.** Per creator + family (`versionOf` after `v4` -> `4` and dropping a trailing
+  snapshot) the highest version is current, the newest release wins among snapshots, and a lineage
+  older than 12 months is superseded with `supersededBy: null`. A version segment >= 20 is a mangled
+  id (`claude-35-sonnet`) and is ignored. No alias table: a wrong hide is worse than a safe miss.
+  Computed over every AA row, scored or not.
+- **Routes.** `agw routes --format json` (cached 5 min, stale on error; LLM routes only), each
+  mapped `(model, effort)` -> AA slug. Missing effort never falls back to another effort
+  (`variantSlug: null` + `reason`). `claude-*` = `subscription`, everything else `metered`.
+- **Known issue.** `coding_index` is null on every row of the AA free API since about 2026-10-28.
+  The stored `coding_index` metrics are stale, so the recommender's coding profile reads old data.
+  Not fixed here.
+
 # Moved from AGENTS.md
 
 ## Daily refresh pipeline

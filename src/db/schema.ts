@@ -85,6 +85,9 @@ export const BENCH_FAILURE = [
 // card); 'unpriced' = no rate card resolved, so cost_usd is null.
 export const COST_BASIS = ["measured", "list", "unpriced"] as const;
 export const LANG = ["de", "en"] as const;
+// Reasoning effort of an AA variant. `max` = the bare slug of a lineage that also has other
+// effort rows; `default` = the bare slug of a lineage with none.
+export const AA_EFFORT = ["none", "low", "medium", "high", "xhigh", "max", "default"] as const;
 // 'live' = measured directly against the IU endpoint (scripts/benchmark-throughput.ts),
 // as opposed to the external leaderboard collectors.
 export const METRIC_SOURCE = [
@@ -175,6 +178,46 @@ export const metricSnapshot = sqliteTable(
     index("idx_metric_snapshot_source_metric").on(t.source, t.metric),
   ],
 );
+
+// ── ArtificialAnalysis variants (one row per AA slug, effort variants separate) ──
+// Upserted daily from the free Data API fetch the metrics collector already makes. AA
+// publishes each reasoning-effort variant under its own slug (`gpt-6-1-terra-medium`);
+// `lineage` is the slug minus that suffix, `effort` the parsed level. A slug that vanishes
+// from the API keeps its row — `updated_at` tells how stale it is. Attribution is required
+// wherever this data is shown (AGENTS.md, "ArtificialAnalysis terms").
+export const aaVariant = sqliteTable(
+  "aa_variant",
+  {
+    slug: text("slug").primaryKey(),
+    name: text("name").notNull(),
+    lineage: text("lineage").notNull(),
+    effort: text("effort", { enum: AA_EFFORT }).notNull(),
+    creator: text("creator").notNull(),
+    release_date: text("release_date"),
+    intelligence: real("intelligence"),
+    cost_per_task: real("cost_per_task"),
+    price_in: real("price_in"),
+    price_out: real("price_out"),
+    price_cache_read: real("price_cache_read"),
+    price_cache_write: real("price_cache_write"),
+    tps: real("tps"),
+    ttft_sec: real("ttft_sec"),
+    ttfat_sec: real("ttfat_sec"),
+    e2e_sec: real("e2e_sec"),
+    first_seen_at: text("first_seen_at").notNull().default(now),
+    updated_at: text("updated_at").notNull().default(now),
+  },
+  (t) => [index("idx_aa_variant_lineage").on(t.lineage)],
+);
+
+// ── Release alerts (one ntfy push per lineage, ever) ─────────────────────────
+// `lineage` is an AA lineage (kind `aa`) or an IU catalog id (kind `iu`). `seed` rows are
+// the first-ever run's silent baseline; `skip` rows were evaluated and judged not big.
+export const releaseAlert = sqliteTable("release_alert", {
+  lineage: text("lineage").primaryKey(),
+  kind: text("kind", { enum: ["aa", "iu", "seed", "skip"] }).notNull(),
+  notified_at: text("notified_at").notNull().default(now),
+});
 
 // ── Recommendations (one per category per snapshot date) ─────────────────────
 
@@ -411,6 +454,8 @@ export type StackChoice = typeof stackChoice.$inferSelect;
 export type StackChoiceInsert = typeof stackChoice.$inferInsert;
 export type Deployment = typeof deployment.$inferSelect;
 export type DeploymentInsert = typeof deployment.$inferInsert;
+export type AaVariant = typeof aaVariant.$inferSelect;
+export type AaVariantInsert = typeof aaVariant.$inferInsert;
 export type Demo = typeof demo.$inferSelect;
 export type BenchRun = typeof benchRun.$inferSelect;
 export type BenchRunInsert = typeof benchRun.$inferInsert;

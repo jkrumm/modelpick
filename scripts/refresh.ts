@@ -17,6 +17,7 @@ import {
   STACK_SNAPSHOT_PATH,
 } from "../src/server/snapshot-commit.js";
 import { runRecommender } from "../src/server/scoring/recommend.js";
+import { upsertAaVariants } from "../src/server/efficiency/store.js";
 import { writeStackFile } from "../src/server/stack-file.js";
 import { createIdResolver } from "../src/server/collectors/normalize.js";
 import { db, client } from "../src/db/index.js";
@@ -50,6 +51,7 @@ const result = await runRefresh({
       })),
     );
   },
+  upsertAaVariants: (rows) => upsertAaVariants(rows),
   runRecommender,
   renderStack: writeStackFile,
 });

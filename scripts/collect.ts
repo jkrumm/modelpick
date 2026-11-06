@@ -5,6 +5,7 @@ import { collectModelsDev } from "../src/server/collectors/modelsdev.js";
 import { collectEpoch } from "../src/server/collectors/epoch.js";
 import { collectLmarena } from "../src/server/collectors/lmarena.js";
 import { createIdResolver } from "../src/server/collectors/normalize.js";
+import { upsertAaVariants } from "../src/server/efficiency/store.js";
 import { db, client } from "../src/db/index.js";
 import { metricSnapshot, models } from "../src/db/schema.js";
 
@@ -46,6 +47,12 @@ if (allMetrics.length > 0) {
       confidence: m.confidence,
     })),
   );
+}
+
+const aaVariants = results.flatMap((r) => r.result.aaVariants ?? []);
+if (aaVariants.length > 0) {
+  await upsertAaVariants(aaVariants);
+  console.log(`[collect] upserted ${aaVariants.length} AA variants`);
 }
 
 console.log(`[collect] inserted ${allMetrics.length} metric snapshots`);
