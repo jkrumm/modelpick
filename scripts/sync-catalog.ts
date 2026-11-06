@@ -18,7 +18,6 @@ try {
     `[sync-catalog] removed ${r.removed.length}${r.removed.length ? `: ${r.removed.join(", ")}` : ""}`,
   );
   console.log(`[sync-catalog] hidden-callable (kept by hand, not in any /models leg):`, r.hidden);
-  console.log(`[sync-catalog] referenced but unlisted (deployments.ts / MY_STACK):`, r.referencedUnlisted);
 } finally {
   await client.end();
 }

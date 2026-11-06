@@ -1,10 +1,10 @@
-.PHONY: dev build db-push db-seed models stack probe collect refresh refresh-setup refresh-check refresh-teardown \
+.PHONY: dev build db-push db-seed models probe collect refresh refresh-setup refresh-check refresh-teardown \
 	web-setup web-check web-teardown web-restart \
 	help check deploy verify version logs
 
 # Local-only app: a single SQLite file (modelpick.db, gitignored). No docker.
 
-# The daily refresh (bun run refresh: probe → collect → recommend) as a mini
+# The daily refresh (bun run refresh: catalog → probe → collect → alerts) as a mini
 # LaunchAgent. Template rendered with the repo path and $HOME; launchd starts
 # the job with no shell profile, so the plist pins PATH to reach bun and the
 # secrets-run shim (cache backend, no biometric needed). Logs in
@@ -45,10 +45,7 @@ probe: ## Probe every catalog model once (cents)
 collect: ## Collect leaderboard + price metrics
 	bun run collect
 
-stack: ## Render STACK.md from src/stack.ts + deployments + the latest metrics
-	bun run stack
-
-refresh: ## Full refresh: catalog → probe → collect → recommend (run `make db-push` first after pulling schema changes)
+refresh: ## Full refresh: catalog → probe → collect → alerts (run `make db-push` first after pulling schema changes)
 	bun run refresh
 
 dev:

@@ -22,8 +22,6 @@ const makeDeps = (overrides: Partial<RefreshDeps> = {}): RefreshDeps => ({
   insertMetrics: vi.fn().mockResolvedValue(undefined),
   upsertAaVariants: vi.fn().mockResolvedValue(undefined),
   releaseAlerts: vi.fn().mockResolvedValue({ seeded: false, published: 0, failed: 0 }),
-  runRecommender: vi.fn().mockResolvedValue(undefined),
-  renderStack: vi.fn().mockResolvedValue("wrote STACK.md"),
   ...overrides,
 });
 
@@ -36,7 +34,6 @@ describe("runRefresh", () => {
     expect(deps.collectOpenRouter).toHaveBeenCalledOnce();
     expect(deps.collectArtificialAnalysis).toHaveBeenCalledOnce();
     expect(deps.insertMetrics).toHaveBeenCalledOnce();
-    expect(deps.runRecommender).toHaveBeenCalledOnce();
     expect(result.allOk).toBe(true);
   });
 
@@ -58,22 +55,9 @@ describe("runRefresh", () => {
 
     expect(result.probe.ok).toBe(false);
     expect(result.collect.ok).toBe(true);
-    expect(result.recommend.ok).toBe(true);
     expect(result.allOk).toBe(false);
     // Subsequent steps still ran
-    expect(deps.runRecommender).toHaveBeenCalledOnce();
-  });
-
-  it("continues when recommend fails", async () => {
-    const deps = makeDeps({
-      runRecommender: vi.fn().mockRejectedValue(new Error("recommend error")),
-    });
-    const result = await runRefresh(deps);
-
-    expect(result.probe.ok).toBe(true);
-    expect(result.collect.ok).toBe(true);
-    expect(result.recommend.ok).toBe(false);
-    expect(result.allOk).toBe(false);
+    expect(deps.releaseAlerts).toHaveBeenCalledOnce();
   });
 
   it("collect step handles partial collector failure via allSettled", async () => {
@@ -116,31 +100,6 @@ describe("runRefresh", () => {
     expect(result.allOk).toBe(false);
   });
 
-  it("renders STACK.md last, after the recommender", async () => {
-    const order: string[] = [];
-    const deps = makeDeps({
-      runRecommender: vi.fn(async () => void order.push("recommend")),
-      renderStack: vi.fn(async () => {
-        order.push("stack");
-        return "wrote STACK.md";
-      }),
-    });
-    const result = await runRefresh(deps);
-
-    expect(order).toEqual(["recommend", "stack"]);
-    expect(result.stack.ok).toBe(true);
-  });
-
-  it("a failed STACK.md render is reported but does not undo the other steps", async () => {
-    const deps = makeDeps({ renderStack: vi.fn().mockRejectedValue(new Error("disk full")) });
-    const result = await runRefresh(deps);
-
-    expect(result.stack.ok).toBe(false);
-    expect(result.stack.message).toContain("disk full");
-    expect(result.recommend.ok).toBe(true);
-    expect(result.allOk).toBe(false);
-  });
-
   it("a source returning 0 rows degrades the run (rc!=0) but still persists the rest", async () => {
     const deps = makeDeps({
       collectLmarena: vi.fn().mockResolvedValue({ metrics: [], unmatched: [] }),
@@ -161,7 +120,6 @@ describe("runRefresh", () => {
 
     expect(result.collect.ok).toBe(false);
     expect(result.probe.ok).toBe(true);
-    expect(result.recommend.ok).toBe(true);
     expect(result.allOk).toBe(false);
   });
 
@@ -197,13 +155,13 @@ describe("runRefresh", () => {
   it("allOk false when multiple steps fail", async () => {
     const deps = makeDeps({
       probe: vi.fn().mockRejectedValue(new Error("probe error")),
-      runRecommender: vi.fn().mockRejectedValue(new Error("recommend error")),
+      collectEpoch: vi.fn().mockRejectedValue(new Error("epoch down")),
     });
     const result = await runRefresh(deps);
 
     expect(result.probe.ok).toBe(false);
     expect(result.collect.ok).toBe(true);
-    expect(result.recommend.ok).toBe(false);
+    expect(result.degraded).toEqual(["epoch"]);
     expect(result.allOk).toBe(false);
   });
 
@@ -228,15 +186,14 @@ describe("runRefresh", () => {
     expect(deps.releaseAlerts).toHaveBeenCalledOnce();
   });
 
-  it("degrades, but still recommends and renders, when a publish failed", async () => {
+  it("degrades, but still completes, when a publish failed", async () => {
     const deps = makeDeps({
       releaseAlerts: vi.fn().mockResolvedValue({ seeded: false, published: 1, failed: 1 }),
     });
     const result = await runRefresh(deps);
     expect(result.degraded).toEqual(["release-alerts"]);
     expect(result.allOk).toBe(false);
-    expect(deps.runRecommender).toHaveBeenCalledOnce();
-    expect(deps.renderStack).toHaveBeenCalledOnce();
+    expect(result.collect.ok).toBe(true);
   });
 
   it("degrades once when the alerts step itself throws", async () => {
@@ -244,6 +201,5 @@ describe("runRefresh", () => {
     const result = await runRefresh(deps);
     expect(result.alerts.ok).toBe(false);
     expect(result.degraded).toEqual(["release-alerts"]);
-    expect(deps.runRecommender).toHaveBeenCalledOnce();
   });
 });

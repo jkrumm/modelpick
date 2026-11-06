@@ -3,7 +3,7 @@ import type { CollectorResult, IdResolver, NormalizedMetric } from "./normalize.
 // ArtificialAnalysis speech leaderboards (same x-api-key as the LLM list):
 //   TTS  /media/text-to-speech/models/free   → elo, ci_95        (higher = better)
 //   STT  /media/speech-to-text/models/free   → aa_wer_index      (word error rate, lower = better)
-// Stored raw as `tts_elo` / `stt_wer_index`; the audio recommender reads them.
+// Stored raw as `tts_elo` / `stt_wer_index`; nothing reads them now.
 interface AATtsModel {
   name: string;
   slug?: string | null;

@@ -12,9 +12,6 @@ export interface RefreshResult {
   collect: RefreshStepResult;
   /** New-release ntfy pushes. A failure here degrades the run but never stops later steps. */
   alerts: RefreshStepResult;
-  recommend: RefreshStepResult;
-  /** STACK.md re-render. Its failure is reported but never stops the run's other work. */
-  stack: RefreshStepResult;
   /** Collectors that failed or returned 0 rows. Their metrics are still persisted; the run is not allOk. */
   degraded: string[];
   allOk: boolean;
@@ -36,9 +33,6 @@ export interface RefreshDeps {
   upsertAaVariants: (rows: AaVariantRow[]) => Promise<void>;
   /** After collect: pushes new big releases (AA lineages, listed IU ids). */
   releaseAlerts: () => Promise<ReleaseAlertSummary>;
-  runRecommender: () => Promise<void>;
-  /** Last step: re-renders STACK.md from the fresh prices and recommendations. */
-  renderStack: () => Promise<string>;
 }
 
 async function runStep(name: string, fn: () => Promise<string>): Promise<RefreshStepResult> {
@@ -54,7 +48,7 @@ async function runStep(name: string, fn: () => Promise<string>): Promise<Refresh
 }
 
 /**
- * Orchestrates the daily refresh pipeline: catalog → probe → collect → alerts → recommend → stack render.
+ * Orchestrates the daily refresh pipeline: catalog → probe → collect → alerts.
  * Each step runs independently — one failure does not abort subsequent steps.
  * Within collect, individual collector failures are isolated via Promise.allSettled.
  */
@@ -117,19 +111,12 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
   });
   if (!alerts.ok) degraded.push("release-alerts");
 
-  const recommend = await runStep("recommend", async () => {
-    await deps.runRecommender();
-    return "done";
-  });
-
-  const stack = await runStep("stack", deps.renderStack);
-
   if (degraded.length > 0) console.error(`[refresh] degraded sources: ${degraded.join(", ")}`);
-  const allOk = catalog.ok && probe.ok && collect.ok && recommend.ok && stack.ok && degraded.length === 0;
-  const okCount = [catalog, probe, collect, recommend, stack].filter((s) => s.ok).length;
+  const allOk = catalog.ok && probe.ok && collect.ok && degraded.length === 0;
+  const okCount = [catalog, probe, collect].filter((s) => s.ok).length;
   console.log(
-    `[refresh] summary: ${okCount}/5 steps ok${degraded.length > 0 ? `, ${degraded.length} degraded source(s)` : ""}`,
+    `[refresh] summary: ${okCount}/3 steps ok${degraded.length > 0 ? `, ${degraded.length} degraded source(s)` : ""}`,
   );
 
-  return { catalog, probe, collect, alerts, recommend, stack, degraded, allOk };
+  return { catalog, probe, collect, alerts, degraded, allOk };
 }

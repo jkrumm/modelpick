@@ -1,13 +1,11 @@
 # modelpick
 
-A local data server for model choice: it ranks the LLM / TTS / STT models accessible via the IU
-unified endpoint against external leaderboards and serves ArtificialAnalysis efficiency data at
+A local data server for model choice: it collects the models accessible via the IU unified endpoint,
+external leaderboard data and live access probes, and serves ArtificialAnalysis efficiency data at
 `GET /api/efficiency` (Argo renders it at `/models`). It also hosts the TTS playground (`/tts`) for
 trialling and curating voice demos.
 
-It also records **what every service actually runs**, slot by slot — the model, the reasoning
-budget, and the file in the other repo that wires it — and checks those claims mechanically
-(`bun run verify-deployments`).
+What every service actually runs is `agw routes` (agent-workflows), not this repo.
 
 Single-user, local-only. State lives in one SQLite file (`modelpick.db`, gitignored).
 
@@ -25,7 +23,7 @@ Single-user, local-only. State lives in one SQLite file (`modelpick.db`, gitigno
 
 ```bash
 make db-push             # create the SQLite schema from src/db/schema.ts
-make db-seed             # seed the model catalog + My Stack
+make db-seed             # seed the model catalogs
 make dev                 # start the dev server
 ```
 
@@ -36,7 +34,7 @@ No `.env` file needed — secrets resolve via `secrets-run` at runtime (see Env 
 ## Running the agentic bench
 
 ```bash
-bun run bench        # run the agentic ccbench suite that backs the coding-model pick (spends; --dry-run is free)
+bun run bench        # run the agentic ccbench suite that measures operational fitness of coding models (spends; --dry-run is free)
 ```
 
 ## Database
@@ -48,13 +46,13 @@ migration folder — change the schema, re-run `db:push`. Override the location 
 
 ```bash
 bun run db:push     # sync schema → modelpick.db
-bun run db:seed     # models + My Stack
+bun run db:seed     # model catalogs
 bun run demos:seed  # audio demos
 ```
 
 ## Daily refresh
 
-Run the full pipeline (probe access → collect external metrics → recommend) locally:
+Run the full pipeline (catalog → probe access → collect external metrics → release alerts) locally:
 
 ```bash
 bun run refresh
@@ -64,7 +62,7 @@ On the mini it runs daily at 06:00 as the `com.jkrumm.modelpick-refresh` LaunchA
 (`launchd/*.plist.template`): `make refresh-setup` installs it, `make refresh-check` reports
 the last exit, `make refresh-teardown` removes it. Logs: `~/Library/Logs/modelpick-refresh.{log,err}`.
 
-Individual steps: `bun run probe`, `bun run collect`, `bun run recommend`.
+Individual steps: `bun run probe`, `bun run collect`, `bun run alerts`.
 
 ## Validation
 

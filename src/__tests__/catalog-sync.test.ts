@@ -8,9 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../db/schema.js";
 import { syncCatalog } from "../server/iu/catalog-sync.js";
 
-// `claude-sonnet-5` is a DEPLOYMENTS slot id; `legacy-unreferenced` is in no deployment or stack pick.
-const REFERENCED = "claude-sonnet-5";
-const UNREFERENCED = "legacy-unreferenced";
+const VANISHED_A = "claude-sonnet-5";
+const VANISHED_B = "legacy-unlisted";
 
 const ENV = {
   IU_API_KEY: "k",
@@ -66,8 +65,8 @@ beforeEach(async () => {
   )`);
   db = drizzle(client, { schema });
   await db.insert(schema.models).values([
-    { id: REFERENCED, provider: "anthropic", modality: "llm", display_name: "ref", iu_listed: true },
-    { id: UNREFERENCED, provider: "other", modality: "llm", display_name: "old", iu_listed: true },
+    { id: VANISHED_A, provider: "anthropic", modality: "llm", display_name: "ref", iu_listed: true },
+    { id: VANISHED_B, provider: "other", modality: "llm", display_name: "old", iu_listed: true },
   ]);
   snapshotPath = join(dir, "iu-catalog.ts");
   await writeFile(snapshotPath, SENTINEL);
@@ -81,16 +80,15 @@ afterEach(async () => {
 });
 
 describe("syncCatalog", () => {
-  it("upserts, flips only unreferenced vanished ids, then writes the snapshot", async () => {
+  it("upserts, flips every vanished id, then writes the snapshot", async () => {
     mockLegs();
-    const r = await syncCatalog({ db, snapshotPath });
+    await syncCatalog({ db, snapshotPath });
 
     const rows = await listedRows();
-    expect(rows.get(REFERENCED)?.iu_listed).toBe(true);
-    expect(rows.get(UNREFERENCED)?.iu_listed).toBe(false);
+    expect(rows.get(VANISHED_A)?.iu_listed).toBe(false);
+    expect(rows.get(VANISHED_B)?.iu_listed).toBe(false);
     expect(rows.get("gpt-9")).toMatchObject({ modality: "llm", iu_listed: true, legs: "openai" });
     expect(rows.get("jev-preview")).toMatchObject({ modality: "decision", family: "decision" });
-    expect(r.referencedUnlisted).toContain(REFERENCED);
 
     const body = await snapshot();
     expect(body).toContain('"id": "gpt-9"');
@@ -107,8 +105,8 @@ describe("syncCatalog", () => {
 
     expect(await snapshot()).toBe(SENTINEL);
     const rows = await listedRows();
-    expect([...rows.keys()].toSorted()).toEqual([REFERENCED, UNREFERENCED].toSorted());
-    expect(rows.get(UNREFERENCED)?.iu_listed).toBe(true);
+    expect([...rows.keys()].toSorted()).toEqual([VANISHED_A, VANISHED_B].toSorted());
+    expect(rows.get(VANISHED_B)?.iu_listed).toBe(true);
   });
 
   it("a DB failure leaves the snapshot untouched", async () => {

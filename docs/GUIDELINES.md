@@ -38,30 +38,12 @@ has produced three wrong answers here:
 
 Before a metric moves a pick, write two lines: what the metric measures, and what the slot
 does. If they are not obviously the same sentence, it is a proxy — say so in the decision
-record instead of switching. `vision`, `image` and `embedding` are **manual** categories for
+record instead of switching. `vision`, `image`, `embedding` and `decision` have no leaderboard for
 exactly this reason.
 
 **When no metric fits, run a blind bake-off on the real task.** That is how TTS, dense-diagram
 reading and the Claude Code model were all actually decided. Half an hour of it beats any
 leaderboard column.
-
-### 1.3 A category recommendation does not govern a slot that deliberately diverges
-
-One category maps to many slots. Claude Code's interactive session and its unattended worker
-are both `coding` and are deliberately different models. Mark those slots
-`follows_recommendation: false` in `src/db/deployments.ts` with the reason inline — otherwise
-drift fires on well-understood divergence and 28 of 54 slots light up, which is
-indistinguishable from no signal.
-
-Three standing reasons a slot legitimately ignores its category: it runs on the **Max plan**
-(the cost term is meaningless), it is **governed by ccbench** rather than the leaderboard
-(unattended workers), or it is a **structural** pick no category scores (an adversary tier
-whose value is being a different vendor).
-
-### 1.4 A category pick with zero running slots is fiction
-
-`STACK.md` shows a slot count per category pick (live routes: `agw routes`, Argo `/models`). A `0` means nothing runs it. Either wire it or
-retire it; do not keep scoring it.
 
 ---
 
@@ -178,7 +160,7 @@ with ≥200 visible tokens.
 
 `metric_snapshot.conditions` holds the reasoning setting a `live` measurement was taken under.
 A `ttft_ms` at `off` and one at `default` differ by an order of magnitude on the same model;
-`normalizeMetrics()` drops speed metrics captured at `off` rather than ranking them together.
+never rank or average them together.
 A latency claim without its effort setting is not a claim.
 
 ### 3.5 Graders must be deterministic *and* unambiguous
@@ -197,28 +179,19 @@ floor was cleared, never that the model is smart.
 
 ## 4. Recording a decision
 
-1. **Every running slot goes in `src/db/deployments.ts`** with the file that wires it
-   (`config_ref`) and the date that file was last read (`verified_at`).
-2. **`bun run verify-deployments`** checks those claims mechanically against the other repos.
-   It caught two wrong rows on its first run. Run it before trusting `STACK.md`; the live config is `agw routes` (Argo `/models`).
-3. **Every pick gets a decision record** in `decisions/` with the evidence and a stated
+1. **Every pick gets a decision record** in `decisions/` with the evidence and a stated
    re-open trigger. A pick without a re-open trigger is a pick nobody will revisit.
    Each record opens with a **Current verdict** block; when a later section reverses an earlier
    one, mark the earlier section superseded rather than leaving a reader to find the reversal
    300 lines on.
-4. **Cross-check every verdict block against the `deployment` table, not against the record's
-   own prose.** The table is verified against the real config files; a record is not. This
-   caught a verdict claiming `claude-opus-5` wrote the podcast outline when the live config had
-   said `gpt-5.6-luna` for weeks — a stale sentence promoted into a "current" claim, which is
-   precisely the drift this structure exists to stop.
-5. **Write the reason a drift flag is wrong into the row's `rationale`**, so it stops
-   re-surfacing. Most drift is an explanation owed, not a switch to make.
-6. **Refresh with [`/refresh-stack`](../.claude/skills/refresh-stack/SKILL.md)** — catalog,
-   probe, collect, recommend, verify, then triage. It never runs the spending benchmarks.
+2. **Cross-check every verdict block against `agw routes`, not against the record's own prose.**
+   The route table is the live config; a record is not. A verdict once claimed `claude-opus-5`
+   wrote the podcast outline while the live config had said `gpt-5.6-luna` for weeks.
+3. **Making a pick live is a change to the agw route table** in agent-workflows, not to this repo.
 
 ---
 
 ## 5. The current picks
 
-Not restated here — they live in `src/stack.ts` (rendered to `STACK.md`), the `deployment` table, and
-`agw routes` (rendered at Argo `/models`), so this file cannot drift from them. Each carries a link to its record.
+Not restated here: the live config is `agw routes`, rendered next to the efficiency data at Argo
+`/models`. Each decision record carries the evidence for its pick.

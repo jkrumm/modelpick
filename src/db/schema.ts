@@ -10,23 +10,7 @@ import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-or
 // meaningless for them (docs/decisions/decision-model.md).
 export const MODALITY = ["llm", "tts", "stt", "image", "embedding", "decision"] as const;
 export const RESIDENCY = ["eu", "us", "unknown"] as const;
-// Services that actually consume a model. `deployment` has one row per real
-// slot inside one of these — the layer the abstract CATEGORY model cannot
-// express, because a single category (e.g. `coding`) is wired into several
-// slots that legitimately run different models.
-export const SERVICE = [
-  "claude-code",
-  "agent-workflows",
-  "hermes",
-  "research",
-  "audio",
-  "argo",
-  "image-gateway",
-  "rb",
-  "homelab",
-  "email-gateway",
-] as const;
-// How much reasoning a slot is configured for. `default` = the model's own
+// How much reasoning a measurement was taken under. `default` = the model's own
 // adaptive behaviour (nothing pinned); `off` = explicitly suppressed; `n/a` =
 // the model has no reasoning control. Recorded because a latency measured with
 // thinking off is NOT comparable to one measured at default effort — reading
@@ -57,17 +41,6 @@ export const PROBE_STATUS = [
   "timeout", // probe aborted before a response
   "unknown", // unclassified non-2xx
 ] as const;
-// Scored categories — driven by the recommender against leaderboard metrics.
-export const CATEGORY = ["fast", "coding", "writing", "orchestrator", "tts", "stt"] as const;
-// Manual stack-only categories: real model choices I track, but with no public
-// leaderboard to score them — so they live in My Stack with a researched rationale
-// and never get an algorithmic recommendation (hence no drift flag). Refresh the
-// rationale via /research + /investigate-models when revisiting the pick.
-// `decision` is manual for the recommender (no external leaderboard scores
-// decision models) but has its own live eval, `bun run bench:decision`, which
-// drives the /decision tab's ranking.
-export const MANUAL_CATEGORY = ["embedding", "vision", "image", "decision"] as const;
-export const STACK_CATEGORY = [...CATEGORY, ...MANUAL_CATEGORY] as const;
 // Why a ccbench run produced no usable grade. Mirrors BENCH_FAILURE in
 // src/server/bench/types.ts — the tuple lives here because the column needs it.
 export const BENCH_FAILURE = [
@@ -219,115 +192,6 @@ export const releaseAlert = sqliteTable("release_alert", {
   notified_at: text("notified_at").notNull().default(now),
 });
 
-// ── Recommendations (one per category per snapshot date) ─────────────────────
-
-export const recommendation = sqliteTable(
-  "recommendation",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    category: text("category", { enum: CATEGORY }).notNull(),
-    model_id: text("model_id")
-      .notNull()
-      .references(() => models.id, { onDelete: "cascade" }),
-    score: real("score").notNull(),
-    rationale: text("rationale"),
-    snapshot_date: text("snapshot_date").notNull(), // yyyy-mm-dd
-  },
-  (t) => [
-    index("idx_recommendation_snapshot_date").on(t.snapshot_date),
-    index("idx_recommendation_category").on(t.category),
-    uniqueIndex("uq_recommendation_category_date").on(t.category, t.snapshot_date),
-  ],
-);
-
-// ── My Stack (the models I have actually decided to use) ─────────────────────
-// One row per category: my deliberate pick, kept separate from the algorithmic
-// `recommendation`. The /stack page diffs the two to flag when a better model
-// has appeared and my choice is due for review.
-
-export const stackChoice = sqliteTable(
-  "stack_choice",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    // Widened beyond the scored CATEGORY to include manual categories
-    // (embedding/vision/image) that have no algorithmic recommendation.
-    category: text("category", { enum: STACK_CATEGORY }).notNull(),
-    model_id: text("model_id")
-      .notNull()
-      .references(() => models.id, { onDelete: "cascade" }),
-    // Environment caveat where the real-world pick differs from the IU model id,
-    // e.g. "Opus 4.8 in Claude Code (Max)" or "Charon voice".
-    env_note: text("env_note"),
-    rationale: text("rationale"),
-    decided_at: text("decided_at").notNull(), // yyyy-mm-dd
-  },
-  (t) => [uniqueIndex("uq_stack_choice_category").on(t.category)],
-);
-
-// ── Deployments (what each service actually runs, per slot) ──────────────────
-// The truth layer. `stack_choice` answers "which model did I pick for the
-// *coding* idea"; this answers "which model does agent-gateway's JUDGE tier call
-// today, with what reasoning budget, wired in which file". One row per real
-// slot, because one category maps to several slots that legitimately differ —
-// Claude Code's interactive session and its unattended worker are both
-// `coding` and are deliberately not the same model.
-//
-// `model_id` is deliberately NOT a foreign key onto `models`, for the same
-// reason `pick_probe.model_id` isn't: a service can be pointed at an id the
-// committed portal snapshot has not caught up with, and a stale catalog must
-// not be able to make the truth unrecordable.
-
-export const deployment = sqliteTable(
-  "deployment",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    service: text("service", { enum: SERVICE }).notNull(),
-    // Machine-ish slot key, unique within the service: "brain", "JUDGE",
-    // "interactive", "worker", "tts-chat".
-    slot: text("slot").notNull(),
-    label: text("label").notNull(),
-    model_id: text("model_id").notNull(),
-    // Which scored profile this slot should be judged against, when one
-    // applies. Null for slots no category scores (an adversary tier, a
-    // structural pick) — those get no drift flag, exactly like the manual
-    // stack categories. A manual category (`decision`) may be named for
-    // grouping; it never has a recommendation, so it never drifts.
-    category: text("category", { enum: STACK_CATEGORY }),
-    thinking: text("thinking", { enum: THINKING }).notNull().default("n/a"),
-    // Remaining non-default request params worth knowing about, free text:
-    // "MAX_THINKING_TOKENS=2000", "temperature 0.2", "Mark voice".
-    params: text("params"),
-    // Repo-relative path (optionally :line) of the file that actually wires
-    // this slot, so a claim here is checkable against the config in one hop.
-    config_ref: text("config_ref").notNull(),
-    // False when `config_ref` does not literally contain `model_id` — a tier
-    // alias ("sonnet"), an inherited value, or a deliberate unset that falls
-    // through to another service's routing. scripts/verify-deployments.ts skips
-    // these rather than reporting a false mismatch, and says so in its output.
-    literal_id: integer("literal_id", { mode: "boolean" }).notNull().default(true),
-    // False when the slot uses its category for grouping but deliberately does
-    // NOT follow that category's recommendation — a Max-plan slot where the
-    // cost term is meaningless, a residency-gated slot, or a tier chosen to be
-    // cheaper than the category winner on purpose. Without this, `drift` fires
-    // on well-understood divergence and 28 of 54 slots light up, which is
-    // indistinguishable from no signal at all.
-    follows_recommendation: integer("follows_recommendation", { mode: "boolean" })
-      .notNull()
-      .default(true),
-    rationale: text("rationale"),
-    // docs/decisions/*.md backing this slot, when one exists.
-    decision_doc: text("decision_doc"),
-    decided_at: text("decided_at").notNull(), // yyyy-mm-dd
-    // Last date `config_ref` was actually read and found to still say this.
-    // A deployment row is a claim about another repo; this is its expiry date.
-    verified_at: text("verified_at"),
-  },
-  (t) => [
-    uniqueIndex("uq_deployment_service_slot").on(t.service, t.slot),
-    index("idx_deployment_category").on(t.category),
-  ],
-);
-
 // ── Pick probes (Claude Code model-pick CLI, scripts/pick.ts) ────────────────
 // One row per non-Claude model on the IU Anthropic-protocol route: derived
 // per-token pricing (solved from the gateway's Requesty `usage.cost` field),
@@ -449,11 +313,6 @@ export type CapabilityProbe = typeof capabilityProbe.$inferSelect;
 export type PickProbe = typeof pickProbe.$inferSelect;
 export type PickProbeInsert = typeof pickProbe.$inferInsert;
 export type MetricSnapshot = typeof metricSnapshot.$inferSelect;
-export type Recommendation = typeof recommendation.$inferSelect;
-export type StackChoice = typeof stackChoice.$inferSelect;
-export type StackChoiceInsert = typeof stackChoice.$inferInsert;
-export type Deployment = typeof deployment.$inferSelect;
-export type DeploymentInsert = typeof deployment.$inferInsert;
 export type AaVariant = typeof aaVariant.$inferSelect;
 export type AaVariantInsert = typeof aaVariant.$inferInsert;
 export type Demo = typeof demo.$inferSelect;
@@ -463,9 +322,6 @@ export type BenchRunInsert = typeof benchRun.$inferInsert;
 export type Modality = (typeof MODALITY)[number];
 export type Residency = (typeof RESIDENCY)[number];
 export type ProbeStatus = (typeof PROBE_STATUS)[number];
-export type RecommendationCategory = (typeof CATEGORY)[number];
-export type StackCategory = (typeof STACK_CATEGORY)[number];
-export type Service = (typeof SERVICE)[number];
 export type Thinking = (typeof THINKING)[number];
 export type Lang = (typeof LANG)[number];
 export type MetricSource = (typeof METRIC_SOURCE)[number];

@@ -2,15 +2,15 @@
 
 ## What this is
 
-modelpick is a **data server** for model choice, plus the **TTS playground** (`/tts`). It ranks the
-LLM/TTS/STT models reachable through the **IU unified endpoint** against external leaderboards
+modelpick is a **data server** for model choice, plus the **TTS playground** (`/tts`). It collects
+the models reachable through the **IU unified endpoint**, external leaderboard data
 (ArtificialAnalysis, models.dev, OpenRouter, Epoch AI, LMArena) and live access probes, and serves
 per-effort efficiency data at `GET /api/efficiency` (and liveness at `GET /api/health`).
 
 **The decision surface is Argo `/models`**, which renders by relaying `/api/efficiency`; modelpick
-has no other UI. The **central model config is agent-workflows** (`agw routes`); `src/stack.ts` /
-`STACK.md` / `src/db/deployments.ts` are legacy reference that the pipelines still maintain.
-Rationale for past picks stays in `docs/decisions/`.
+has no other UI. The **central model config is agent-workflows** (`agw routes`); a new pick means
+changing its route table, not this repo. There is no recommender, "my stack" table or deployment
+table any more (removed 2026-11-06). Rationale for past picks stays in `docs/decisions/`.
 
 Local-only, one-person curation. All state lives in a single SQLite file (`modelpick.db`, gitignored).
 
@@ -36,91 +36,25 @@ Local-only, one-person curation. All state lives in a single SQLite file (`model
   leg measures IU, never a credit org. `bun run bench` (`bench/spawn.ts`) prefers the Keychain and
   stays on IU direct, not through the gateway.
 - **Makefile targets**: `make dev`, `make build`, `make db-push`, `make db-seed`,
-  `make models|probe|collect|stack|refresh` (catalog sync, access probe, metrics, STACK.md render, full refresh),
+  `make models|probe|collect|refresh` (catalog sync, access probe, metrics, full refresh),
   `make check`, `make deploy`, `make verify`, `make version`, `make logs`,
   `make refresh-setup|refresh-check|refresh-teardown` (the 06:00 LaunchAgent). The
   one measurement that matters day to day is a bun script, not a Makefile target:
   `bun run bench` (ccbench).
 
-## The category model
+## Decision models
 
-Two tiers (`schema.ts`):
-
-- **Scored** (`CATEGORY` = `fast | coding | writing | orchestrator | tts | stt`) — driven by the
-  recommender. Each has its own weight profile (`CATEGORY_WEIGHTS` in
-  `src/server/scoring/score.ts`) and a min-quality floor so cheap models can't win on price
-  alone.
-- **Manual** (`MANUAL_CATEGORY` = `embedding | vision | image | decision`) — no public leaderboard
-  scores these, so there is **no algorithmic recommendation** and no drift flag. They live in
-  My Stack with a research-backed rationale; refresh via `/research` + `/investigate-models`.
-- **`decision`** (a manual category, `MODALITY` `decision`) — typed-answer classifiers (Clef,
-  Decision-1, Jev, PPLX Decider, Luna's Decisions API: yes/no, choice and score answers with
-  probabilities, no text generation). No leaderboard scores them, so the recommender skips them,
-  but the bench that ranked them has been cut (verdict kept in the decision record).
-  All but Luna are called on UE's native **systemone** API (`IU_DECISIONS_BASE_URL` +
-  `/systemone`); Luna's Decisions route is its own catalog entry, `gpt-6-luna:decisions`, on the
-  OpenAI leg. The ids live in `src/db/decision-models.ts`; the probe reads UE's decision list
-  (`/decisions/v1/models`) and warns about — and catalogs — any id missing there. They are never
-  probed with a chat "hi" (`probe.ts` sends a minimal decision request). Record:
-  [`docs/decisions/decision-model.md`](docs/decisions/decision-model.md); wire formats in
-  `model-configs.md`.
-
-`STACK_CATEGORY` is the union (scored + manual) and types `stack_choice.category`;
-`recommendation.category` stays scored-only.
-
-## My Stack (legacy reference, `STACK.md`)
-
-`stack_choice` table holds my **deliberate** pick per category, separate from the
-algorithmic `recommendation`. [`STACK.md`](STACK.md) diffs the two and flags **drift** when the
-algorithm prefers a different model. The `/stack` page is gone; Argo `/models` is the decision surface and
-`agw routes` the live config. Picks live in `src/stack.ts`
-(`STACK`; the first entry per category is upserted into `stack_choice`); revise there, bump
-`decided_at`, and run `make stack` to re-render [`STACK.md`](STACK.md) (a test fails when it is stale). Manual categories carry no `recommendation`, so `STACK.md` shows
-them as "no recommendation" (gray `—`) rather than ok/drift. **Current picks are
-in [`STACK.md`](STACK.md) — not restated here**, so this
-file cannot drift from them; each pick's rationale links its `docs/decisions/*.md` record.
-
-## Deployments — the truth layer (`STACK.md`, section 1)
-
-`stack_choice` answers "which model did I pick for the *coding* idea". `deployment`
-answers "which model does the `review.synthesis` route call today, at what reasoning budget,
-wired in which file". They are different questions and the gap between them is the point:
-`coding` is one stack row and six running slots, and a stack row can have **zero** slots
-(the `STACK.md` slot-count column exists to expose exactly that).
-
-- Rows live in **`src/db/deployments.ts`**, one per real slot across claude-code, agent-workflows,
-  hermes, research, audio, argo, image-gen, rb, homelab, email-gateway. Seeded by
-  `seedDeployments()` (delete-then-insert: a slot that disappears from a service's config
-  must disappear here too).
-- Every row carries `config_ref` — the file in the *other* repo that actually wires it —
-  and `verified_at`. **`bun run verify-deployments` checks those claims mechanically**:
-  it opens each `config_ref` and asserts the `model_id` is still in it. `--update` stamps
-  `VERIFIED` when nothing is broken. Rows whose config uses a tier alias, an inherited
-  value, or a deliberate unset set `literal_id: false` and are reported as *indirect*
-  rather than passing silently.
-- **Workloads that run on agent-workflows** (review, check, research, otel, prose, diagram,
-  triage, podcast, audio, image) have `config_ref: "agw-route:<route-id>"` (comma-separated for
-  a slot spanning routes). They are verified against `agw routes --format json`, the platform's
-  route table, not a source file; `agw` unavailable fails the run. Rows whose `service` is
-  `agent-workflows` are the review/check/prose/diagram/otel/triage slots; audio, research and
-  image rows keep their own service. agent-gateway retired 2026-10-29: its rows and the
-  `agent-gateway` `SERVICE` value are gone (the dispatch and VISION-tier slots had no
-  agent-workflows route).
-- `STACK.md` flags each slot: `unresolvable` (id not in the catalog), `inaccessible`,
-  `drift` (the category recommendation names a different model), `stale` (`verified_at`
-  > 30 days). There is deliberately **no residency flag** — residency stays a fact on
-  `capability_probe` and an argument inside a decision record, not a per-slot alarm.
-- `follows_recommendation: false` marks a slot that uses its category for grouping but
-  deliberately does not follow it — a Max-plan slot where the cost term is meaningless, or
-  an unattended worker governed by ccbench rather than the quality-led `coding` profile.
-  Without it 28 of 54 slots flagged at once, which reads as no signal at all.
-  A slot with `category: null` is a **structural** pick — no category scores it, so no
-  drift is possible. Do not "fix" a slot to match a category recommendation without
-  reading the slot's own rationale first.
-
-Refresh the whole loop with **`/refresh-stack`** (catalog → probe → collect → recommend →
-verify-deployments → triage the drift). It never runs `bun run bench`; that spends money
-and answers a different question.
+`decision` is a model modality (`MODALITY`): typed-answer classifiers (Clef,
+Decision-1, Jev, PPLX Decider, Luna's Decisions API: yes/no, choice and score answers with
+probabilities, no text generation). No leaderboard scores them and the bench that ranked them has
+been cut (verdict kept in the decision record).
+All but Luna are called on UE's native **systemone** API (`IU_DECISIONS_BASE_URL` +
+`/systemone`); Luna's Decisions route is its own catalog entry, `gpt-6-luna:decisions`, on the
+OpenAI leg. The ids live in `src/db/decision-models.ts`; the probe reads UE's decision list
+(`/decisions/v1/models`) and warns about — and catalogs — any id missing there. They are never
+probed with a chat "hi" (`probe.ts` sends a minimal decision request). Record:
+[`docs/decisions/decision-model.md`](docs/decisions/decision-model.md); wire formats in
+`model-configs.md`.
 
 ## Model choice and configuration — read the guidelines, don't re-derive
 
@@ -186,7 +120,7 @@ elsewhere.
 - **Kuma monitor** `none` — no Uptime Kuma monitor is defined in this repo, and the monitor
   list lives outside it; nothing is claimed here.
 - **OTel `service.name`** `none` — modelpick has no OpenTelemetry instrumentation (the `otel`
-  entry in `src/db/deployments.ts` is an agent-workflows route slot, not a tracer).
+  agw route is a route slot, not a tracer).
 - **Logs** `~/Library/Logs/modelpick-web.{log,err}` and `modelpick-refresh.{log,err}`.
   `make logs` tails the last lines of each and exits (bounded, no `-f`); `make refresh-check`
   reports the refresh agent's last exit.
@@ -206,7 +140,7 @@ elsewhere.
   remove it or the sandbox measures the global dotfiles instead of the model (`--dry-run`
   costs nothing).
 - **`db:push` refuses data-loss statements interactively** — dropping a column needs
-  `bunx drizzle-kit push --force` (safe for `deployment`, delete-then-insert each run).
+  `bunx drizzle-kit push --force`.
 - **This repo is public and ArtificialAnalysis data is internal-use only.** Never commit AA API rows, dumps or
   tables (fixtures, docs, snapshots); test fixtures use invented numbers (`fixtures/aa/README.md`).
 - **Don't start long-lived servers** — the owner runs dev servers manually; use `make verify`
@@ -225,9 +159,8 @@ elsewhere.
 - **Estimates caveat.** `tokensPerTaskEst` / `timePerTaskEstSec` are derived (AA's free tier has
   no tokens or time per task): rank correlation 0.69 with AA's published time per task, but
   overstated 2-4x for Anthropic/OpenAI and up to 21x for input-heavy models. Always named `Est`.
-- **Known issue:** `coding_index` is null on every row of the AA free API since about 2026-10-28.
-  The stored `coding_index` metrics are stale, so the recommender's `coding` profile is scoring
-  on old data. Documented, not fixed.
+- AA's `coding_index` has been null on every row of the free API since about 2026-10-28; the stored
+  metrics are stale and nothing consumes them.
 - Release alerts: refresh step after collect; `NTFY_TOKEN` in `.env.tpl`, `NTFY_URL` injected into
   the refresh plist by `make refresh-setup` (private host, never committed);
   `MODELPICK_NOTIFY_DRY=1 bun run alerts` prints instead of publishing.
@@ -241,9 +174,8 @@ syncs to the SQLite file with `bun run db:push` (`drizzle-kit push`, dialect `sq
   schema against `modelpick.db` and applies the change. No hand-written SQL, no `db:generate`.
 - For a clean rebuild: `rm modelpick.db && bun run db:push && bun run db:seed`.
 - Dropping a column needs `bunx drizzle-kit push --force`: `db:push` refuses data-loss
-  statements interactively and there is no TTY in a tool call. Safe for `deployment`,
-  which is delete-then-insert seeded from code on every run.
-- Seed with `bun run db:seed` (models + my stack), demos with `bun run demos:seed`.
+  statements interactively and there is no TTY in a tool call.
+- Seed with `bun run db:seed` (model catalogs), demos with `bun run demos:seed`.
 - German TTS comparison on `/tts`: samples live in `data/tts-compare/` (`manifest.json` tracked, `audio/`
   gitignored) and are served at request time by `/api/tts-audio/<file>`, so new samples need no rebuild.
   Regenerate with `secrets-run run --env-file=.env.tpl -- bun scripts/tts-compare.ts [--only <model>]
@@ -253,7 +185,7 @@ syncs to the SQLite file with `bun run db:push` (`drizzle-kit push`, dialect `sq
 - German STT comparison: the `/stt` page, its scripts and scoring were cut; the numbers are in
   `docs/decisions/audio-stack.md` §German STT comparison.
 - SQLite has no native enums — they're `text({ enum: [...] })` with value tuples (`MODALITY`,
-  `CATEGORY`, …) exported from `schema.ts`. Booleans are `integer({ mode: "boolean" })`;
+  `RESIDENCY`, …) exported from `schema.ts`. Booleans are `integer({ mode: "boolean" })`;
   timestamps are text (`CURRENT_TIMESTAMP`), which sort lexically.
 
 ## IU model catalog — how it stays current
@@ -275,19 +207,18 @@ real access and residency.
 
 **`/models` is not complete.** `HIDDEN_CALLABLE` in `src/server/iu/catalog.ts` lists ids that
 are callable and billed but in no leg (start: `claude-haiku-5-5-eu`); add one only after
-`make probe` proves it callable. An id referenced by `deployments.ts` or `src/stack.ts` is
-never delisted by the sync — the summary prints it as "referenced but unlisted"
-(today also `claude-sonnet-5[1m]`, a Claude Code alias, and `grok-4.20-reasoning`, external).
+`make probe` proves it callable. An id in no leg gets `iu_listed=false`
+from the sync; rows are never deleted.
 
 ## Pipelines (detail: [`docs/pipelines.md`](docs/pipelines.md))
 
-- `make refresh` = catalog → probe → collect (+ `aa_variant` upsert) → release alerts → recommend → re-render `STACK.md`, daily 06:00 on the mini
+- `make refresh` = catalog → probe → collect (+ `aa_variant` upsert) → release alerts, daily 06:00 on the mini
   (`make refresh-check` shows the last exit). A collector that fails or returns 0 rows is a
   *degraded source*: siblings still persist, the run exits 1. **Green tests ≠ working
   pipeline — run the changed pipeline live.**
 - Collectors: models.dev (list prices; preferred), OpenRouter, ArtificialAnalysis (+ speech lists),
   Epoch AI, LMArena (writing scores Arena only). Per-source detail in `docs/pipelines.md`.
-- `snapshot-commit.ts` commits only the regenerated `epoch-benchmarks.ts`, `iu-catalog.ts` and `STACK.md`
+- `snapshot-commit.ts` commits only the regenerated `epoch-benchmarks.ts`, `iu-catalog.ts`
   and never fails the refresh.
 - ccbench (`bun run bench`) measures operational fitness, **not quality**, and **spends real
   money** (`--yes`; `--dry-run` is free). Never remove its isolated `CLAUDE_CONFIG_DIR`: without
@@ -299,8 +230,8 @@ The skills live in `.claude/skills/` and load only inside this repo. **Proactive
 them** when the situation matches — I rarely remember to invoke them by name:
 
 - **`/investigate-models`** — analyze catalog + metrics to recommend the optimal model for a
-  use-case, and surface My Stack drift. Trigger when I ask "which model for X", "is there
-  something better for Y", or to review my stack.
+  use-case from `/api/efficiency`, `metric_snapshot` and `agw routes`. Trigger when I ask "which
+  model for X", "is there something better for Y", or to review the routes.
 
 ## Conventions
 

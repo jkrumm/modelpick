@@ -300,10 +300,6 @@ describe("buildEfficiency", () => {
     expect(res.routes[2]?.reason).toBe("no AA row at effort none");
   });
 
-  it("lists accessible unscored llm ids, minus superseded versions and residency twins", () => {
-    expect(res.unscored.map((u) => u.id)).toEqual(["gpt-6-newthing"]);
-  });
-
   it("stamps capturedAt from the newest row", () => {
     expect(res.capturedAt).toBe("2026-11-06 06:00:00");
   });

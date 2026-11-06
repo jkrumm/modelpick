@@ -14,6 +14,8 @@ The **operational wiring** (config files, ports, launchd plists, keychain comman
 references, deployment) lives in the `dotfiles` repo and is intentionally *not* duplicated here.
 These records answer *why*; dotfiles answers *how*.
 
+> `STACK.md`, the deployment table and the recommender were removed on 2026-11-06; records below that mention them are dated history. The live config is `agw routes` (Argo `/models`).
+
 ## Philosophy
 
 Every model choice is a three-way tradeoff between **capability**, **cost at the slot's real

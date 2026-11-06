@@ -37,12 +37,6 @@ export interface EfficiencyRoute {
   reason: string | null;
 }
 
-export interface UnscoredModel {
-  id: string;
-  legs: string[];
-  accessible: boolean;
-}
-
 export interface EfficiencyResponse {
   capturedAt: string | null;
   generatedAt: string;
@@ -57,6 +51,4 @@ export interface EfficiencyResponse {
   routes: EfficiencyRoute[];
   /** agw unavailable: routes is empty and this is set; the response is still 200. */
   routesError: string | null;
-  /** IU-listed llm models, accessible per the latest probe, with no scored AA row and not superseded. */
-  unscored: UnscoredModel[];
 }

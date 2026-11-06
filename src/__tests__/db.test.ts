@@ -2,16 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   MODALITY,
   RESIDENCY,
-  CATEGORY,
-  MANUAL_CATEGORY,
-  STACK_CATEGORY,
-  SERVICE,
   LANG,
   METRIC_SOURCE,
   models,
   capabilityProbe,
   metricSnapshot,
-  recommendation,
   demo,
 } from "../db/schema.js";
 import { IU_CATALOG } from "../db/iu-catalog.js";
@@ -23,22 +18,6 @@ describe("schema enum values", () => {
 
   it("residency has correct values", () => {
     expect(RESIDENCY).toEqual(["eu", "us", "unknown"]);
-  });
-
-  it("category has correct values", () => {
-    expect(CATEGORY).toEqual(["fast", "coding", "writing", "orchestrator", "tts", "stt"]);
-  });
-
-  // Decision models have no external leaderboard, so the recommender never
-  // scores them: the category is manual, and CATEGORY (scored) stays as it was.
-  it("decision is a manual stack category, not a scored one", () => {
-    expect(MANUAL_CATEGORY).toEqual(["embedding", "vision", "image", "decision"]);
-    expect(CATEGORY).not.toContain("decision");
-    expect(STACK_CATEGORY).toContain("decision");
-  });
-
-  it("email-gateway is a deployment service", () => {
-    expect(SERVICE).toContain("email-gateway");
   });
 
   it("lang has correct values", () => {
@@ -82,15 +61,6 @@ describe("schema table definitions", () => {
     expect(cols).toContain("metric");
     expect(cols).toContain("value");
     expect(cols).toContain("confidence");
-  });
-
-  it("recommendation table has expected columns", () => {
-    const cols = Object.keys(recommendation);
-    expect(cols).toContain("category");
-    expect(cols).toContain("model_id");
-    expect(cols).toContain("score");
-    expect(cols).toContain("rationale");
-    expect(cols).toContain("snapshot_date");
   });
 
   it("demo table has expected columns", () => {

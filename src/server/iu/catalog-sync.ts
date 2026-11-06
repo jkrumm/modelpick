@@ -5,8 +5,6 @@ import { db as defaultDb } from "../../db/index.js";
 import { models } from "../../db/schema.js";
 import { DECISION_CATALOG } from "../../db/decision-models.js";
 import { IU_CATALOG } from "../../db/iu-catalog.js";
-import { DEPLOYMENTS } from "../../db/deployments.js";
-import { MY_STACK } from "../../stack.js";
 import { IU_CATALOG_SNAPSHOT_PATH } from "../snapshot-commit.js";
 import {
   assertLegsNonEmpty,
@@ -34,17 +32,6 @@ export interface CatalogSyncResult extends CatalogDiff {
   byModality: Record<string, number>;
   /** HIDDEN_CALLABLE ids the API still does not list (kept in the catalog by hand). */
   hidden: string[];
-  /** Ids deployments.ts or MY_STACK point at that no /models leg lists; never delisted. */
-  referencedUnlisted: string[];
-}
-
-/** Every model id a deployment slot or a stack pick points at (comma lists are split). */
-function referencedIds(): Set<string> {
-  const ids = new Set<string>();
-  for (const row of [...DEPLOYMENTS, ...MY_STACK]) {
-    for (const id of row.model_id.split(",")) ids.add(id.trim());
-  }
-  return ids;
 }
 
 /**
@@ -73,8 +60,6 @@ export async function syncCatalog(opts: CatalogSyncOptions = {}): Promise<Catalo
     ...listings.gemini,
     ...listings.decisions,
   ]);
-  const referenced = referencedIds();
-  const referencedUnlisted = [...referenced].filter((id) => !apiIds.has(id)).sort();
   await db.transaction(async (tx) => {
     // SQLite caps bound variables per statement; chunk the upsert.
     for (let i = 0; i < catalog.length; i += 100) {
@@ -101,8 +86,7 @@ export async function syncCatalog(opts: CatalogSyncOptions = {}): Promise<Catalo
       .values(DECISION_CATALOG.filter((m) => m.iu_listed === false))
       .onConflictDoNothing();
 
-    // Ids that are referenced by a deployment or a stack pick are reported, never delisted.
-    const keep = [...catalog.map((m) => m.id), ...referenced];
+    const keep = catalog.map((m) => m.id);
     await tx
       .update(models)
       .set({ iu_listed: false })
@@ -126,7 +110,6 @@ export async function syncCatalog(opts: CatalogSyncOptions = {}): Promise<Catalo
   return {
     ...diff,
     hidden: HIDDEN_CALLABLE.map((h) => h.id).filter((id) => !apiIds.has(id)),
-    referencedUnlisted,
     total: catalog.length,
     legs: {
       openai: listings.openai.length,

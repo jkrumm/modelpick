@@ -217,8 +217,7 @@ Contract: `src/server/efficiency/types.ts` (change it only together with Argo).
   mapped `(model, effort)` -> AA slug. Missing effort never falls back to another effort
   (`variantSlug: null` + `reason`). `claude-*` = `subscription`, everything else `metered`.
 - **Known issue.** `coding_index` is null on every row of the AA free API since about 2026-10-28.
-  The stored `coding_index` metrics are stale, so the recommender's coding profile reads old data.
-  Not fixed here.
+  The stored `coding_index` metrics are stale; nothing consumes them.
 
 ## New-release alerts (ntfy)
 
@@ -251,8 +250,7 @@ are not recorded and re-evaluated every run, so a lineage that crosses the bar l
 ## Daily refresh pipeline
 
 `bun run refresh` runs `scripts/refresh.ts` locally: sync catalog → probe access → collect external
-metrics (models.dev, OpenRouter, ArtificialAnalysis + its speech lists, Epoch AI, LMArena) → recommend (re-score + persist picks +
-rationale) → re-render `STACK.md` (`src/server/stack-file.ts`, DB read only). Steps are independent; one failure doesn't abort the rest, but the exit is 1.
+metrics (models.dev, OpenRouter, ArtificialAnalysis + its speech lists, Epoch AI, LMArena) → release alerts. Steps are independent; one failure doesn't abort the rest, but the exit is 1.
 A collector that fails or returns 0 rows is a *degraded source*: its siblings' metrics are still
 persisted, the run exits 1 (`RefreshResult.degraded`). The agent runs under `jobrun`
 (dotfiles: `--every 86400 --timeout 3600`, state in `~/.local/state/jobs/`), so a red run becomes
@@ -261,7 +259,7 @@ Green tests ≠ working pipeline — confirm against live data after changes. On
 `com.jkrumm.modelpick-refresh` LaunchAgent (`make refresh-setup`, 06:00, no `KeepAlive` —
 a failed step must not retry all day) runs it; `make refresh-check` shows the last exit.
 After the run, `src/server/snapshot-commit.ts` commits and pushes ONLY the regenerated
-`epoch-benchmarks.ts`, `iu-catalog.ts` and `STACK.md` (one commit each; `STACK.md` only when its render step succeeded) to `origin master` (`git commit --only`) when it differs from HEAD, so the
+`epoch-benchmarks.ts` and `iu-catalog.ts` (one commit each) to `origin master` (`git commit --only`) when it differs from HEAD, so the
 mini's checkout never stays dirty; it skips with a log line off `master`, mid merge/rebase/
 cherry-pick, or when the file has someone else's staged changes; it pushes only when the snapshot commit is the sole unpushed one, and a failed push leaves the
 local commit. It never fails the refresh.
@@ -270,11 +268,9 @@ local commit. It never fails the refresh.
 
 `src/server/collectors/modelsdev.ts` reads `models.dev/api.json` (USD per 1M: `price_in`,
 `price_out`, `price_cache_read`, `context_window`). A model's group (`canonical_model_id`) takes the
-first-party provider's row, else the median across resellers. **`normalizeMetrics` prices from
-models.dev when it covers the model and falls back to the AA/OpenRouter average otherwise.**
+first-party provider's row, else the median across resellers.
 `artificialanalysis-speech.ts` reads AA's `/media/{text-to-speech,speech-to-text}/models/free`
-(`tts_elo`, `stt_wer_index`); `recommend.ts` ranks the `tts`/`stt` picks on them and falls back to the
-generation preference only when no accessible model has a row. The LLM list is already on
+(`tts_elo`, `stt_wer_index`). The LLM list is already on
 `/api/v2/language/models/free` (the legacy `/data/llms` path sunsets 2026-11-04).
 
 ## Writing collector — LMArena
@@ -312,9 +308,3 @@ grades the resulting files mechanically. Rows land in `bench_run`; the verdict l
 CLAUDE.md/MCP/hooks and measures dotfiles instead of the model. Five more sharp edges
 (parallel-tool-use counting, the CLI's cost figure being Claude-only, golden-solution
 graders): [`docs/pipelines.md`](docs/pipelines.md).
-
-The `STACK.md` render reads that data through `src/server/bench/summary.ts`: newest suite with a
-real field → AA index → rate card → three picks (interactive / unattended worker / EU-pinned).
-Residency and the Claude context windows are committed snapshots in `models.ts`
-(`ROUTE_RESIDENCY`, `CLAUDE_CONTEXT_WINDOW`); update them when the route moves.
-

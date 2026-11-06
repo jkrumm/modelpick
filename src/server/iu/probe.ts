@@ -19,8 +19,6 @@ import type {
   models as ModelsTable,
   capabilityProbe as CapabilityProbeTable,
   metricSnapshot as MetricSnapshotTable,
-  recommendation as RecommendationTable,
-  stackChoice as StackChoiceTable,
   demo as DemoTable,
 } from "../../db/schema.js";
 // Type-only — mirrors the lazy value import of `db` inside runProbe() below, so
@@ -219,7 +217,7 @@ export async function probeModel(opts: ProbeOptions): Promise<ProbeResult> {
 // ── Case-duplicate reconciliation ──────────────────────────────────────────
 // The portal export and the live /models endpoint disagree on casing for the
 // same route (`GPT-5.5` vs `gpt-5.5`) — the live id is the only one that's
-// actually callable, and metric/recommendation writes split across the two
+// actually callable, and metric writes split across the two
 // rows depending on whether they came from a live probe or a leaderboard
 // collector's id resolver. Fold the loser into the survivor before anything
 // else reads the catalog.
@@ -361,14 +359,12 @@ export interface CaseDuplicateTables {
   models: typeof ModelsTable;
   capabilityProbe: typeof CapabilityProbeTable;
   metricSnapshot: typeof MetricSnapshotTable;
-  recommendation: typeof RecommendationTable;
-  stackChoice: typeof StackChoiceTable;
   demo: typeof DemoTable;
 }
 
 /** Folds every case-duplicate pair currently in `models` into the live-id
  *  survivor, re-pointing every table with an FK onto `models.id`
- *  (capability_probe, metric_snapshot, recommendation, stack_choice, demo,
+ *  (capability_probe, metric_snapshot, demo,
  *  news_item — found by grepping schema.ts for `models.id` references;
  *  pick_probe and bench_run store model_id but are deliberately NOT FKs, per
  *  their own schema comments, so they're out of scope here) before deleting
@@ -384,7 +380,7 @@ export async function reconcileCaseDuplicates({
   tables: CaseDuplicateTables;
   liveIds: Set<string>;
 }): Promise<void> {
-  const { models, capabilityProbe, metricSnapshot, recommendation, stackChoice, demo } = tables;
+  const { models, capabilityProbe, metricSnapshot, demo } = tables;
 
   const modelIds = (await db.select({ id: models.id }).from(models)).map((m) => m.id);
   const pairs = findCaseDuplicatePairs({ modelIds, liveIds });
@@ -437,48 +433,6 @@ export async function reconcileCaseDuplicates({
           .set({ model_id: survivorId })
           .where(inArray(metricSnapshot.id, ids)),
       del: (ids) => db.delete(metricSnapshot).where(inArray(metricSnapshot.id, ids)),
-    });
-
-    const recommendationRows = await db
-      .select({
-        id: recommendation.id,
-        model_id: recommendation.model_id,
-        category: recommendation.category,
-        snapshot_date: recommendation.snapshot_date,
-      })
-      .from(recommendation);
-    moved += await applyReconciliationPlan({
-      plan: planTableReconciliation({
-        loserId,
-        survivorId,
-        rows: recommendationRows,
-        uniqueKey: (r) => `${r.category}|${r.snapshot_date}`,
-      }),
-      update: (ids) =>
-        db
-          .update(recommendation)
-          .set({ model_id: survivorId })
-          .where(inArray(recommendation.id, ids)),
-      del: (ids) => db.delete(recommendation).where(inArray(recommendation.id, ids)),
-    });
-
-    const stackRows = await db
-      .select({
-        id: stackChoice.id,
-        model_id: stackChoice.model_id,
-        category: stackChoice.category,
-      })
-      .from(stackChoice);
-    moved += await applyReconciliationPlan({
-      plan: planTableReconciliation({
-        loserId,
-        survivorId,
-        rows: stackRows,
-        uniqueKey: (r) => r.category,
-      }),
-      update: (ids) =>
-        db.update(stackChoice).set({ model_id: survivorId }).where(inArray(stackChoice.id, ids)),
-      del: (ids) => db.delete(stackChoice).where(inArray(stackChoice.id, ids)),
     });
 
     const demoRows = await db
@@ -538,7 +492,7 @@ export async function runProbe(): Promise<ProbeResult[]> {
   // Lazy imports keep probeModel() testable without a live DB connection
   const [
     { db },
-    { capabilityProbe, metricSnapshot, recommendation, stackChoice, demo, models },
+    { capabilityProbe, metricSnapshot, demo, models },
     { discoverIuModels, discoverDecisionModelNames, unregisteredDecisionRows },
   ] = await Promise.all([
     import("../../db/index.js"),
@@ -615,7 +569,7 @@ export async function runProbe(): Promise<ProbeResult[]> {
   try {
     await reconcileCaseDuplicates({
       db,
-      tables: { models, capabilityProbe, metricSnapshot, recommendation, stackChoice, demo },
+      tables: { models, capabilityProbe, metricSnapshot, demo },
       liveIds: new Set(apiModels.map((m) => m.id)),
     });
   } catch (err) {

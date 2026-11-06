@@ -12,23 +12,7 @@ export default defineConfig({
     },
   },
   test: {
-    projects: [
-      {
-        extends: true,
-        test: {
-          name: 'node',
-          environment: 'node',
-          include: ['src/**/*.test.ts'],
-        },
-      },
-      {
-        extends: true,
-        test: {
-          name: 'browser',
-          environment: 'jsdom',
-          include: ['src/**/*.test.tsx'],
-        },
-      },
-    ],
+    environment: 'node',
+    include: ['src/**/*.test.ts'],
   },
 })

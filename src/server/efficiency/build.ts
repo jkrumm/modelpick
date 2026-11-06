@@ -1,4 +1,4 @@
-import { canon, compareVersions, createIdResolver } from "../collectors/normalize.js";
+import { createIdResolver } from "../collectors/normalize.js";
 import { SNAPSHOT_PINS } from "../collectors/snapshot-pins.js";
 import type { AaVariant, Model } from "../../db/schema.js";
 import type { AgwRoute } from "./agw-routes.js";
@@ -6,9 +6,8 @@ import type {
   EfficiencyResponse,
   EfficiencyRoute,
   EfficiencyVariant,
-  UnscoredModel,
 } from "./types.js";
-import { accessOf, computeSuperseded, estimateTask, routeVariant, versionKey, type ScoredRow } from "./variants.js";
+import { accessOf, computeSuperseded, estimateTask, routeVariant, type ScoredRow } from "./variants.js";
 
 export interface BuildInput {
   variants: readonly AaVariant[];
@@ -115,44 +114,5 @@ export function buildEfficiency(input: BuildInput): EfficiencyResponse {
     variants: out,
     routes: outRoutes,
     routesError,
-    unscored: unscoredModels({ llm, probes, scoredIuIds: new Set(out.flatMap((v) => (v.iu.id ? [v.iu.id] : []))) }),
   };
-}
-
-/**
- * IU-listed llm models that answered the latest probe but have no scored AA row. Residency
- * twins of a scored id collapse onto it (canonical form), and an id whose provider + family
- * has a higher version in the catalog is dropped, same rule as the AA superseded logic.
- */
-function unscoredModels(input: {
-  llm: readonly Model[];
-  probes: ReadonlyMap<string, boolean>;
-  scoredIuIds: ReadonlySet<string>;
-}): UnscoredModel[] {
-  const { llm, probes, scoredIuIds } = input;
-  const scoredCanons = new Set([...scoredIuIds].map(canon));
-  for (const [id, slug] of Object.entries(SNAPSHOT_PINS)) scoredCanons.add(canon(id)).add(canon(slug));
-
-  const listed = llm.filter((m) => m.iu_listed && probes.get(m.id) === true);
-  const highest = new Map<string, string>();
-  for (const m of llm.filter((x) => x.iu_listed)) {
-    const { family, version } = versionKey(m.id);
-    if (version === null) continue;
-    const key = `${m.provider}\u0000${family}`;
-    const seen = highest.get(key);
-    if (seen === undefined || compareVersions(version, seen) > 0) highest.set(key, version);
-  }
-
-  const seenCanons = new Set<string>();
-  const result: UnscoredModel[] = [];
-  for (const m of [...listed].toSorted((a, b) => byLengthThenAlpha(a.id, b.id))) {
-    const c = canon(m.id);
-    if (scoredCanons.has(c) || seenCanons.has(c)) continue;
-    const { family, version } = versionKey(m.id);
-    const top = highest.get(`${m.provider}\u0000${family}`);
-    if (version !== null && top !== undefined && compareVersions(version, top) < 0) continue;
-    seenCanons.add(c);
-    result.push({ id: m.id, legs: m.legs ? m.legs.split(",") : [], accessible: true });
-  }
-  return result.toSorted((a, b) => a.id.localeCompare(b.id));
 }

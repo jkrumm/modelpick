@@ -1,11 +1,9 @@
 import { sql } from "drizzle-orm";
 import { db } from "./index.js";
-import { deployment, models, stackChoice } from "./schema.js";
+import { models } from "./schema.js";
 import type { ModelInsert } from "./schema.js";
-import { MY_STACK } from "../stack.js";
 import { IU_CATALOG } from "./iu-catalog.js";
 import { REPLICATE_CATALOG } from "./replicate-catalog.js";
-import { DEPLOYMENTS } from "./deployments.js";
 import { DECISION_CATALOG } from "./decision-models.js";
 
 // The model catalog is the IU gateway's live per-leg /models listings, merged into
@@ -96,29 +94,4 @@ export async function seedDecisionModels(): Promise<void> {
         display_name: sql`excluded.display_name`,
       },
     });
-}
-
-// Upsert my picks keyed on category (one row per category). Re-runnable.
-export async function seedStack(): Promise<void> {
-  await db
-    .insert(stackChoice)
-    .values(MY_STACK)
-    .onConflictDoUpdate({
-      target: stackChoice.category,
-      set: {
-        model_id: sql`excluded.model_id`,
-        env_note: sql`excluded.env_note`,
-        rationale: sql`excluded.rationale`,
-        decided_at: sql`excluded.decided_at`,
-      },
-    });
-}
-
-// Upsert the deployment truth table, keyed on (service, slot). Re-runnable.
-// Rows are deleted-then-inserted rather than upserted alone, because a slot
-// that disappears from a service's config must disappear here too — a stale
-// row claiming a job still runs is worse than no row at all.
-export async function seedDeployments(): Promise<void> {
-  await db.delete(deployment);
-  await db.insert(deployment).values(DEPLOYMENTS);
 }
