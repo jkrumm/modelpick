@@ -20,6 +20,7 @@
     "demos:seed": "scripts/with-keys bun run scripts/seed-demos.ts",
     "probe": "scripts/with-keys bun run scripts/probe.ts",
     "collect": "scripts/with-keys bun run scripts/collect.ts",
+    "alerts": "scripts/with-keys bun run scripts/release-alerts.ts",
     "stack": "bun run scripts/stack.ts",
     "recommend": "scripts/with-keys bun run scripts/recommend.ts",
     "refresh": "scripts/with-keys bun run scripts/refresh.ts",

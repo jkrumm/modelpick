@@ -12,6 +12,8 @@
 REFRESH_LABEL := com.jkrumm.modelpick-refresh
 REFRESH_PLIST := $(HOME)/Library/LaunchAgents/$(REFRESH_LABEL).plist
 REFRESH_TMPL  := launchd/$(REFRESH_LABEL).plist.template
+# The ntfy base URL is a private host: read from the homelab repo's config at setup time, never committed.
+NTFY_CONFIG := $(HOME)/SourceRoot/homelab/config/ntfy/server.yml
 
 # The always-on dashboard, same LaunchAgent mechanism. Not a Docker container:
 # host-side writers (the refresh agent, `bun run bench`) share modelpick.db, and
@@ -59,7 +61,9 @@ refresh-setup: ## Install + load the 06:00 daily refresh LaunchAgent (mini only)
 	@test "$$(cat ~/.config/secrets/backend 2>/dev/null)" = cache || { echo "refresh-setup: dev host only (secrets backend is not 'cache')"; exit 1; }
 	@test -x "$(HOME)/.local/bin/jobrun" || { echo "refresh-setup: $(HOME)/.local/bin/jobrun missing — run 'make setup' in dotfiles"; exit 1; }
 	@mkdir -p "$(HOME)/Library/LaunchAgents" "$(HOME)/Library/Logs"
-	@sed -e 's|__HOME__|$(HOME)|g' -e 's|__REPO__|$(CURDIR)|g' "$(REFRESH_TMPL)" > "$(REFRESH_PLIST)"
+	@url=$${NTFY_URL:-$$(sed -n 's/^base-url: *"*\([^"]*\)"*$$/\1/p' $(NTFY_CONFIG) 2>/dev/null)}; \
+		test -n "$$url" || echo "refresh-setup: NTFY_URL unknown ($(NTFY_CONFIG)) — release alerts will be skipped"; \
+		sed -e 's|__HOME__|$(HOME)|g' -e 's|__REPO__|$(CURDIR)|g' -e "s|__NTFY_URL__|$$url|g" "$(REFRESH_TMPL)" > "$(REFRESH_PLIST)"
 	@plutil -lint "$(REFRESH_PLIST)" >/dev/null
 	@launchctl bootout "gui/$$(id -u)/$(REFRESH_LABEL)" 2>/dev/null || true
 	@# bootout returns before teardown finishes; bootstrapping too early fails with error 5.

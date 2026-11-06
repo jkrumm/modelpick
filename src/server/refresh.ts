@@ -1,3 +1,4 @@
+import type { ReleaseAlertSummary } from "./alerts/releases.js";
 import type { AaVariantRow, NormalizedMetric, CollectorResult } from "./collectors/normalize.js";
 
 export interface RefreshStepResult {
@@ -9,6 +10,8 @@ export interface RefreshResult {
   catalog: RefreshStepResult;
   probe: RefreshStepResult;
   collect: RefreshStepResult;
+  /** New-release ntfy pushes. A failure here degrades the run but never stops later steps. */
+  alerts: RefreshStepResult;
   recommend: RefreshStepResult;
   /** STACK.md re-render. Its failure is reported but never stops the run's other work. */
   stack: RefreshStepResult;
@@ -31,6 +34,8 @@ export interface RefreshDeps {
   insertMetrics: (metrics: NormalizedMetric[]) => Promise<void>;
   /** Persists the ArtificialAnalysis variants from the same fetch. Called only when the collector returned some. */
   upsertAaVariants: (rows: AaVariantRow[]) => Promise<void>;
+  /** After collect: pushes new big releases (AA lineages, IU ids from this run's catalog sync). */
+  releaseAlerts: (input: { added: string[] }) => Promise<ReleaseAlertSummary>;
   runRecommender: () => Promise<void>;
   /** Last step: re-renders STACK.md from the fresh prices and recommendations. */
   renderStack: () => Promise<string>;
@@ -49,14 +54,16 @@ async function runStep(name: string, fn: () => Promise<string>): Promise<Refresh
 }
 
 /**
- * Orchestrates the daily refresh pipeline: catalog → probe → collect → recommend → stack render.
+ * Orchestrates the daily refresh pipeline: catalog → probe → collect → alerts → recommend → stack render.
  * Each step runs independently — one failure does not abort subsequent steps.
  * Within collect, individual collector failures are isolated via Promise.allSettled.
  */
 export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
   const degraded: string[] = [];
+  let added: string[] = [];
   const catalog = await runStep("catalog", async () => {
     const r = await deps.syncCatalog();
+    added = r.added;
     return `${r.total} models (+${r.added.length} / -${r.removed.length})`;
   });
 
@@ -103,6 +110,15 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
     return `${metrics.length} metrics (${statuses.join(", ")})`;
   });
 
+  const alerts = await runStep("alerts", async () => {
+    const r = await deps.releaseAlerts({ added });
+    if (r.failed > 0) degraded.push("release-alerts");
+    return r.seeded
+      ? "first run: baseline recorded silently"
+      : `${r.published} published${r.failed > 0 ? `, ${r.failed} failed` : ""}`;
+  });
+  if (!alerts.ok) degraded.push("release-alerts");
+
   const recommend = await runStep("recommend", async () => {
     await deps.runRecommender();
     return "done";
@@ -117,5 +133,5 @@ export async function runRefresh(deps: RefreshDeps): Promise<RefreshResult> {
     `[refresh] summary: ${okCount}/5 steps ok${degraded.length > 0 ? `, ${degraded.length} degraded source(s)` : ""}`,
   );
 
-  return { catalog, probe, collect, recommend, stack, degraded, allOk };
+  return { catalog, probe, collect, alerts, recommend, stack, degraded, allOk };
 }

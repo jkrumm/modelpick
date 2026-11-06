@@ -22,6 +22,12 @@ GOOGLE_AI_STUDIO_KEY=op://hermes/google-ai-studio/api-key
 OPENROUTER_API_KEY=op://vps/modelpick/OPENROUTER_API_KEY
 ARTIFICIALANALYSIS_API_KEY=op://vps/modelpick/ARTIFICIALANALYSIS_API_KEY
 
+# --- Release alerts (ntfy) ---
+# Token for the self-hosted ntfy (in the mini's cache). NTFY_URL is a private host and is
+# never committed: `make refresh-setup` injects it into the refresh plist from the homelab
+# repo's ntfy config. NTFY_TOPIC defaults to "models".
+NTFY_TOKEN=op://common/ntfy/TOKEN
+
 # --- Server (non-secret) ---
 # The built Nitro server defaults to 3000; the Caddy entry and `vite dev` both
 # expect 7727, so pin it here where dev and the LaunchAgent both read it.

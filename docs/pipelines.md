@@ -219,6 +219,26 @@ Contract: `src/server/efficiency/types.ts` (change it only together with Argo).
   The stored `coding_index` metrics are stale, so the recommender's coding profile reads old data.
   Not fixed here.
 
+## New-release alerts (ntfy)
+
+Refresh step after `collect` (`src/server/alerts/`); also `bun run alerts` standalone (no catalog
+sync, so no `iu` kind). One push per lineage, effort variants collapsed. State is the
+`release_alert` table (`aa` / `iu` = pushed, `seed` = first-run baseline, `skip` = judged not big).
+
+- **Big** = a lineage first seen and now scored where (creator in OpenAI, Anthropic, Google,
+  DeepSeek, SpaceXAI, Meta, Alibaba, Kimi, Z AI, Mistral and best intelligence >= 30) or a variant
+  sits on the current intelligence-vs-costPerTask Pareto frontier. Kind `iu`: a new IU llm id from
+  the catalog sync whose name maps to one of those labs, that is not a residency twin (`-eu`) of a
+  known id and not already covered by an `aa` push.
+- **First-ever run** (empty table) records everything silently.
+- **Marked only after a successful publish**, so a failure retries the next day. A failed publish
+  degrades the refresh (`release-alerts` in `degraded`) and never aborts it. A missing `NTFY_URL`
+  warns and skips; nothing is recorded.
+- **Env.** `NTFY_TOKEN` from `.env.tpl` (`op://common/ntfy/TOKEN`), `NTFY_TOPIC` (default `models`),
+  `NTFY_URL` is a private host, so `make refresh-setup` injects it into the refresh plist from
+  the homelab ntfy config (`__NTFY_URL__`), never committed. `MODELPICK_NOTIFY_DRY=1` prints
+  instead of publishing and records only the silent rows (a dry run is repeatable).
+
 # Moved from AGENTS.md
 
 ## Daily refresh pipeline

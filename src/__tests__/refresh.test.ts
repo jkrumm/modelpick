@@ -21,6 +21,7 @@ const makeDeps = (overrides: Partial<RefreshDeps> = {}): RefreshDeps => ({
   collectLmarena: vi.fn().mockResolvedValue({ metrics: [baseMetric], unmatched: [] }),
   insertMetrics: vi.fn().mockResolvedValue(undefined),
   upsertAaVariants: vi.fn().mockResolvedValue(undefined),
+  releaseAlerts: vi.fn().mockResolvedValue({ seeded: false, published: 0, failed: 0 }),
   runRecommender: vi.fn().mockResolvedValue(undefined),
   renderStack: vi.fn().mockResolvedValue("wrote STACK.md"),
   ...overrides,
@@ -219,5 +220,30 @@ describe("runRefresh", () => {
     const deps = makeDeps();
     await runRefresh(deps);
     expect(deps.upsertAaVariants).not.toHaveBeenCalled();
+  });
+
+  it("hands the catalog's added ids to the release alerts", async () => {
+    const deps = makeDeps();
+    await runRefresh(deps);
+    expect(deps.releaseAlerts).toHaveBeenCalledWith({ added: ["a"] });
+  });
+
+  it("degrades, but still recommends and renders, when a publish failed", async () => {
+    const deps = makeDeps({
+      releaseAlerts: vi.fn().mockResolvedValue({ seeded: false, published: 1, failed: 1 }),
+    });
+    const result = await runRefresh(deps);
+    expect(result.degraded).toEqual(["release-alerts"]);
+    expect(result.allOk).toBe(false);
+    expect(deps.runRecommender).toHaveBeenCalledOnce();
+    expect(deps.renderStack).toHaveBeenCalledOnce();
+  });
+
+  it("degrades once when the alerts step itself throws", async () => {
+    const deps = makeDeps({ releaseAlerts: vi.fn().mockRejectedValue(new Error("db")) });
+    const result = await runRefresh(deps);
+    expect(result.alerts.ok).toBe(false);
+    expect(result.degraded).toEqual(["release-alerts"]);
+    expect(deps.runRecommender).toHaveBeenCalledOnce();
   });
 });

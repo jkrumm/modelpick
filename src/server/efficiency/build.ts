@@ -34,7 +34,7 @@ function byLengthThenAlpha(a: string, b: string): number {
 }
 
 /** Lineage -> IU catalog id, pins first, then the shared leaderboard-id resolver. */
-function createLineageResolver(llmIds: readonly string[]): (lineage: string) => string | null {
+export function createLineageResolver(llmIds: readonly string[]): (lineage: string) => string | null {
   const resolve = createIdResolver([...llmIds].toSorted(byLengthThenAlpha));
   return (lineage) => PIN_LINEAGES.get(lineage) ?? resolve(lineage);
 }

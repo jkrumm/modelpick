@@ -4,14 +4,14 @@
 <dict>
   <key>Label</key><string>com.jkrumm.modelpick-refresh</string>
   <!-- Daily `bun run refresh`: probe IU access → collect OpenRouter /
-       ArtificialAnalysis / Epoch AI → recommend. The package script wraps the
+       ArtificialAnalysis / Epoch AI → release alerts (ntfy) → recommend. The package script wraps the
        run in `secrets-run run --env-file=.env.tpl`, which resolves the keys
        from the mini's offline cache — no biometric, no network for secrets.
        Wrapped in `jobrun` (dotfiles): every run is recorded in
        ~/.local/state/jobs and graded by `jobs-grade`; a red grade posts to
        Slack #alerts. The refresh exits 1 on a failed step or a
        degraded source (0 rows), so a half-empty refresh is red, not green.
-       Rendered by `make refresh-setup`; __HOME__ and __REPO__ are substituted. -->
+       Rendered by `make refresh-setup`; __HOME__, __REPO__ and __NTFY_URL__ are substituted. -->
   <key>ProgramArguments</key>
   <array>
     <string>__HOME__/.local/bin/jobrun</string>
@@ -32,6 +32,9 @@
   <dict>
     <key>PATH</key><string>__HOME__/.local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
     <key>HOME</key><string>__HOME__</string>
+    <!-- Private ntfy host for release alerts, injected by `make refresh-setup`
+         from the homelab config; empty means alerts are skipped with a warning. -->
+    <key>NTFY_URL</key><string>__NTFY_URL__</string>
   </dict>
   <key>StartCalendarInterval</key>
   <dict>

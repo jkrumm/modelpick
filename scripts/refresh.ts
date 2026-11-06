@@ -17,6 +17,8 @@ import {
   STACK_SNAPSHOT_PATH,
 } from "../src/server/snapshot-commit.js";
 import { runRecommender } from "../src/server/scoring/recommend.js";
+import { createReleaseAlertDeps } from "../src/server/alerts/store.js";
+import { runReleaseAlerts } from "../src/server/alerts/releases.js";
 import { upsertAaVariants } from "../src/server/efficiency/store.js";
 import { writeStackFile } from "../src/server/stack-file.js";
 import { createIdResolver } from "../src/server/collectors/normalize.js";
@@ -52,6 +54,7 @@ const result = await runRefresh({
     );
   },
   upsertAaVariants: (rows) => upsertAaVariants(rows),
+  releaseAlerts: ({ added }) => runReleaseAlerts({ added, deps: createReleaseAlertDeps() }),
   runRecommender,
   renderStack: writeStackFile,
 });
