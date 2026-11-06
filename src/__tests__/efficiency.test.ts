@@ -170,26 +170,33 @@ describe("computeSuperseded edge cases", () => {
 });
 
 describe("routeVariant / accessOf", () => {
-  const scored = new Set(variants.filter((v) => v.intelligence !== null).map((v) => v.slug));
+  const scoredRows = variants
+    .filter((v) => v.intelligence !== null)
+    .map((v) => ({ slug: v.slug, lineage: v.lineage, effort: v.effort }));
+  const slugOf = (model: string, effort: string | null) =>
+    routeVariant({ model, effort, scoredRows }).variantSlug;
+
   it("maps (model, effort) to the AA slug", () => {
-    expect(routeVariant({ model: "claude-haiku-5-5", effort: "high", scoredSlugs: scored }).variantSlug).toBe(
-      "claude-haiku-5-5-high",
-    );
-    expect(routeVariant({ model: "gpt-6.1-terra", effort: "medium", scoredSlugs: scored }).variantSlug).toBe(
-      "gpt-6-1-terra-medium",
-    );
-    expect(routeVariant({ model: "gpt-6.1-terra", effort: "none", scoredSlugs: scored }).variantSlug).toBe(
-      "gpt-6-1-terra-non-reasoning",
-    );
-    expect(routeVariant({ model: "gpt-6.1-terra", effort: null, scoredSlugs: scored }).variantSlug).toBe(
-      "gpt-6-1-terra",
-    );
-    expect(routeVariant({ model: "deepseek-v4.1-flash", effort: "high", scoredSlugs: scored }).variantSlug).toBe(
-      "deepseek-v4-1-flash-1017-high",
-    );
+    expect(slugOf("claude-haiku-5-5", "high")).toBe("claude-haiku-5-5-high");
+    expect(slugOf("gpt-6.1-terra", "medium")).toBe("gpt-6-1-terra-medium");
+    expect(slugOf("gpt-6.1-terra", "none")).toBe("gpt-6-1-terra-non-reasoning");
+    expect(slugOf("gpt-6.1-terra", null)).toBe("gpt-6-1-terra");
+    expect(slugOf("gpt-6.1-terra", "max")).toBe("gpt-6-1-terra");
+    expect(slugOf("deepseek-v4.1-flash", "high")).toBe("deepseek-v4-1-flash-1017-high");
   });
+
+  it("resolves a bare slug that carries a non-max effort (Gemini's bare slug is high)", () => {
+    expect(slugOf("gemini-3.8-flash", "high")).toBe("gemini-3-8-flash");
+    expect(slugOf("gemini-3.8-flash", "medium")).toBe("gemini-3-8-flash-medium");
+    expect(slugOf("gemini-3.8-flash", null)).toBe("gemini-3-8-flash");
+    expect(routeVariant({ model: "gemini-3.8-flash", effort: "max", scoredRows })).toEqual({
+      variantSlug: null,
+      reason: "no AA row at effort max",
+    });
+  });
+
   it("never falls back to another effort", () => {
-    expect(routeVariant({ model: "claude-haiku-5-5", effort: "none", scoredSlugs: scored })).toEqual({
+    expect(routeVariant({ model: "claude-haiku-5-5", effort: "none", scoredRows })).toEqual({
       variantSlug: null,
       reason: "no AA row at effort none",
     });

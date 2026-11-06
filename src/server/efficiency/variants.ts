@@ -185,22 +185,31 @@ export function accessOf(modelId: string): "subscription" | "metered" {
   return modelId.startsWith("claude-") ? "subscription" : "metered";
 }
 
+export interface ScoredRow {
+  slug: string;
+  lineage: string;
+  effort: Effort;
+}
+
 /**
- * The AA slug a route's `(model, effort)` resolves to, among the scored slugs. Dots become
- * dashes, `SNAPSHOT_PINS` win over the undated slug, effort `none` is `-non-reasoning`, a
- * missing effort (or `max`/`default`) is the bare slug. Never falls back to another effort:
+ * The scored AA row a route's `(model, effort)` resolves to. Matches on (lineage, effort) of the
+ * scored rows, because a bare slug can carry any effort (bare `gemini-3-8-flash` is `high`).
+ * Dots become dashes and `SNAPSHOT_PINS` win over the undated slug. A missing effort (or
+ * `default`) is the bare slug itself, whatever its effort. Never falls back to another effort:
  * a different effort is a different cost and quality.
  */
 export function routeVariant(input: {
   model: string;
   effort: string | null;
-  scoredSlugs: ReadonlySet<string>;
+  scoredRows: readonly ScoredRow[];
 }): RouteVariant {
-  const { model, effort, scoredSlugs } = input;
+  const { model, effort, scoredRows } = input;
   const id = model.replace(/\[.*\]$/, "");
   const base = SNAPSHOT_PINS[id] ?? id.toLowerCase().replace(/\./g, "-");
-  const suffixed = effort === "none" ? "-non-reasoning" : effort && effort !== "max" && effort !== "default" ? `-${effort}` : "";
-  const slug = `${base}${suffixed}`;
-  if (scoredSlugs.has(slug)) return { variantSlug: slug, reason: null };
+  const hit =
+    effort === null || effort === "default"
+      ? scoredRows.find((r) => r.slug === base)
+      : scoredRows.find((r) => r.lineage === base && r.effort === effort);
+  if (hit) return { variantSlug: hit.slug, reason: null };
   return { variantSlug: null, reason: `no AA row at effort ${effort ?? "default"}` };
 }

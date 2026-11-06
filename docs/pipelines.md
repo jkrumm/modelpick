@@ -233,6 +233,9 @@ are not recorded and re-evaluated every run, so a lineage that crosses the bar l
   sits on the current intelligence-vs-costPerTask Pareto frontier. Kind `iu`: a listed IU llm id
   with no row whose name maps to one of those labs, that is not a residency twin (`-eu`) of a
   known id and not already covered by an `aa` push.
+- **Keys.** IU ids are stored as `iu:<id>`: an AA lineage slug can equal an IU id (`gpt-6-luna`) and the
+  table's key is `lineage`. A listed IU id that resolves to a scored AA lineage reads "Now on IU" with its
+  intelligence; one without a score reads "New on IU ... no AA score yet".
 - **Seeding is per kind.** With no `aa`/`seed` rows every scored lineage is recorded silently; with
   no `iu`/`iu_seed` rows every listed IU id is (so a DB seeded before IU alerts existed stays quiet).
 - **Marked only after a successful publish**, so a failure retries the next day. A failed publish

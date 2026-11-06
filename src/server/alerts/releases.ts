@@ -37,6 +37,9 @@ export function labOfId(id: string): string | null {
   return ID_LABS.find(([re]) => re.test(bare))?.[1] ?? null;
 }
 
+/** IU ids share the table with AA lineages whose slugs can be identical (`gpt-6-luna`), so IU keys are namespaced. */
+export const iuKey = (id: string): string => `iu:${id}`;
+
 export type AlertKind = "aa" | "iu";
 /** `seed` = AA baseline, `iu_seed` = IU baseline; neither ever alerts. */
 export type RecordKind = AlertKind | "seed" | "iu_seed";
@@ -142,13 +145,21 @@ export function planReleaseAlerts(input: PlanInput): AlertPlan {
     for (const lineage of scoredByLineage.keys()) plan.seeds.push({ lineage, kind: "seed" });
   }
   if (seedIu) {
-    for (const m of listed) plan.seeds.push({ lineage: m.id, kind: "iu_seed" });
+    for (const m of listed) plan.seeds.push({ lineage: iuKey(m.id), kind: "iu_seed" });
   }
 
   const resolveIu = createLineageResolver(llm.map((m) => m.id));
   const frontier = paretoSlugs(variants);
-  // Canonical forms already covered: recorded ids and ids pushed in this plan (one push per lineage).
-  const coveredCanons = new Set([...alerted.keys()].map(canon));
+  // Canonical forms already covered: recorded IU ids and ids pushed in this plan (one push per
+  // lineage). AA lineage rows do not cover an IU id: "now on IU" is news for a known lineage.
+  const coveredCanons = new Set(
+    [...alerted].filter(([, kind]) => kind === "iu" || kind === "iu_seed").map(([key]) => canon(key.slice("iu:".length))),
+  );
+  const scoredByIuId = new Map<string, AaVariant[]>();
+  for (const [lineage, rows] of scoredByLineage) {
+    const id = resolveIu(lineage);
+    if (id) scoredByIuId.set(id, [...(scoredByIuId.get(id) ?? []), ...rows]);
+  }
 
   if (!seedAa) {
     for (const [lineage, rows] of scoredByLineage) {
@@ -172,14 +183,19 @@ export function planReleaseAlerts(input: PlanInput): AlertPlan {
     // Shortest id first so a residency twin (`-eu`) is covered by its base id.
     for (const m of [...listed].toSorted((a, b) => a.id.length - b.id.length || a.id.localeCompare(b.id))) {
       const lab = labOfId(m.id);
-      if (lab === null || alerted.has(m.id) || coveredCanons.has(canon(m.id))) continue;
+      if (lab === null || alerted.has(iuKey(m.id)) || coveredCanons.has(canon(m.id))) continue;
       coveredCanons.add(canon(m.id));
+      const scored = scoredByIuId.get(m.id);
+      const best = scored?.reduce((a, b) => (b.intelligence! > a.intelligence! ? b : a));
+      const callable = probes.get(m.id) === true ? "yes" : "no";
       plan.alerts.push({
-        lineage: m.id,
+        lineage: iuKey(m.id),
         kind: "iu",
         push: {
-          title: `New on IU: ${m.id}`,
-          message: `${lab} - no AA score yet\nIU callable: ${probes.get(m.id) === true ? "yes" : "no"}`,
+          title: best ? `Now on IU: ${m.id}` : `New on IU: ${m.id}`,
+          message: best
+            ? `${lab} - intelligence ${best.intelligence} (best effort: ${best.name})\nIU callable: ${callable}\nSource: Artificial Analysis (artificialanalysis.ai)`
+            : `${lab} - no AA score yet\nIU callable: ${callable}`,
           priority: "default",
           tags: ["package"],
         },

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  iuKey,
   labOfId,
   planReleaseAlerts,
   runReleaseAlerts,
@@ -53,7 +54,7 @@ const base = {
   // Both baselines present, so nothing seeds.
   alerted: new Map<string, RecordKind>([
     ["old", "seed"],
-    ["old-iu", "iu_seed"],
+    [iuKey("old-iu"), "iu_seed"],
   ]),
 };
 
@@ -68,7 +69,7 @@ describe("planReleaseAlerts", () => {
     expect(plan.alerts).toEqual([]);
     expect(plan.seeds).toEqual([
       { lineage: "a", kind: "seed" },
-      { lineage: "gpt-9", kind: "iu_seed" },
+      { lineage: iuKey("gpt-9"), kind: "iu_seed" },
     ]);
   });
 
@@ -80,8 +81,8 @@ describe("planReleaseAlerts", () => {
       models: [model("gpt-9"), model("claude-9")],
     });
     expect(plan.seeds).toEqual([
-      { lineage: "gpt-9", kind: "iu_seed" },
-      { lineage: "claude-9", kind: "iu_seed" },
+      { lineage: iuKey("gpt-9"), kind: "iu_seed" },
+      { lineage: iuKey("claude-9"), kind: "iu_seed" },
     ]);
     // the AA side still runs in the same pass
     expect(plan.alerts.map((a) => [a.lineage, a.kind])).toEqual([["fresh", "aa"]]);
@@ -97,7 +98,7 @@ describe("planReleaseAlerts", () => {
       ],
       models: [model("new.1", { id: "new.1" })],
       probes: new Map([["new.1", true]]),
-      alerted: new Map<string, RecordKind>([...base.alerted, ["new.1", "iu_seed"]]),
+      alerted: new Map<string, RecordKind>([...base.alerted, [iuKey("new.1"), "iu_seed"]]),
     });
     expect(plan.alerts).toHaveLength(1);
     expect(plan.alerts[0]).toMatchObject({ lineage: "new-1", kind: "aa" });
@@ -144,9 +145,9 @@ describe("planReleaseAlerts", () => {
       ],
       probes: new Map([["claude-9", true]]),
     });
-    expect(plan.alerts.map((a) => a.lineage)).toEqual(["llama-9", "claude-9"]);
-    expect(plan.alerts.find((a) => a.lineage === "claude-9")!.push.message).toContain("IU callable: yes");
-    expect(plan.alerts.find((a) => a.lineage === "llama-9")!.push.message).toContain("IU callable: no");
+    expect(plan.alerts.map((a) => a.lineage)).toEqual([iuKey("llama-9"), iuKey("claude-9")]);
+    expect(plan.alerts.find((a) => a.lineage === iuKey("claude-9"))!.push.message).toContain("IU callable: yes");
+    expect(plan.alerts.find((a) => a.lineage === iuKey("llama-9"))!.push.message).toContain("IU callable: no");
   });
 
   it("does not push an IU id whose AA lineage already alerted", () => {
@@ -156,6 +157,20 @@ describe("planReleaseAlerts", () => {
       models: [model("gpt-9")],
     });
     expect(plan.alerts.map((a) => a.kind)).toEqual(["aa"]);
+  });
+
+  it("words an IU id with a scored AA lineage as now on IU, with its intelligence", () => {
+    const plan = planReleaseAlerts({
+      ...base,
+      alerted: new Map<string, RecordKind>([...base.alerted, ["gpt-9", "seed"]]),
+      variants: [variant("gpt-9", "gpt-9", { intelligence: 47 })],
+      models: [model("gpt-9"), model("llama-9")],
+    });
+    const byId = new Map(plan.alerts.map((a) => [a.lineage, a.push]));
+    expect(byId.get(iuKey("gpt-9"))?.title).toBe("Now on IU: gpt-9");
+    expect(byId.get(iuKey("gpt-9"))?.message).toContain("intelligence 47");
+    expect(byId.get(iuKey("gpt-9"))?.message).not.toContain("no AA score yet");
+    expect(byId.get(iuKey("llama-9"))?.message).toContain("no AA score yet");
   });
 
   it("maps ids to labs", () => {
@@ -214,10 +229,10 @@ describe("runReleaseAlerts", () => {
     day2 = true;
     expect(await sim.run()).toEqual({ seeded: false, published: 0, failed: 2 });
     expect(sim.table.has("new")).toBe(false);
-    expect(sim.table.has("llama-9")).toBe(false);
+    expect(sim.table.has(iuKey("llama-9"))).toBe(false);
     expect(await sim.run()).toEqual({ seeded: false, published: 2, failed: 0 });
     expect(sim.table.get("new")).toBe("aa");
-    expect(sim.table.get("llama-9")).toBe("iu");
+    expect(sim.table.get(iuKey("llama-9"))).toBe("iu");
     expect(await sim.run()).toEqual({ seeded: false, published: 0, failed: 0 });
   });
 

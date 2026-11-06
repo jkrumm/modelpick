@@ -8,7 +8,7 @@ import type {
   EfficiencyVariant,
   UnscoredModel,
 } from "./types.js";
-import { accessOf, computeSuperseded, estimateTask, routeVariant, versionKey } from "./variants.js";
+import { accessOf, computeSuperseded, estimateTask, routeVariant, versionKey, type ScoredRow } from "./variants.js";
 
 export interface BuildInput {
   variants: readonly AaVariant[];
@@ -93,14 +93,14 @@ export function buildEfficiency(input: BuildInput): EfficiencyResponse {
     };
   });
 
-  const scoredSlugs = new Set(scoredRows.map((v) => v.slug));
+  const scoredEfforts: ScoredRow[] = scoredRows.map((v) => ({ slug: v.slug, lineage: v.lineage, effort: v.effort }));
   const outRoutes: EfficiencyRoute[] = routes.map((r) => ({
     route: r.route,
     wire: r.wire,
     model: r.model,
     effort: r.effort,
     access: accessOf(r.model),
-    ...routeVariant({ model: r.model, effort: r.effort, scoredSlugs }),
+    ...routeVariant({ model: r.model, effort: r.effort, scoredRows: scoredEfforts }),
   }));
 
   const capturedAt = variants.reduce<string | null>(
