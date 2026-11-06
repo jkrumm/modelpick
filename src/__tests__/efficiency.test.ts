@@ -15,7 +15,7 @@ import {
 } from "../server/efficiency/variants.js";
 import type { AaVariant, Model } from "../db/schema.js";
 
-// Trimmed real dump of the AA free API (2026-11-06): every row, trimmed to the fields the collector reads.
+// Synthetic fixture: real slugs, names and dates, invented measurements. Never paste AA API rows here (fixtures/aa/README.md).
 const AA = JSON.parse(
   readFileSync(join(import.meta.dirname, "../../fixtures/aa/models.json"), "utf8"),
 ) as Parameters<typeof toVariantRows>[0];
@@ -78,7 +78,7 @@ describe("parseVariant / resolveEfforts", () => {
     expect(efforts.get("x")).toBe("max");
   });
 
-  it("derives the real rows", () => {
+  it("derives the fixture rows", () => {
     const bySlug = new Map(rows.map((r) => [r.slug, r]));
     expect(bySlug.get("gpt-6-1-terra")?.effort).toBe("max");
     expect(bySlug.get("gemini-3-8-flash")?.effort).toBe("high");
@@ -107,7 +107,7 @@ describe("estimateTask", () => {
   });
 });
 
-describe("computeSuperseded on the real dump", () => {
+describe("computeSuperseded on real lineages", () => {
   const sup = computeSuperseded(lineageInfos(), NOW);
 
   it.each([
