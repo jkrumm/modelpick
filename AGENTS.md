@@ -207,6 +207,8 @@ elsewhere.
   costs nothing).
 - **`db:push` refuses data-loss statements interactively** — dropping a column needs
   `bunx drizzle-kit push --force` (safe for `deployment`, delete-then-insert each run).
+- **This repo is public and ArtificialAnalysis data is internal-use only.** Never commit AA API rows, dumps or
+  tables (fixtures, docs, snapshots); test fixtures use invented numbers (`fixtures/aa/README.md`).
 - **Don't start long-lived servers** — the owner runs dev servers manually; use `make verify`
   against the running instance.
 
