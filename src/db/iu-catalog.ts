@@ -1038,6 +1038,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai,gemini"
   },
   {
+    "id": "gemini-omni-1.2-flash",
+    "provider": "google",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gemini-omni-1.2-flash",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "google",
+    "legs": "openai,gemini"
+  },
+  {
     "id": "gemini-omni-flash-preview",
     "provider": "google",
     "family": null,
