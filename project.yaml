@@ -2,7 +2,7 @@
 apiVersion: factory/v2
 name: modelpick
 deploy:
-  mode: make # `make deploy` builds the checkout and (re)loads both LaunchAgents on the mini; `make verify` probes :7727/stack
+  mode: make # `make deploy` builds the checkout and (re)loads both LaunchAgents on the mini; `make verify` probes :7727/api/health
   targets:
     - { name: mini, host: mini, verify: make verify }
   hold: 0m

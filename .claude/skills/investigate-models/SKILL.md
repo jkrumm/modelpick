@@ -42,9 +42,8 @@ Four facts that resolve a large share of "which model for X":
 
 ## Where the data lives
 
-- **My current picks + drift:** the `/stack` page / `getMyStack` server fn
-  (`src/routes/-stack-server-fns.ts`) — start here; if a category already shows `review`,
-  that's the lead.
+- **My current picks + drift:** `STACK.md` (rendered from `src/stack.ts` + `deployment`; the old `/stack` page is gone) and
+  Argo `/models` — start here; if a category already shows drift, that's the lead.
 - **Algorithmic picks + rationale:** latest `recommendation` rows (`bun run recommend`
   regenerates them). Weights/floors: `src/server/scoring/score.ts`
   (`CATEGORY_WEIGHTS`, `CATEGORY_MIN_QUALITY`).

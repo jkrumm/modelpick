@@ -307,7 +307,7 @@ CLAUDE.md/MCP/hooks and measures dotfiles instead of the model. Five more sharp 
 (parallel-tool-use counting, the CLI's cost figure being Claude-only, golden-solution
 graders): [`docs/pipelines.md`](docs/pipelines.md).
 
-The **`/stack`** page reads that data through `src/server/bench/summary.ts`: newest suite with a
+The `STACK.md` render reads that data through `src/server/bench/summary.ts`: newest suite with a
 real field → AA index → rate card → three picks (interactive / unattended worker / EU-pinned).
 Residency and the Claude context windows are committed snapshots in `models.ts`
 (`ROUTE_RESIDENCY`, `CLAUDE_CONTEXT_WINDOW`); update them when the route moves.

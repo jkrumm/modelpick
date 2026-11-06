@@ -15,7 +15,7 @@ REFRESH_TMPL  := launchd/$(REFRESH_LABEL).plist.template
 # The ntfy base URL is a private host: read from the homelab repo's config at setup time, never committed.
 NTFY_CONFIG := $(HOME)/SourceRoot/homelab/config/ntfy/server.yml
 
-# The always-on dashboard, same LaunchAgent mechanism. Not a Docker container:
+# The always-on data server + TTS playground, same LaunchAgent mechanism. Not a Docker container:
 # host-side writers (the refresh agent, `bun run bench`) share modelpick.db, and
 # SQLite's fcntl locks do not cross the macOS/Docker-VM boundary — see the plist
 # template's header for the two corruption incidents that settled this.
@@ -93,25 +93,25 @@ web-setup: build ## Build, then install + load the always-on dashboard LaunchAge
 	@$(STAMP_SHA)
 	@$(MAKE) --no-print-directory web-check
 
-web-check: ## Is the dashboard agent loaded, and is IT the thing serving :7727
+web-check: ## Is the web agent loaded, and is IT the thing serving :7727
 	@launchctl print "gui/$$(id -u)/$(WEB_LABEL)" 2>/dev/null | grep -E 'state =|last exit code|pid =' || { echo "✗ $(WEB_LABEL) not loaded — make web-setup"; exit 1; }
-	@# /stack is the probe target on purpose: unlike /, it reads SQLite, so a
-	@# hit proves server + secrets + DB path together. And the body is matched,
-	@# not just the status code — a leftover `vite dev` on 7727 also answers 200,
-	@# which once made this check pass against a server the agent never started.
+	@# /api/health is the probe target on purpose: it reads SQLite, so a hit proves
+	@# server + secrets + DB path together. And the body is matched, not just the
+	@# status code — a leftover `vite dev` on 7727 also answers 200, which once made
+	@# this check pass against a server the agent never started.
 	@for i in 1 2 3 4 5 6 7 8 9 10; do \
-		body=$$(curl -s "$(WEB_URL)/stack" 2>/dev/null); \
+		body=$$(curl -s "$(WEB_URL)/api/health" 2>/dev/null); \
 		case "$$body" in \
 			*@react-refresh*) \
 				echo "✗ :7727 is a vite dev server, not this agent — npx kill-port 7727, then make web-restart"; \
 				exit 1 ;; \
-			*"What every service actually runs"*) \
-				echo "✓ $(WEB_URL)/stack — 200, production build, deployments rendered"; \
+			*'"ok":true'*) \
+				echo "✓ $(WEB_URL)/api/health — 200, ok:true"; \
 				exit 0 ;; \
 		esac; \
 		sleep 2; \
 	done; \
-	echo "✗ $(WEB_URL)/stack never served the built app — tail ~/Library/Logs/modelpick-web.err"; \
+	echo "✗ $(WEB_URL)/api/health never answered ok:true — tail ~/Library/Logs/modelpick-web.err"; \
 	tail -n 20 "$(HOME)/Library/Logs/modelpick-web.err" 2>/dev/null; exit 1
 
 web-restart: build ## Rebuild and restart the dashboard without re-rendering the plist

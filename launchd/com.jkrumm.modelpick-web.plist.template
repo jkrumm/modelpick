@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
   <key>Label</key><string>com.jkrumm.modelpick-web</string>
-  <!-- The always-on dashboard on :7727, behind the existing Caddy entry
+  <!-- The always-on data server (/api/efficiency, /api/health) and TTS playground on :7727, behind the existing Caddy entry
        (dotfiles/config/Caddyfile → modelpick.test → modelpick.mini.jkrumm.com).
 
        Deliberately a LaunchAgent and NOT a Docker container, unlike rb and

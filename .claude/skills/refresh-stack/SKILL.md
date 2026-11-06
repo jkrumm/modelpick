@@ -53,7 +53,7 @@ re-derive either from the data — a refresh updates the numbers, not the rules.
      bun run verify-deployments --update && bun run db:seed
      ```
 
-4. **Read the drift, don't just list it.** Open `/stack` (or query `deployment` joined to
+4. **Read the drift, don't just list it.** Open `STACK.md` or Argo `/models` (or query `deployment` joined to
    `recommendation`) and triage every flag into exactly one of three buckets:
 
    | Bucket | Meaning | Action |
@@ -83,7 +83,7 @@ re-derive either from the data — a refresh updates the numbers, not the rules.
   slots that legitimately differ — Claude Code's interactive session and its unattended
   worker are both `coding` and are deliberately not the same model. Never "fix" a slot to
   match a category recommendation without checking the slot's own rationale first.
-- **A category pick with zero slots is fiction.** `/stack` shows a slot count per category
+- **A category pick with zero slots is fiction.** `STACK.md` shows a slot count per category
   pick. A `0` means nothing runs it — either wire it or retire the pick; do not keep
   scoring it as though it mattered.
 - **Most drift is not a switch.** Before proposing one, check `follows_recommendation`: a

@@ -1,9 +1,9 @@
 # modelpick
 
-A local dashboard that ranks the LLM / TTS / STT models accessible via the IU unified endpoint,
-cross-checked against external leaderboards, plus an interactive audio playground for trialling and
-curating voice demos. It records the models I have actually committed to (My Stack) and flags drift
-when the algorithm prefers a different pick.
+A local data server for model choice: it ranks the LLM / TTS / STT models accessible via the IU
+unified endpoint against external leaderboards and serves ArtificialAnalysis efficiency data at
+`GET /api/efficiency` (Argo renders it at `/models`). It also hosts the TTS playground (`/tts`) for
+trialling and curating voice demos.
 
 It also records **what every service actually runs**, slot by slot — the model, the reasoning
 budget, and the file in the other repo that wires it — and checks those claims mechanically
@@ -18,7 +18,8 @@ Single-user, local-only. State lives in one SQLite file (`modelpick.db`, gitigno
 | **[docs/GUIDELINES.md](docs/GUIDELINES.md)** | The settled patterns: choosing a model, configuring it, measuring one, recording the decision. Start here. |
 | **[docs/decisions/model-configs.md](docs/decisions/model-configs.md)** | The rollout reference: exact settings per model per wire, which gateway leg serves what, and the traps. |
 | [docs/decisions/](docs/decisions/) | The evidence behind each pick, with a current-verdict block at the top of every record. |
-| `/stack` | What runs today, and what is flagged for review. |
+| `GET /api/efficiency` | Per-effort intelligence, cost and speed, plus the agw routes mapped onto them (Argo relays it). |
+| `/tts` | The TTS playground. |
 
 ## Quick start
 
@@ -28,7 +29,7 @@ make db-seed             # seed the model catalog + My Stack
 make dev                 # start the dev server
 ```
 
-The app runs at `http://localhost:7727` (also `https://modelpick.test` via the dotfiles Caddyfile).
+The server runs at `http://localhost:7727` (also `https://modelpick.test` via the dotfiles Caddyfile).
 No `.env` file needed — secrets resolve via `secrets-run` at runtime (see Env below): the `op` CLI
 (account `tkrumm`) on the MacBook, an offline cache on the headless mini.
 

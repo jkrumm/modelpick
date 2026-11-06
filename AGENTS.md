@@ -2,22 +2,24 @@
 
 ## What this is
 
-modelpick is **the place I decide which models to use for what**, and keep that decision
-current. It ranks the LLM/TTS/STT models reachable through the **IU unified endpoint**
-against external leaderboards (ArtificialAnalysis, models.dev, OpenRouter, Epoch AI, LMArena) and live access probes, then
-records the models I have actually committed to. It is the single source of truth for model
-choice — rationale that used to live scattered in `dotfiles` now consolidates here (see
-`docs/decisions/`).
+modelpick is a **data server** for model choice, plus the **TTS playground** (`/tts`). It ranks the
+LLM/TTS/STT models reachable through the **IU unified endpoint** against external leaderboards
+(ArtificialAnalysis, models.dev, OpenRouter, Epoch AI, LMArena) and live access probes, and serves
+per-effort efficiency data at `GET /api/efficiency` (and liveness at `GET /api/health`).
 
-Local-only, one-person curation. Not deployed, not production-critical. All state lives in a
-single SQLite file (`modelpick.db`, gitignored).
+**The decision surface is Argo `/models`**, which renders by relaying `/api/efficiency`; modelpick
+has no other UI. The **central model config is agent-workflows** (`agw routes`); `src/stack.ts` /
+`STACK.md` / `src/db/deployments.ts` are legacy reference that the pipelines still maintain.
+Rationale for past picks stays in `docs/decisions/`.
+
+Local-only, one-person curation. All state lives in a single SQLite file (`modelpick.db`, gitignored).
 
 ## Stack
 
-- **TanStack Start** (React 19, SSR) — routes in `src/routes/`, server logic via
-  `createServerFn` in colocated `-*-server-fns.ts` files (no separate API).
-- **Mantine** UI + **visx** charts (charts follow the global `visx-charts` rule:
-  `ChartCard`/`ChartLegend`/`ChartTooltip` primitives, `useVxTheme()`, no raw hex).
+- **TanStack Start** (React 19, SSR) — routes in `src/routes/`. Server routes
+  (`api.efficiency.ts`, `api.health.ts`, `api.tts-audio.$name.ts`) are the data API; the TTS page
+  uses `createServerFn` in `-audio-server-fns.ts`. `/` redirects to `/tts`.
+- **Mantine** UI for the TTS playground only (no charts).
 - **Drizzle ORM + local SQLite** (libsql, `@libsql/client`), schema in `src/db/schema.ts`.
   The driver (`drizzle-orm/libsql`) runs under both node (the SSR server) and bun (the scripts).
 - **Secrets via 1Password** — no plaintext `.env`. `.env.tpl` (tracked) holds `op://` refs; the
@@ -66,24 +68,25 @@ Two tiers (`schema.ts`):
 `STACK_CATEGORY` is the union (scored + manual) and types `stack_choice.category`;
 `recommendation.category` stays scored-only.
 
-## My Stack (`/stack`)
+## My Stack (legacy reference, `STACK.md`)
 
 `stack_choice` table holds my **deliberate** pick per category, separate from the
-algorithmic `recommendation`. The `/stack` page diffs the two and flags **drift** when the
-algorithm prefers a different model — my cue to reconsider. Picks live in `src/stack.ts`
+algorithmic `recommendation`. [`STACK.md`](STACK.md) diffs the two and flags **drift** when the
+algorithm prefers a different model. The `/stack` page is gone; Argo `/models` is the decision surface and
+`agw routes` the live config. Picks live in `src/stack.ts`
 (`STACK`; the first entry per category is upserted into `stack_choice`); revise there, bump
-`decided_at`, and run `make stack` to re-render [`STACK.md`](STACK.md) (a test fails when it is stale). Manual categories carry no `recommendation`, so the `/stack` page shows
+`decided_at`, and run `make stack` to re-render [`STACK.md`](STACK.md) (a test fails when it is stale). Manual categories carry no `recommendation`, so `STACK.md` shows
 them as "no recommendation" (gray `—`) rather than ok/drift. **Current picks are
-in [`STACK.md`](STACK.md) and the live `/stack` page — not restated here**, so this
+in [`STACK.md`](STACK.md) — not restated here**, so this
 file cannot drift from them; each pick's rationale links its `docs/decisions/*.md` record.
 
-## Deployments — the truth layer (`/stack`, section 1)
+## Deployments — the truth layer (`STACK.md`, section 1)
 
 `stack_choice` answers "which model did I pick for the *coding* idea". `deployment`
 answers "which model does the `review.synthesis` route call today, at what reasoning budget,
 wired in which file". They are different questions and the gap between them is the point:
 `coding` is one stack row and six running slots, and a stack row can have **zero** slots
-(the `/stack` slot-count column exists to expose exactly that).
+(the `STACK.md` slot-count column exists to expose exactly that).
 
 - Rows live in **`src/db/deployments.ts`**, one per real slot across claude-code, agent-workflows,
   hermes, research, audio, argo, image-gen, rb, homelab, email-gateway. Seeded by
@@ -103,7 +106,7 @@ wired in which file". They are different questions and the gap between them is t
   image rows keep their own service. agent-gateway retired 2026-10-29: its rows and the
   `agent-gateway` `SERVICE` value are gone (the dispatch and VISION-tier slots had no
   agent-workflows route).
-- `/stack` flags each slot: `unresolvable` (id not in the catalog), `inaccessible`,
+- `STACK.md` flags each slot: `unresolvable` (id not in the catalog), `inaccessible`,
   `drift` (the category recommendation names a different model), `stale` (`verified_at`
   > 30 days). There is deliberately **no residency flag** — residency stays a fact on
   `capability_probe` and an argument inside a decision record, not a per-slot alarm.
@@ -170,15 +173,16 @@ elsewhere.
 - `project.yaml` is the factory manifest (`deploy.mode make`, target `mini`, ship by push).
   `make version` prints the commit sha that `web-setup` / `web-restart` stamped into
   `~/.local/state/modelpick/deployed-sha`; it exits 1 until a deploy has run.
-- `make web-restart` rebuilds and kickstarts the dashboard without re-rendering the plist;
+- `make web-restart` rebuilds and kickstarts the web agent without re-rendering the plist;
   `make web-teardown` / `make refresh-teardown` unload and remove the respective agent.
 
 ## Verify & Monitor
 
-- **Health URL** `http://localhost:7727/stack` (loopback). `/stack` reads SQLite, so a 200
-  proves server + secrets + DB path together. `make verify` wraps `make web-check`, which
-  polls it and matches the rendered body — a stray `vite dev` on 7727 also answers 200, so a
-  status check alone is not enough.
+- **Health URL** `http://localhost:7727/api/health` (loopback), returns `{"ok":true,"capturedAt":…}`
+  from SQLite, so a 200 proves server + DB path together. `make verify` wraps `make web-check`,
+  which polls it and matches `"ok":true` — a stray `vite dev` on 7727 also answers 200, so a
+  status check alone is not enough. `/api/efficiency` is the Argo feed; its `agw` lookup needs
+  `~/.local/bin` (the web plist PATH has it, and `agw-routes.ts` tries that path first).
 - **Kuma monitor** `none` — no Uptime Kuma monitor is defined in this repo, and the monitor
   list lives outside it; nothing is claimed here.
 - **OTel `service.name`** `none` — modelpick has no OpenTelemetry instrumentation (the `otel`
@@ -205,6 +209,26 @@ elsewhere.
   `bunx drizzle-kit push --force` (safe for `deployment`, delete-then-insert each run).
 - **Don't start long-lived servers** — the owner runs dev servers manually; use `make verify`
   against the running instance.
+
+## Efficiency data and release alerts (detail: [`docs/pipelines.md`](docs/pipelines.md))
+
+- `aa_variant` (PK `slug`) holds one row per ArtificialAnalysis slug, effort variants separate,
+  upserted from the same fetch as the AA metrics. `release_alert` (PK `lineage`) records the ntfy
+  release pushes already made. `src/server/efficiency/` is the pure domain (parse, estimates,
+  superseded, route mapping); `GET /api/efficiency` contract: `src/server/efficiency/types.ts`,
+  shared with Argo, so change it only together.
+- **ArtificialAnalysis terms:** use the API only (`/api/v2/language/models/free`), never scrape
+  artificialanalysis.ai, and show attribution ("Source: Artificial Analysis
+  (artificialanalysis.ai)") wherever the data appears; the endpoint response carries it.
+- **Estimates caveat.** `tokensPerTaskEst` / `timePerTaskEstSec` are derived (AA's free tier has
+  no tokens or time per task): rank correlation 0.69 with AA's published time per task, but
+  overstated 2-4x for Anthropic/OpenAI and up to 21x for input-heavy models. Always named `Est`.
+- **Known issue:** `coding_index` is null on every row of the AA free API since about 2026-10-28.
+  The stored `coding_index` metrics are stale, so the recommender's `coding` profile is scoring
+  on old data. Documented, not fixed.
+- Release alerts: refresh step after collect; `NTFY_TOKEN` in `.env.tpl`, `NTFY_URL` injected into
+  the refresh plist by `make refresh-setup` (private host, never committed);
+  `MODELPICK_NOTIFY_DRY=1 bun run alerts` prints instead of publishing.
 
 ## Database / schema changes
 
@@ -255,7 +279,7 @@ never delisted by the sync — the summary prints it as "referenced but unlisted
 
 ## Pipelines (detail: [`docs/pipelines.md`](docs/pipelines.md))
 
-- `make refresh` = catalog → probe → collect → recommend → re-render `STACK.md`, daily 06:00 on the mini
+- `make refresh` = catalog → probe → collect (+ `aa_variant` upsert) → release alerts → recommend → re-render `STACK.md`, daily 06:00 on the mini
   (`make refresh-check` shows the last exit). A collector that fails or returns 0 rows is a
   *degraded source*: siblings still persist, the run exits 1. **Green tests ≠ working
   pipeline — run the changed pipeline live.**

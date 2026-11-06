@@ -21,24 +21,19 @@ import {
   AppShellMain,
   Button,
 } from "@mantine/core";
-import { VxBridge } from "~/charts/bridge";
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "modelpick — LLM · TTS · STT decider" },
+      { title: "modelpick — TTS playground" },
     ],
   }),
   shellComponent: RootDocument,
 });
 
 const NAV_ITEMS: Array<{ to: string; label: string; exact?: boolean }> = [
-  { to: "/stack", label: "Stack" },
-  { to: "/", label: "Decider", exact: true },
-  { to: "/catalog", label: "Catalog" },
-  { to: "/benchmarks", label: "Leaderboards" },
   { to: "/tts", label: "TTS" },
 ];
 
@@ -73,23 +68,21 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <MantineProvider defaultColorScheme="dark">
-          <VxBridge>
-            <AppShell header={{ height: 56 }} padding="md">
-              <AppShellHeader>
-                <Container size="xl" h="100%">
-                  <Group h="100%" justify="space-between" align="center">
-                    <Text fw={700} size="lg" ff="monospace">
-                      modelpick
-                    </Text>
-                    <NavButtons />
-                  </Group>
-                </Container>
-              </AppShellHeader>
-              <AppShellMain>
-                <Container size="xl">{children}</Container>
-              </AppShellMain>
-            </AppShell>
-          </VxBridge>
+          <AppShell header={{ height: 56 }} padding="md">
+            <AppShellHeader>
+              <Container size="xl" h="100%">
+                <Group h="100%" justify="space-between" align="center">
+                  <Text fw={700} size="lg" ff="monospace">
+                    modelpick
+                  </Text>
+                  <NavButtons />
+                </Group>
+              </Container>
+            </AppShellHeader>
+            <AppShellMain>
+              <Container size="xl">{children}</Container>
+            </AppShellMain>
+          </AppShell>
         </MantineProvider>
         {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-right" />}
         <Scripts />
