@@ -280,7 +280,7 @@ datasets-server (CC-BY 4.0) for `arena_{elo,creative_writing,german,instruction_
 The dataset names rows with display names (`Claude Opus 5.5 (High)`); `arenaDisplayToSlug` drops the
 parenthetical variants and hyphenates. EQ-Bench is gone (Claude judging Claude): **the `writing`
 dimension scores Arena only.** Full argument, and the German gap (nothing public
-scores German prose quality): [`docs/decisions/writing-model.md`](docs/decisions/writing-model.md).
+scores German prose quality): [`docs/decisions/writing-model.md`](./decisions/writing-model.md).
 
 The HF datasets-server answers "index is loading" as an HTTP 500 mid-pagination, so the
 collector retries and then **keeps the pages it got** — a partial arena pull is incomplete,
@@ -307,4 +307,4 @@ grades the resulting files mechanically. Rows land in `bench_run`; the verdict l
 **never remove the isolated `CLAUDE_CONFIG_DIR`** — without it the sandbox loads the global
 CLAUDE.md/MCP/hooks and measures dotfiles instead of the model. Five more sharp edges
 (parallel-tool-use counting, the CLI's cost figure being Claude-only, golden-solution
-graders): [`docs/pipelines.md`](docs/pipelines.md).
+graders): [`docs/decisions/claude-code-model.md`](./decisions/claude-code-model.md) §ccbench.
