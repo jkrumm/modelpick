@@ -70,13 +70,13 @@ export const getTtsPlaygroundData = createServerFn({ method: "GET" }).handler(
 );
 
 export const getAllDemosFn = createServerFn({ method: "GET" })
-  .inputValidator((input: { modality: "tts" | "stt" }) => input)
+  .validator((input: { modality: "tts" | "stt" }) => input)
   .handler(async ({ data }): Promise<Demo[]> => {
     return getAllDemos(data.modality);
   });
 
 export const generateTtsDemoFn = createServerFn({ method: "POST" })
-  .inputValidator((input: GenerateTtsDemoInput) => input)
+  .validator((input: GenerateTtsDemoInput) => input)
   .handler(async ({ data }): Promise<GenerateTtsResult> => {
     // Insert placeholder row to get the auto-increment ID before generating audio.
     const demoRow = await insertDemo({
@@ -101,7 +101,7 @@ export const generateTtsDemoFn = createServerFn({ method: "POST" })
   });
 
 export const toggleDemoPublicFn = createServerFn({ method: "POST" })
-  .inputValidator((input: ToggleDemoPublicInput) => input)
+  .validator((input: ToggleDemoPublicInput) => input)
   .handler(async ({ data }): Promise<void> => {
     await setDemoPublic(data.id, data.isPublic);
   });
@@ -115,7 +115,7 @@ export interface ToggleVoiceInput {
 /** Enable/disable an entire voice at once — bulk public toggle for narrowing the
  *  TTS candidate shortlist. */
 export const toggleVoicePublicFn = createServerFn({ method: "POST" })
-  .inputValidator((input: ToggleVoiceInput) => input)
+  .validator((input: ToggleVoiceInput) => input)
   .handler(async ({ data }): Promise<void> => {
     await setDemoPublicByVoice(data.modality, data.voice, data.isPublic);
   });
