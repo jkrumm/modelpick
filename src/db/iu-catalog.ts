@@ -48,6 +48,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai,anthropic"
   },
   {
+    "id": "claude-fable-5-2",
+    "provider": "anthropic",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Claude Fable 5.2",
+    "context_window": 1000000,
+    "iu_listed": true,
+    "owned_by": "Anthropic API OpenAI direct,LiteLLM 2026 Gateway,LiteLLM 2026 Gateway GDPR",
+    "legs": "openai,anthropic"
+  },
+  {
     "id": "claude-haiku-4-5",
     "provider": "anthropic",
     "family": null,
@@ -3026,17 +3037,6 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": 128000,
     "iu_listed": true,
     "owned_by": "Nebius AI Cloud",
-    "legs": "openai"
-  },
-  {
-    "id": "Qwen/Qwen3.5-397B-A17B",
-    "provider": "qwen",
-    "family": null,
-    "modality": "llm",
-    "display_name": "Qwen/Qwen3.5-397B-A17B",
-    "context_window": null,
-    "iu_listed": true,
-    "owned_by": "system",
     "legs": "openai"
   },
   {
