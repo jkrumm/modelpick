@@ -972,6 +972,28 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai,gemini"
   },
   {
+    "id": "gemini-4-carbon",
+    "provider": "google",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Google Gemini 4 Carbon",
+    "context_window": 1048576,
+    "iu_listed": true,
+    "owned_by": "Gemini API OpenAI direct,LiteLLM 2026 Gateway GDPR",
+    "legs": "openai,gemini"
+  },
+  {
+    "id": "gemini-4-carbon-eu",
+    "provider": "google",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Google Gemini 4 Carbon EU",
+    "context_window": 1048576,
+    "iu_listed": true,
+    "owned_by": "Gemini API OpenAI direct,LiteLLM 2026 Gateway GDPR",
+    "legs": "openai,gemini"
+  },
+  {
     "id": "gemini-embedding-001",
     "provider": "google",
     "family": null,
@@ -991,7 +1013,7 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": null,
     "iu_listed": true,
     "owned_by": "google",
-    "legs": "openai,gemini"
+    "legs": "openai"
   },
   {
     "id": "gemini-embedding-2-preview",
@@ -2244,7 +2266,7 @@ export const IU_CATALOG: ModelInsert[] = [
     "display_name": "Kimi K3.1 Pro",
     "context_window": 1048576,
     "iu_listed": true,
-    "owned_by": "Requesty-Global",
+    "owned_by": "Requesty-Global,Requesty-EU",
     "legs": "openai"
   },
   {
