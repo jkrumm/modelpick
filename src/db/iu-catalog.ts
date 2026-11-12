@@ -994,6 +994,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai,gemini"
   },
   {
+    "id": "gemini-decision-1",
+    "provider": "google",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gemini-decision-1",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "google",
+    "legs": "openai"
+  },
+  {
     "id": "gemini-embedding-001",
     "provider": "google",
     "family": null,
