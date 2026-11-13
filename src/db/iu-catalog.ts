@@ -994,6 +994,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai,gemini"
   },
   {
+    "id": "gemini-4-hydrogen",
+    "provider": "google",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gemini-4-hydrogen",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "google",
+    "legs": "openai,gemini"
+  },
+  {
     "id": "gemini-decision-1",
     "provider": "google",
     "family": null,
@@ -1035,7 +1046,7 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": null,
     "iu_listed": true,
     "owned_by": "google",
-    "legs": "openai,gemini"
+    "legs": "openai"
   },
   {
     "id": "gemini-flash-latest",
