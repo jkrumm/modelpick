@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { parquetReadObjects } from "hyparquet";
 import { compareVersions, createIdResolver, versionOf } from "../server/collectors/normalize.js";
 import { collectOpenRouter } from "../server/collectors/openrouter.js";
 import { collectArtificialAnalysis } from "../server/collectors/artificialanalysis.js";
@@ -13,6 +14,10 @@ import { benchmarkSaturation } from "../server/collectors/epoch-benchmarks.js";
 import { collectModelsDev } from "../server/collectors/modelsdev.js";
 import { collectArtificialAnalysisSpeech } from "../server/collectors/artificialanalysis-speech.js";
 import { arenaDisplayToSlug, collectLmarena } from "../server/collectors/lmarena.js";
+
+// Only the lmarena parquet fallback reads parquet. Unmocked behaviour (undefined) is an
+// unreadable file, which the collector must survive by moving on to /rows.
+vi.mock("hyparquet", () => ({ parquetReadObjects: vi.fn() }));
 
 const resolve = createIdResolver([
   "claude-sonnet-4-6",
@@ -700,12 +705,15 @@ describe("collectLmarena", () => {
     expect(overall.find((m) => m.model_id === "claude-sonnet-4-6")?.confidence).toBe(0.85);
   });
 
-  it("retries the 'index is loading' error on /filter, falls back to /rows, and yields nothing when both stay down", async () => {
+  it("retries the 'index is loading' error on /filter, falls back to parquet then /rows, and yields nothing when all stay down", async () => {
     vi.useFakeTimers();
     let filterCalls = 0;
     let rowsCalls = 0;
+    let parquetCalls = 0;
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
-      if (new URL(String(input)).pathname === "/rows") rowsCalls++;
+      const url = new URL(String(input));
+      if (url.hostname === "huggingface.co") parquetCalls++;
+      else if (url.pathname === "/rows") rowsCalls++;
       else filterCalls++;
       return jsonResponse({
         error: "the dataset index is loading, this may take longer than usual",
@@ -720,8 +728,47 @@ describe("collectLmarena", () => {
     // The first /filter page never succeeds (initial attempt + two retries), so
     // the collector switches to /rows once instead of retrying every category.
     expect(filterCalls).toBe(3);
+    expect(parquetCalls).toBe(3);
     expect(rowsCalls).toBe(3);
     vi.useRealTimers();
+  });
+
+  it("falls back to the parquet export when /filter and /rows are down (the 501 outage)", async () => {
+    vi.useFakeTimers();
+    let rowsCalls = 0;
+    const flat = (model_name: string, rating: number, category: string): unknown => {
+      const { row } = arenaRow({ model_name, rating });
+      return { ...row, category };
+    };
+    vi.mocked(parquetReadObjects).mockResolvedValue([
+      flat("claude-sonnet-4-6", 1500, "overall"),
+      flat("claude-opus-4-6-high", 1650, "creative_writing"),
+      flat("unknown-model", 1200, "overall"),
+    ] as never);
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.hostname === "huggingface.co") {
+        return {
+          ok: true,
+          status: 200,
+          arrayBuffer: async () => new ArrayBuffer(8),
+        } as unknown as Response;
+      }
+      if (url.pathname === "/rows") rowsCalls++;
+      return new Response("Job has been terminated", { status: 501 });
+    });
+
+    const promise = collectLmarena(resolveArena);
+    await vi.runAllTimersAsync();
+    const result = await promise;
+    vi.useRealTimers();
+
+    expect(rowsCalls).toBe(0); // the parquet file answered, so /rows is never walked
+    expect(result.metrics.map((m) => `${m.metric}/${m.model_id}`).toSorted()).toEqual([
+      "arena_creative_writing/claude-opus-4-6",
+      "arena_elo/claude-sonnet-4-6",
+    ]);
+    expect(result.unmatched.map((u) => u.externalId)).toEqual(["unknown-model"]);
   });
 
   it("keeps the pages that succeeded when a later page fails", async () => {

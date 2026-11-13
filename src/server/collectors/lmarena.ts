@@ -21,11 +21,16 @@
  * 1484.3 on `creative_writing`. Dropping the suffixed row silently understates
  * every model that is measured mainly under an effort tier.
  */
+import { parquetReadObjects } from "hyparquet";
 import type { CollectorResult, IdResolver, NormalizedMetric } from "./normalize.js";
 
 const HF_FILTER_URL = "https://datasets-server.huggingface.co/filter";
 const HF_ROWS_URL = "https://datasets-server.huggingface.co/rows";
 const DATASET = "lmarena-ai/leaderboard-dataset";
+// Static export of the same `text`/`latest` split (~600 KB, all categories). Served by the
+// huggingface.co file CDN, not the datasets-server compute service whose /filter and /rows
+// both answered 500/501 ("temporary spike in resource usage") for a whole refresh window.
+export const HF_PARQUET_URL = `https://huggingface.co/datasets/${DATASET}/resolve/main/text/latest-00000-of-00001.parquet`;
 const PAGE_SIZE = 100;
 const MIN_VOTE_COUNT = 100; // rows below this are too thin to rank on — dropped entirely
 const HIGH_CONFIDENCE_VOTE_COUNT = 500;
@@ -206,6 +211,28 @@ async function fetchCategory(category: string): Promise<LmArenaRow[] | null> {
   return rows;
 }
 
+/** First fallback for a dead /filter: one static parquet file instead of ~111 compute-backed
+ *  pages. Retries like the page fetches do; returns null when the file stays unavailable or
+ *  unreadable so the caller can go on to /rows. */
+async function fetchParquetRows(): Promise<LmArenaRow[] | null> {
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      const resp = await fetch(HF_PARQUET_URL);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const objects = await parquetReadObjects({ file: await resp.arrayBuffer() });
+      return objects.map((row, row_idx) => ({ row_idx, row: row as LmArenaRow["row"] }));
+    } catch (err) {
+      const delay = RETRY_DELAYS_MS[attempt];
+      console.warn(
+        `[lmarena] parquet export: ${String(err)}${delay === undefined ? " — giving up" : ` — retrying in ${delay}ms`}`,
+      );
+      if (delay === undefined) return null;
+      await new Promise((res) => setTimeout(res, delay));
+    }
+  }
+  return null;
+}
+
 /** Fallback for a dead /filter: walks the whole split through /rows (which the
  *  datasets-server keeps serving) so categories can be cut client-side. Same
  *  keep-what-succeeded semantics as fetchCategory — a lost page costs the
@@ -249,8 +276,12 @@ export async function collectLmarena(resolve: IdResolver): Promise<CollectorResu
     } else {
       const fetched = await fetchCategory(category);
       if (fetched === null) {
-        console.warn("[lmarena] /filter unavailable — falling back to paginating /rows");
-        splitRows = await fetchAllRows();
+        console.warn("[lmarena] /filter unavailable — falling back to the parquet export");
+        splitRows = await fetchParquetRows();
+        if (splitRows === null) {
+          console.warn("[lmarena] parquet export unavailable — falling back to paginating /rows");
+          splitRows = await fetchAllRows();
+        }
         rows = splitRows.filter((r) => r.row.category === category);
       } else {
         rows = fetched;
