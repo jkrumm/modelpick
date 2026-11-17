@@ -49,10 +49,9 @@ Two cross-cutting principles:
 
 ## Records
 
-Where the running config lives: the `deployment` table (`src/db/deployments.ts`, section 1 of
-`/stack`) answers *which slot runs it today*; `bun run verify-deployments` checks that against
-the actual config files. One line per record below — filename, the question it answers, its
-current verdict clause:
+Where the running config lives: the agent-workflows route table (`agw routes`, shown on Argo
+`/models`) answers *which slot runs it today*; this repo does not hold it. One line per record
+below — filename, the question it answers, its current verdict clause:
 
 - [hermes-brain.md](./hermes-brain.md) — which model runs the Hermes personal-data brain →
   `deepseek-v4.1-flash` at `reasoning_effort: high`, an owner decision for capability over the
