@@ -56,8 +56,6 @@ const AA_MODELS_URL = "https://artificialanalysis.ai/api/v2/language/models/free
 // 4 pages of 200 today; the cap only guards against a has_more that never turns false.
 const MAX_PAGES = 20;
 
-export { SNAPSHOT_PINS };
-
 async function fetchAllModels(key: string): Promise<AAModel[]> {
   const models: AAModel[] = [];
   for (let page = 1; page <= MAX_PAGES; page++) {

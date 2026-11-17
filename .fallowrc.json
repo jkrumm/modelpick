@@ -1,0 +1,7 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": ["scripts/**/*.{ts,mjs}"],
+  "ignoreExports": [
+    { "file": "src/server/collectors/epoch-benchmarks.ts", "exports": ["EPOCH_BENCHMARKS"] }
+  ]
+}

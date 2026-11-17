@@ -199,7 +199,7 @@ export function parseBenchmarkIndex(csv: string): BenchmarkIndexRow[] {
   }));
 }
 
-export function metricNameOf(sourceFile: string): string {
+function metricNameOf(sourceFile: string): string {
   return sourceFile.replace(/\.csv$/i, "");
 }
 

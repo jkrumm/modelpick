@@ -24,7 +24,7 @@ export interface TtsOptions {
  *  that handles German well, matching the Hermes briefing persona (calm,
  *  conversational, no theatrics). Per Google Cloud TTS docs, Charon is a male
  *  voice; female voices (Sulafat, Kore, Zephyr, …) are intentionally avoided. */
-export const GEMINI_DEFAULT_VOICE = "Charon";
+const GEMINI_DEFAULT_VOICE = "Charon";
 
 /** OpenAI /audio/speech voices. `onyx` is the calm adult-male default, matching
  *  the Gemini side. A Gemini voice name passed via opts.voice is not valid here,
@@ -38,11 +38,11 @@ export interface SttResult {
   latency_ms: number;
 }
 
-export function getDemosDir(): string {
+function getDemosDir(): string {
   return process.env["DEMOS_DIR"] ?? join(process.cwd(), "public", "demos");
 }
 
-export async function ensureDemosDir(): Promise<void> {
+async function ensureDemosDir(): Promise<void> {
   await mkdir(getDemosDir(), { recursive: true });
 }
 

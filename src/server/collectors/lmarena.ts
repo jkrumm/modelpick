@@ -30,7 +30,7 @@ const DATASET = "lmarena-ai/leaderboard-dataset";
 // Static export of the same `text`/`latest` split (~600 KB, all categories). Served by the
 // huggingface.co file CDN, not the datasets-server compute service whose /filter and /rows
 // both answered 500/501 ("temporary spike in resource usage") for a whole refresh window.
-export const HF_PARQUET_URL = `https://huggingface.co/datasets/${DATASET}/resolve/main/text/latest-00000-of-00001.parquet`;
+const HF_PARQUET_URL = `https://huggingface.co/datasets/${DATASET}/resolve/main/text/latest-00000-of-00001.parquet`;
 const PAGE_SIZE = 100;
 const MIN_VOTE_COUNT = 100; // rows below this are too thin to rank on — dropped entirely
 const HIGH_CONFIDENCE_VOTE_COUNT = 500;

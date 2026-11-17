@@ -27,14 +27,12 @@ export type BenchDimension = (typeof BENCH_DIMENSION)[number];
 /** Why a run produced no usable grade. `incompatible` is the interesting one:
  *  the model is served, but the gateway/model pair cannot drive the agent loop
  *  (tool schema rejected, thinking blocks it can't turn off, 400 on every turn).
- *  The tuple lives in schema.ts because the `bench_run.failure` column needs it;
- *  re-exported here so bench code never imports the schema for a plain type. */
-export { BENCH_FAILURE } from "../../db/schema.js";
+ *  The tuple (`BENCH_FAILURE`) lives in schema.ts because the `bench_run.failure` column needs it;
+ *  the type is aliased here so bench code never imports the schema for a plain type. */
 export type BenchFailure = BenchFailureReason;
 
 /** How a run's `costUsd` was arrived at — see `cost.ts`. Same arrangement as
- *  BENCH_FAILURE: the tuple lives in schema.ts because the column needs it. */
-export { COST_BASIS } from "../../db/schema.js";
+ *  BENCH_FAILURE: the tuple (`COST_BASIS`) lives in schema.ts because the column needs it. */
 export type { CostBasis };
 
 /** One mechanically-checked assertion inside a task's grade. Partial credit is

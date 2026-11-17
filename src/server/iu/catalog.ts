@@ -9,7 +9,7 @@ import type { Modality, ModelInsert } from "../../db/schema.js";
 // vendor, context, capabilities, backend route list); the other legs only say
 // which ids they accept. Ids are case-sensitive and taken verbatim.
 
-export const LEGS = ["openai", "anthropic", "gemini", "decisions"] as const;
+const LEGS = ["openai", "anthropic", "gemini", "decisions"] as const;
 export type Leg = (typeof LEGS)[number];
 
 const openaiList = z.object({

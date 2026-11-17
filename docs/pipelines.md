@@ -67,8 +67,8 @@ resulting files mechanically. Rows land in `bench_run`.
   silently-broken grader and a genuinely perfect field produce the same table
   without them.
 - Residency is visible only in the gateway's `x-middleware-forwarded-*`
-  headers; the committed `ROUTE_RESIDENCY` snapshot in `src/server/bench/models.ts`
-  records it (the `route-map` survey script was cut).
+  headers; the committed `ROUTE_RESIDENCY` snapshot and the `route-map` survey script were
+  both cut (the snapshot 2026-11-17, unused).
 
 ## Why a model looks slower on IU than on the leaderboard (2026-09-11)
 

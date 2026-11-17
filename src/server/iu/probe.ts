@@ -355,7 +355,7 @@ async function applyReconciliationPlan({
   return plan.repoint.length + plan.dropAsCollision.length;
 }
 
-export interface CaseDuplicateTables {
+interface CaseDuplicateTables {
   models: typeof ModelsTable;
   capabilityProbe: typeof CapabilityProbeTable;
   metricSnapshot: typeof MetricSnapshotTable;
@@ -371,7 +371,7 @@ export interface CaseDuplicateTables {
  *  the loser row. Re-pointing before deleting matters: the FK is
  *  onDelete: cascade, so deleting the loser first would wipe its children
  *  instead of preserving them under the survivor. */
-export async function reconcileCaseDuplicates({
+async function reconcileCaseDuplicates({
   db,
   tables,
   liveIds,

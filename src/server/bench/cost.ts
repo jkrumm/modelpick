@@ -21,8 +21,6 @@
  */
 import type { CostBasis, RunMetrics } from "./types.js";
 
-export type { CostBasis };
-
 /** Per-MTok rates for one model. `null` cache rates fall back to the Anthropic
  *  ratios in `computeCost` rather than to zero — a missing cache rate must
  *  never make cached tokens look free. */

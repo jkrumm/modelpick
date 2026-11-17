@@ -41,7 +41,7 @@ const VOICE_ROWS: ExperimentRow[] = [
 const WRITER_LETTERS = ["A", "B", "C", "D", "E", "F", "G"] as const;
 const REMATCH_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"] as const;
 
-export const EXPERIMENTS: Experiment[] = [
+const EXPERIMENTS: Experiment[] = [
   {
     id: "expression",
     kind: "question",

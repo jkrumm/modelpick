@@ -63,7 +63,7 @@ export function toBenchRunInsert(result: BenchRunResult): BenchRunInsert {
   return { ...toKey(result), ...toPayload(result) };
 }
 
-export async function persistBenchRun(result: BenchRunResult): Promise<void> {
+async function persistBenchRun(result: BenchRunResult): Promise<void> {
   await db
     .insert(benchRun)
     .values(toBenchRunInsert(result))

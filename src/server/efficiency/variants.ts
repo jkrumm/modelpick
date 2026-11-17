@@ -116,7 +116,7 @@ const STALE_MONTHS = 12;
 const MAX_VERSION_SEGMENT = 20;
 
 /** (family, version) of a lineage or catalog id: `v4` -> `4`, a trailing 4-digit snapshot (`-1017`) dropped. */
-export function versionKey(id: string): { family: string; version: string | null } {
+function versionKey(id: string): { family: string; version: string | null } {
   const normalised = id
     .toLowerCase()
     .replace(/(^|-)v(\d+)(?=[-.]|$)/g, "$1$2")

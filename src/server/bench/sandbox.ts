@@ -29,7 +29,7 @@ export const BENCH_CONFIG_SETTINGS = {
 
 /** Root of every sandbox. Kept off the repo so a runaway agent cannot edit
  *  modelpick itself. */
-export const SANDBOX_ROOT = "/tmp/ccbench";
+const SANDBOX_ROOT = "/tmp/ccbench";
 
 /** Repo root, derived from this module rather than cwd so the CLI behaves the
  *  same whichever directory it is invoked from. */
@@ -79,7 +79,7 @@ export function suiteSandboxRoot(suiteId: string): string {
   return path.join(SANDBOX_ROOT, sanitizeSegment(suiteId));
 }
 
-export function sandboxPath(key: SandboxKey): string {
+function sandboxPath(key: SandboxKey): string {
   return path.join(
     suiteSandboxRoot(key.suiteId),
     sanitizeSegment(key.modelId),
@@ -164,7 +164,7 @@ export async function removeSandbox(dir: string): Promise<void> {
  * Runs a command inside the sandbox for a grader. Never throws and never uses a
  * shell — a grader that crashes the suite is worse than a task that scores 0.
  */
-export function runInSandbox(
+function runInSandbox(
   dir: string,
   cmd: string[],
   opts?: { timeoutMs?: number },

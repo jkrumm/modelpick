@@ -34,7 +34,7 @@ export interface DecisionModelSpec {
   rate?: { input: number; output: number };
 }
 
-export const DECISION_MODELS: readonly DecisionModelSpec[] = [
+const DECISION_MODELS: readonly DecisionModelSpec[] = [
   {
     id: "clef",
     wire: "systemone",

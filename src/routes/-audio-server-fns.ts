@@ -13,12 +13,9 @@ import { readCompareManifest } from "~/server/audio/compare";
 import {
   TTS_PRESETS,
   TTS_CANDIDATE_VOICES,
-  type TtsPreset,
-  type CandidateVoice,
 } from "~/server/audio/presets";
 
 export { TTS_PRESETS, TTS_CANDIDATE_VOICES };
-export type { TtsPreset, CandidateVoice };
 
 // EU-resident model IDs per the IU capability matrix (tts/tts-hd = Azure
 // Sweden). Gemini TTS routes through IU's "GDPR ONLY" Gemini gateway, so it is
@@ -37,7 +34,7 @@ export interface AudioPlaygroundData {
   demos: Demo[];
 }
 
-export interface GenerateTtsDemoInput {
+interface GenerateTtsDemoInput {
   modelId: string;
   text: string;
   lang: "de" | "en";
@@ -48,7 +45,7 @@ export interface GenerateTtsDemoInput {
   voice?: string;
 }
 
-export interface ToggleDemoPublicInput {
+interface ToggleDemoPublicInput {
   id: number;
   isPublic: boolean;
 }
@@ -106,7 +103,7 @@ export const toggleDemoPublicFn = createServerFn({ method: "POST" })
     await setDemoPublic(data.id, data.isPublic);
   });
 
-export interface ToggleVoiceInput {
+interface ToggleVoiceInput {
   modality: "tts" | "stt";
   voice: string;
   isPublic: boolean;

@@ -15,7 +15,7 @@ import {
 
 /** Composite weights. Quality dominates by design - a cheap model that cannot
  *  finish the task is not a cheap model, it is a broken one. */
-export const COMPOSITE_WEIGHTS = {
+const COMPOSITE_WEIGHTS = {
   quality: 0.5,
   cost: 0.2,
   speed: 0.2,

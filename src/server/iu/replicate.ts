@@ -6,7 +6,7 @@ import type { Modality } from "../../db/schema.js";
 // paging, official-model filtering, modality classification from the model's
 // input schema + description, and the synchronous prediction probe.
 
-export const replicateBase = (): string => process.env["IU_REPLICATE_BASE_URL"] ?? "";
+const replicateBase = (): string => process.env["IU_REPLICATE_BASE_URL"] ?? "";
 
 const PROBE_TIMEOUT_MS = 30_000;
 

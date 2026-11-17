@@ -347,7 +347,7 @@ export function parseDecisionsResponse(bodyText: string): DecisionResult {
   };
 }
 
-export function parseDecisionResponse(wire: DecisionWire, bodyText: string): DecisionResult {
+function parseDecisionResponse(wire: DecisionWire, bodyText: string): DecisionResult {
   return wire === "decisions" ? parseDecisionsResponse(bodyText) : parseSystemoneResponse(bodyText);
 }
 
