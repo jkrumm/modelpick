@@ -8,9 +8,8 @@
 
        Deliberately a LaunchAgent and NOT a Docker container, unlike rb and
        linewatch. Those two own their SQLite file exclusively; modelpick's is
-       shared with host-side writers that cannot be containerised at all —
-       `bun run bench` spawns the `claude` CLI and reads the macOS Keychain,
-       and the 06:00 refresh agent writes the same file. Putting the web server
+       shared with a host-side writer that cannot be containerised at all:
+       the 06:00 refresh agent writes the same file. Putting the web server
        behind a Docker volume boundary gives either two divergent databases or
        the fcntl/virtiofs corruption already measured twice in this house
        (linewatch 2026-07-30, work dashboard 2026-07-21/26). Same-host

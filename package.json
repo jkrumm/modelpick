@@ -22,8 +22,7 @@
     "collect": "scripts/with-keys bun run scripts/collect.ts",
     "alerts": "scripts/with-keys bun run scripts/release-alerts.ts",
     "refresh": "scripts/with-keys bun run scripts/refresh.ts",
-    "benchmark": "scripts/with-keys bun run scripts/benchmark-throughput.ts",
-    "bench": "scripts/with-keys bun run scripts/bench.ts"
+    "benchmark": "scripts/with-keys bun run scripts/benchmark-throughput.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

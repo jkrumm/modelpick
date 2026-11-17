@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // SQLite has no native enum type — Drizzle emits a CHECK constraint from the
 // `enum` option and surfaces the union on the inferred type. The value tuples
@@ -41,22 +41,6 @@ export const PROBE_STATUS = [
   "timeout", // probe aborted before a response
   "unknown", // unclassified non-2xx
 ] as const;
-// Why a ccbench run produced no usable grade. Mirrors BENCH_FAILURE in
-// src/server/bench/types.ts — the tuple lives here because the column needs it.
-export const BENCH_FAILURE = [
-  "none",
-  "timeout",
-  "idle_stall",
-  "max_turns",
-  "api_error",
-  "incompatible",
-  "harness_error",
-] as const;
-// How a ccbench run's cost_usd was arrived at. 'measured' = computed from the
-// per-token rates pick_probe solved from the gateway's own billing; 'list' =
-// Anthropic list pricing (the CLI's own number, or the committed Claude rate
-// card); 'unpriced' = no rate card resolved, so cost_usd is null.
-export const COST_BASIS = ["measured", "list", "unpriced"] as const;
 export const LANG = ["de", "en"] as const;
 // Reasoning effort of an AA variant. A bare slug takes the effort AA names in its name
 // parenthetical, else `max` (lineage has other effort rows) or `default` (none).
@@ -192,97 +176,6 @@ export const releaseAlert = sqliteTable("release_alert", {
   notified_at: text("notified_at").notNull().default(now),
 });
 
-// ── Pick probes (Claude Code model-pick CLI, scripts/pick.ts) ────────────────
-// One row per non-Claude model on the IU Anthropic-protocol route: derived
-// per-token pricing (solved from the gateway's Requesty `usage.cost` field),
-// prompt-caching support, whether `max_tokens` is honoured, whether the model
-// always emits `thinking` blocks, and a binary-searched real context window.
-// Cached so `bun run pick` doesn't re-probe (and re-spend) on every run.
-
-export const pickProbe = sqliteTable(
-  "pick_probe",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    // Deliberately NOT a foreign key onto `models`. `pick` surveys what the
-    // Anthropic route serves *right now*, and that list runs ahead of the
-    // committed portal snapshot — an FK here made probing a newly-served model
-    // fail with SQLITE_CONSTRAINT_FOREIGNKEY until someone re-imported the
-    // catalog, which is exactly backwards.
-    model_id: text("model_id").notNull(),
-    price_in_per_m: real("price_in_per_m"),
-    price_out_per_m: real("price_out_per_m"),
-    price_cache_read_per_m: real("price_cache_read_per_m"),
-    supports_cache_read: integer("supports_cache_read", { mode: "boolean" }),
-    honors_max_tokens: integer("honors_max_tokens", { mode: "boolean" }),
-    always_thinking: integer("always_thinking", { mode: "boolean" }),
-    context_window: integer("context_window"),
-    // false when context_window is a binary-search estimate (or a byte-cap
-    // conversion) rather than a number the gateway named exactly.
-    context_window_exact: integer("context_window_exact", { mode: "boolean" })
-      .notNull()
-      .default(false),
-    notes: text("notes"), // pipe-joined probe caveats, for the table's verdict column
-    probed_at: text("probed_at").notNull().default(now),
-  },
-  (t) => [uniqueIndex("uq_pick_probe_model_id").on(t.model_id)],
-);
-
-// ── Claude Code agentic benchmark (ccbench) ─────────────────────────────────
-// One row per (suite, model, task, attempt) — a real `claude -p` run against a
-// sandbox checkout over the IU Anthropic route, graded mechanically. This is
-// the only table in the schema whose numbers come from driving an agent loop
-// rather than from a leaderboard or a single-shot probe.
-
-export const benchRun = sqliteTable(
-  "bench_run",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    // Groups every run of one `bun run bench` invocation, so a later re-run
-    // never silently averages against a different fixture generation.
-    suite_id: text("suite_id").notNull(),
-    // Not a foreign key onto `models`, for the same reason pick_probe isn't:
-    // the route serves ids ahead of the committed portal snapshot, and the
-    // whole point is benchmarking what the route serves right now.
-    model_id: text("model_id").notNull(),
-    task_id: text("task_id").notNull(),
-    attempt: integer("attempt").notNull().default(1),
-    ok: integer("ok", { mode: "boolean" }).notNull(),
-    failure: text("failure", { enum: BENCH_FAILURE }).notNull().default("none"),
-    score: real("score").notNull(),
-    passed: integer("passed", { mode: "boolean" }).notNull(),
-    duration_ms: integer("duration_ms").notNull(),
-    api_duration_ms: integer("api_duration_ms"),
-    ttft_ms: integer("ttft_ms"),
-    num_turns: integer("num_turns").notNull(),
-    input_tokens: integer("input_tokens").notNull().default(0),
-    output_tokens: integer("output_tokens").notNull().default(0),
-    cache_read_tokens: integer("cache_read_tokens").notNull().default(0),
-    cache_creation_tokens: integer("cache_creation_tokens").notNull().default(0),
-    thinking_tokens: integer("thinking_tokens").notNull().default(0),
-    cost_usd: real("cost_usd"),
-    // Additive with a default so an existing suite keeps meaning what it meant:
-    // every row persisted before repricing came from the CLI's list figure.
-    cost_basis: text("cost_basis", { enum: COST_BASIS }).notNull().default("list"),
-    tool_calls: integer("tool_calls").notNull().default(0),
-    tool_errors: integer("tool_errors").notNull().default(0),
-    parallel_batches: integer("parallel_batches").notNull().default(0),
-    max_parallel_width: integer("max_parallel_width").notNull().default(0),
-    api_errors: integer("api_errors").notNull().default(0),
-    terminal_reason: text("terminal_reason"),
-    // JSON array of BenchCheck — kept whole so the report can explain *which*
-    // part of a task a model dropped without re-running it.
-    checks_json: text("checks_json").notNull(),
-    notes: text("notes"),
-    transcript_path: text("transcript_path"),
-    created_at: text("created_at").notNull().default(now),
-  },
-  (t) => [
-    uniqueIndex("uq_bench_run").on(t.suite_id, t.model_id, t.task_id, t.attempt),
-    index("idx_bench_run_model").on(t.model_id),
-    index("idx_bench_run_task").on(t.task_id),
-  ],
-);
-
 // ── Audio demos (TTS/STT, curated by admin) ──────────────────────────────────
 
 export const demo = sqliteTable(
@@ -310,14 +203,10 @@ export const demo = sqliteTable(
 export type Model = typeof models.$inferSelect;
 export type ModelInsert = typeof models.$inferInsert;
 export type CapabilityProbe = typeof capabilityProbe.$inferSelect;
-export type PickProbe = typeof pickProbe.$inferSelect;
-export type PickProbeInsert = typeof pickProbe.$inferInsert;
 export type MetricSnapshot = typeof metricSnapshot.$inferSelect;
 export type AaVariant = typeof aaVariant.$inferSelect;
 export type AaVariantInsert = typeof aaVariant.$inferInsert;
 export type Demo = typeof demo.$inferSelect;
-export type BenchRun = typeof benchRun.$inferSelect;
-export type BenchRunInsert = typeof benchRun.$inferInsert;
 
 export type Modality = (typeof MODALITY)[number];
 export type Residency = (typeof RESIDENCY)[number];
@@ -326,5 +215,3 @@ export type Thinking = (typeof THINKING)[number];
 export type Lang = (typeof LANG)[number];
 export type MetricSource = (typeof METRIC_SOURCE)[number];
 export type Transport = (typeof TRANSPORT)[number];
-export type BenchFailureReason = (typeof BENCH_FAILURE)[number];
-export type CostBasis = (typeof COST_BASIS)[number];

@@ -16,7 +16,7 @@ REFRESH_TMPL  := launchd/$(REFRESH_LABEL).plist.template
 NTFY_CONFIG := $(HOME)/SourceRoot/homelab/config/ntfy/server.yml
 
 # The always-on data server + TTS playground, same LaunchAgent mechanism. Not a Docker container:
-# host-side writers (the refresh agent, `bun run bench`) share modelpick.db, and
+# host-side writers (the refresh agent) share modelpick.db, and
 # SQLite's fcntl locks do not cross the macOS/Docker-VM boundary — see the plist
 # template's header for the two corruption incidents that settled this.
 WEB_LABEL := com.jkrumm.modelpick-web
