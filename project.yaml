@@ -1,4 +1,4 @@
-# How the factory ships this project (software-factory docs/design.md §9).
+# How the factory ships this project (software-factory docs/project.md, the project.yaml reference).
 apiVersion: factory/v2
 name: modelpick
 deploy:
@@ -6,9 +6,9 @@ deploy:
   targets:
     - { name: mini, host: mini, verify: make verify }
   hold: 0m
-  migrations: [] # schema is `drizzle-kit push` (make db-push), no migration files
 ship:
-  - { paths: ["**"], via: push }
+  - { via: push }
+# One lead: `make deploy` bootouts and bootstraps the one :7727 LaunchAgent (that race can leave it down), and the daily catalog refresh commits src/db/iu-catalog.ts to master, which concurrent leads would rebase-conflict on.
 leads: 1
 signals:
   github:
