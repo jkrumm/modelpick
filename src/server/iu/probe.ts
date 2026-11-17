@@ -365,9 +365,8 @@ interface CaseDuplicateTables {
 /** Folds every case-duplicate pair currently in `models` into the live-id
  *  survivor, re-pointing every table with an FK onto `models.id`
  *  (capability_probe, metric_snapshot, demo,
- *  news_item — found by grepping schema.ts for `models.id` references;
- *  pick_probe and bench_run store model_id but are deliberately NOT FKs, per
- *  their own schema comments, so they're out of scope here) before deleting
+ *  news_item — found by grepping schema.ts for `models.id` references)
+ *  before deleting
  *  the loser row. Re-pointing before deleting matters: the FK is
  *  onDelete: cascade, so deleting the loser first would wipe its children
  *  instead of preserving them under the survivor. */

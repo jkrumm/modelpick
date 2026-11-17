@@ -847,7 +847,7 @@ export const EPOCH_BENCHMARKS: EpochBenchmark[] = [
  * Reports how saturated a benchmark's field is: the share of observed scores
  * sitting within nearCeilingFraction of the benchmark's ceiling. A high
  * share means the benchmark stopped discriminating between models — the same
- * problem ccbench watches for when a field bunches at a task's max score —
+ * problem as a field bunching at a benchmark's ceiling —
  * and is a data-driven cue to stop trusting headline differences on it (or to
  * flag it as a candidate for retirement, alongside an explicit `superseded_by`).
  *
