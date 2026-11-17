@@ -15,13 +15,16 @@
  * names each benchmark's `source_file` and `score_column`, so nothing here
  * hardcodes a per-file column guess. Benchmarks with a blank `source_file`
  * (in_eci=False, e.g. LiveBench, BoolQ) are in the index but ship no per-model
- * CSV — captured in the snapshot with `metric: null`, no rows ingested.
+ * CSV — captured in the snapshot with `metric: null`, no rows ingested. Files
+ * the index does not list but the zip ships (CursorBench, SciCode, WebDev Arena,
+ * SWE-Bench verified) are read through the explicit `EPOCH_EXTRA_FILES` registry.
  */
 import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import type { Thinking } from "../../db/schema.js";
 import type { CollectorResult, IdResolver, NormalizedMetric } from "./normalize.js";
 import type { EpochBenchmark } from "./epoch-benchmarks.js";
 
@@ -118,15 +121,20 @@ export function parseCsvRecords(content: string): Record<string, string>[] {
 // letting every tier write to the same metric name would leave whichever row
 // inserts last silently overwriting the rest.
 //
-// Decision: keep exactly one row per base model per benchmark, the *highest*
-// available effort tier — that's what a model's headline leaderboard number
-// means once effort tiers exist at all. "none"/"unknown" (and a bare Model
-// version with no matching suffix at all — e.g. a model with no reasoning
-// dimension) rank equally at the bottom: none of them claims an elevated
-// effort setting, so all defer to any explicit low/medium/high/xhigh/max row
-// for the same model, and any one of them survives on its own if that's
-// genuinely the only measurement available. Ties keep whichever was seen
-// first in the file, for determinism.
+// Decision: two kinds of row per (model, benchmark). The unconditioned row
+// (metric_snapshot.conditions NULL) is the *highest* available effort tier —
+// what a model's headline leaderboard number means once effort tiers exist at
+// all — and is what every pre-existing consumer reads. Next to it, every tier
+// Epoch measured is kept as its own row with the effort in `conditions`
+// (low/medium/high/xhigh/max, none -> off), so cost-vs-quality at a given
+// effort is answerable (efficiency feed, docs/pipelines.md). "none"/"unknown"
+// (and a bare Model version with no matching suffix at all — e.g. a model with
+// no reasoning dimension) rank equally at the bottom: none of them claims an
+// elevated effort setting, so all defer to any explicit low/medium/high/xhigh/
+// max row for the unconditioned slot, and any one of them survives on its own
+// if that's genuinely the only measurement available. A bare id and an
+// "unknown" tier carry no conditions row: they state no effort. Ties keep
+// whichever was seen first in the file, for determinism.
 //
 // The suffix is matched on a literal underscore only — "qwen3.7-max" (hyphen)
 // is a real model name Epoch's own data uses side by side with underscore
@@ -144,18 +152,47 @@ const EFFORT_RANK: Record<string, number> = {
 const NO_SUFFIX_RANK = 1;
 const EFFORT_SUFFIX_RE = /_(max|xhigh|high|medium|low|unknown|none)$/i;
 
+/** Epoch effort word -> the `conditions` value it is stored under; null states no effort. */
+const EFFORT_CONDITIONS: Readonly<Record<string, Thinking | null>> = {
+  max: "max",
+  xhigh: "xhigh",
+  high: "high",
+  medium: "medium",
+  low: "low",
+  none: "off",
+  unknown: null,
+};
+
+/**
+ * Epoch's free-text reasoning-level label ("Extra High", "XHigh", "extra-high", "Max") as a
+ * `conditions` value. Null for an unknown or absent label (and for "unknown" itself).
+ */
+export function normalizeEffortLabel(label: string): Thinking | null {
+  const key = label.toLowerCase().replace(/[^a-z]/g, "");
+  if (key === "extrahigh") return EFFORT_CONDITIONS["xhigh"] ?? null;
+  if (key === "off" || key === "noreasoning" || key === "nonreasoning") return "off";
+  return EFFORT_CONDITIONS[key] ?? null;
+}
+
+function rankOfEffort(effort: Thinking | null): number {
+  return effort === null ? NO_SUFFIX_RANK : (EFFORT_RANK[effort === "off" ? "none" : effort] ?? NO_SUFFIX_RANK);
+}
+
 export interface EffortStrip {
   baseId: string;
   rank: number;
+  /** The `conditions` value of the suffix; null for a bare id and for "_unknown". */
+  effort: Thinking | null;
 }
 
 export function stripEffortSuffix(modelVersion: string): EffortStrip {
   const match = EFFORT_SUFFIX_RE.exec(modelVersion);
-  if (!match) return { baseId: modelVersion, rank: NO_SUFFIX_RANK };
+  if (!match) return { baseId: modelVersion, rank: NO_SUFFIX_RANK, effort: null };
   const tier = (match[1] ?? "").toLowerCase();
   return {
     baseId: modelVersion.slice(0, match.index),
     rank: EFFORT_RANK[tier] ?? NO_SUFFIX_RANK,
+    effort: EFFORT_CONDITIONS[tier] ?? null,
   };
 }
 
@@ -285,12 +322,27 @@ async function writeEpochBenchmarksSnapshot(rows: BenchmarkIndexRow[]): Promise<
 
 const MODEL_VERSION_COLUMN = "Model version";
 
-export function extractScores(
+export interface ScoreRow {
+  baseId: string;
+  /** Null for a bare id, an "_unknown" tier, or a label that names no known effort. */
+  effort: Thinking | null;
+  rank: number;
+  value: number;
+}
+
+/**
+ * One row per (base model, effort) of a benchmark file, in file order. The effort comes from the
+ * `Model version` suffix; a bare id falls back to `levelColumn` (Epoch's free-text label, e.g.
+ * "Extra High") when the file has one. A repeated (model, effort) keeps the first row seen.
+ */
+export function extractScoreRows(
   csv: string,
   scoreColumn: string,
   scale: number,
-): Map<string, { value: number; rank: number }> {
-  const best = new Map<string, { value: number; rank: number }>();
+  levelColumn?: string,
+): ScoreRow[] {
+  const seen = new Set<string>();
+  const rows: ScoreRow[] = [];
   for (const record of parseCsvRecords(csv)) {
     const rawId = (record[MODEL_VERSION_COLUMN] ?? "").trim();
     if (!rawId) continue;
@@ -301,16 +353,179 @@ export function extractScores(
     // A missing/blank score is not a zero — never emit a row for one.
     if (parsed === null) continue;
 
-    const { baseId, rank } = stripEffortSuffix(rawId);
-    const existing = best.get(baseId);
-    if (!existing || rank > existing.rank) {
-      best.set(baseId, { value: parsed * scale, rank });
-    }
+    const strip = stripEffortSuffix(rawId);
+    const hasSuffix = strip.baseId !== rawId;
+    const label = levelColumn && !hasSuffix ? (record[levelColumn] ?? "") : "";
+    const effort = hasSuffix ? strip.effort : normalizeEffortLabel(label);
+    const key = `${strip.baseId}\u0000${effort ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push({
+      baseId: strip.baseId,
+      effort,
+      rank: hasSuffix ? strip.rank : rankOfEffort(effort),
+      value: parsed * scale,
+    });
   }
-  return best;
+  return rows;
+}
+
+/** The highest-effort row per base model: the unconditioned headline value. */
+export function topTierRows(rows: readonly ScoreRow[]): ScoreRow[] {
+  const best = new Map<string, ScoreRow>();
+  for (const row of rows) {
+    const existing = best.get(row.baseId);
+    if (!existing || row.rank > existing.rank) best.set(row.baseId, row);
+  }
+  return [...best.values()];
+}
+
+export function extractScores(
+  csv: string,
+  scoreColumn: string,
+  scale: number,
+): Map<string, { value: number; rank: number }> {
+  return new Map(
+    topTierRows(extractScoreRows(csv, scoreColumn, scale)).map((r) => [
+      r.baseId,
+      { value: r.value, rank: r.rank },
+    ]),
+  );
+}
+
+// ── Files benchmark_metadata.csv does not list ───────────────────────────────
+// Epoch ships per-model CSVs for benchmarks its index marks `source_file` blank
+// (in_eci=False), so the index-driven loop never reads them. This is the small explicit
+// registry for the ones modelpick wants: file, score column, scale, and sibling columns
+// (cost/tokens/steps) stored as their own metrics. A file the index starts listing itself
+// is read through the index only. Metric names follow the index rule (file stem).
+
+export interface EpochExtraFile {
+  file: string;
+  scoreColumn: string;
+  scale: number;
+  /** Free-text effort label, used only for a `Model version` with no effort suffix. */
+  levelColumn?: string;
+  /** Sibling numeric columns, each stored as `<file stem>_<metricSuffix>`. */
+  extras?: ReadonlyArray<{ column: string; metricSuffix: string }>;
+}
+
+export const EPOCH_EXTRA_FILES: readonly EpochExtraFile[] = [
+  {
+    file: "cursorbench_external.csv",
+    scoreColumn: "Score",
+    scale: 1,
+    levelColumn: "Reasoning level",
+    extras: [
+      { column: "Cost per task", metricSuffix: "cost_per_task" },
+      { column: "Tokens per task", metricSuffix: "tokens_per_task" },
+      { column: "Steps per task", metricSuffix: "steps_per_task" },
+    ],
+  },
+  { file: "scicode_external.csv", scoreColumn: "Score", scale: 1 },
+  { file: "webdev_arena_external.csv", scoreColumn: "Arena Score", scale: 1 },
+  { file: "swe_bench_verified.csv", scoreColumn: "Best score (across scorers)", scale: 1 },
+];
+
+interface ScoreSource {
+  file: string;
+  metric: string;
+  scoreColumn: string;
+  scale: number;
+  levelColumn?: string | undefined;
+}
+
+/** Every (file, metric, column) to ingest: the index's entries, then the registry's. */
+export function scoreSources(index: readonly BenchmarkIndexRow[]): ScoreSource[] {
+  const fromIndex: ScoreSource[] = index.flatMap((row) =>
+    row.source_file && row.score_column
+      ? [{ file: row.source_file, metric: metricNameOf(row.source_file), scoreColumn: row.score_column, scale: row.scale }]
+      : [],
+  );
+  const listed = new Set(fromIndex.map((s) => s.file));
+  const fromRegistry = EPOCH_EXTRA_FILES.filter((x) => !listed.has(x.file)).flatMap((x): ScoreSource[] => {
+    const metric = metricNameOf(x.file);
+    return [
+      { file: x.file, metric, scoreColumn: x.scoreColumn, scale: x.scale, levelColumn: x.levelColumn },
+      ...(x.extras ?? []).map((e) => ({
+        file: x.file,
+        metric: `${metric}_${e.metricSuffix}`,
+        scoreColumn: e.column,
+        scale: 1,
+        levelColumn: x.levelColumn,
+      })),
+    ];
+  });
+  return [...fromIndex, ...fromRegistry];
+}
+
+/**
+ * Every effort tier as a row carrying its effort in `conditions`, plus the top tier as the
+ * unconditioned row (a bare id yields only that one). Pure so it is testable without the zip.
+ */
+export function metricsForRows(input: {
+  rows: readonly ScoreRow[];
+  metric: string;
+  resolve: IdResolver;
+  unmatched: Map<string, { externalId: string; name: string }>;
+}): NormalizedMetric[] {
+  const { rows, metric, resolve, unmatched } = input;
+  const out: NormalizedMetric[] = [];
+  const emit = (row: ScoreRow, conditions: Thinking | null) => {
+    const localId = resolve(row.baseId);
+    if (!localId) {
+      // Deduped across benchmarks: the same unresolved external id would
+      // otherwise repeat once per benchmark it appears in (~80 files).
+      if (!unmatched.has(row.baseId)) unmatched.set(row.baseId, { externalId: row.baseId, name: row.baseId });
+      return;
+    }
+    // Individual Inspect-AI evals, not a composite index like AA's — one
+    // real sample per benchmark rather than an aggregate confidence score.
+    out.push({ model_id: localId, source: "epoch", metric, value: row.value, confidence: 0.85, conditions });
+  };
+  for (const row of topTierRows(rows)) emit(row, null);
+  for (const row of rows) if (row.effort !== null) emit(row, row.effort);
+  return out;
 }
 
 // ── Collector entrypoint ─────────────────────────────────────────────────────
+
+/**
+ * Reads every score source (index + registry) out of an unzipped export. A file missing from
+ * the export or one that fails to parse is warned about and skipped, never a failed run.
+ */
+export async function readMetricsFromDir(input: {
+  dir: string;
+  index: readonly BenchmarkIndexRow[];
+  resolve: IdResolver;
+}): Promise<CollectorResult> {
+  const { dir, index, resolve } = input;
+  const metrics: NormalizedMetric[] = [];
+  const unmatchedById = new Map<string, { externalId: string; name: string }>();
+  const csvByFile = new Map<string, string | null>();
+  for (const source of scoreSources(index)) {
+    if (!csvByFile.has(source.file)) {
+      try {
+        csvByFile.set(source.file, await fs.readFile(path.join(dir, source.file), "utf-8"));
+      } catch (err) {
+        console.warn(`[epoch] ${source.file} missing: ${String(err)} — skipping benchmark`);
+        csvByFile.set(source.file, null);
+      }
+    }
+    const csv = csvByFile.get(source.file);
+    if (csv === null || csv === undefined) continue;
+
+    let rows: ScoreRow[];
+    try {
+      rows = extractScoreRows(csv, source.scoreColumn, source.scale, source.levelColumn);
+    } catch (err) {
+      console.warn(`[epoch] failed to parse ${source.file}: ${String(err)} — skipping`);
+      continue;
+    }
+    metrics.push(...metricsForRows({ rows, metric: source.metric, resolve, unmatched: unmatchedById }));
+  }
+  return { metrics, unmatched: [...unmatchedById.values()] };
+}
 
 export async function collectEpoch(resolve: IdResolver): Promise<CollectorResult> {
   const workDir = await fs.mkdtemp(path.join(tmpdir(), "modelpick-epoch-"));
@@ -356,46 +571,7 @@ export async function collectEpoch(resolve: IdResolver): Promise<CollectorResult
       console.warn(`[epoch] failed to write epoch-benchmarks.ts snapshot: ${String(err)}`);
     }
 
-    const metrics: NormalizedMetric[] = [];
-    const unmatchedById = new Map<string, { externalId: string; name: string }>();
-
-    for (const row of index) {
-      if (!row.source_file || !row.score_column) continue;
-
-      let csv: string;
-      try {
-        csv = await fs.readFile(path.join(extractDir, row.source_file), "utf-8");
-      } catch (err) {
-        console.warn(`[epoch] ${row.source_file} missing: ${String(err)} — skipping benchmark`);
-        continue;
-      }
-
-      let scores: Map<string, { value: number; rank: number }>;
-      try {
-        scores = extractScores(csv, row.score_column, row.scale);
-      } catch (err) {
-        console.warn(`[epoch] failed to parse ${row.source_file}: ${String(err)} — skipping`);
-        continue;
-      }
-
-      const metric = metricNameOf(row.source_file);
-      for (const [baseId, { value }] of scores) {
-        const localId = resolve(baseId);
-        if (!localId) {
-          // Deduped across benchmarks: the same unresolved external id would
-          // otherwise repeat once per benchmark it appears in (~80 files).
-          if (!unmatchedById.has(baseId)) {
-            unmatchedById.set(baseId, { externalId: baseId, name: baseId });
-          }
-          continue;
-        }
-        // Individual Inspect-AI evals, not a composite index like AA's — one
-        // real sample per benchmark rather than an aggregate confidence score.
-        metrics.push({ model_id: localId, source: "epoch", metric, value, confidence: 0.85 });
-      }
-    }
-
-    return { metrics, unmatched: [...unmatchedById.values()] };
+    return await readMetricsFromDir({ dir: extractDir, index, resolve });
   } finally {
     await fs.rm(workDir, { recursive: true, force: true });
   }

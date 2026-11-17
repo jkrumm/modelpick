@@ -5,6 +5,16 @@ import { collectArtificialAnalysis, toVariantRows } from "../server/collectors/a
 import { loadAgwRoutes, parseAgwRoutes, resetAgwRoutesCache } from "../server/efficiency/agw-routes.js";
 import { buildEfficiency } from "../server/efficiency/build.js";
 import {
+  buildCoding,
+  CODING_BENCHMARKS,
+  codingComponents,
+  indexEpochRows,
+  latestEpochRows,
+  percentileRanks,
+  type EpochRow,
+} from "../server/efficiency/coding.js";
+import { EPOCH_EXTRA_FILES } from "../server/collectors/epoch.js";
+import {
   accessOf,
   computeSuperseded,
   effortFromName,
@@ -302,6 +312,154 @@ describe("buildEfficiency", () => {
 
   it("stamps capturedAt from the newest row", () => {
     expect(res.capturedAt).toBe("2026-11-06 06:00:00");
+  });
+});
+
+// ── coding feed ──────────────────────────────────────────────────────────────
+
+let epochId = 0;
+function epoch(model_id: string, metric: string, conditions: string | null, value: number, captured_at = "2026-11-06 06:00:00"): EpochRow {
+  return { id: ++epochId, model_id, metric, conditions, value, captured_at };
+}
+
+describe("percentileRanks / buildCoding", () => {
+  it("ranks mid-rank among peers and gives a lone value nothing", () => {
+    expect(percentileRanks([1, 2, 3, 4])).toEqual([12.5, 37.5, 62.5, 87.5]);
+    expect(percentileRanks([5, 5])).toEqual([50, 50]);
+    expect(percentileRanks([7])).toEqual([null]);
+  });
+
+  const comp = (benchmark: string, score: number) => ({ benchmark, score, costPerTask: null, tokensPerTask: null });
+
+  it("scores the mean percentile and nulls below 2 contributing benchmarks", () => {
+    const out = buildCoding([
+      [comp("cursorbench", 0.4), comp("scicode", 0.5)],
+      [comp("cursorbench", 0.5), comp("scicode", 0.6)],
+      [comp("cursorbench", 0.3)],
+      [],
+    ]);
+    // cursorbench (3 holders): .3 -> 16.7, .4 -> 50, .5 -> 83.3; scicode (2 holders): .5 -> 25, .6 -> 75
+    expect(out[0]!.score).toBeCloseTo((50 + 25) / 2);
+    expect(out[1]!.score).toBeCloseTo((250 / 3 + 75) / 2);
+    // one benchmark: components listed, no score
+    expect(out[2]).toEqual({ score: null, components: [comp("cursorbench", 0.3)] });
+    expect(out[3]).toBeNull();
+  });
+
+  it("does not count a benchmark only one variant has", () => {
+    const out = buildCoding([[comp("cursorbench", 0.4), comp("scicode", 0.5)], [comp("cursorbench", 0.5)]]);
+    expect(out[0]!.score).toBeNull();
+    expect(out[0]!.components).toHaveLength(2);
+  });
+});
+
+describe("epoch rows lookup", () => {
+  it("keeps the newest row per (model, metric, conditions)", () => {
+    const latest = latestEpochRows([
+      epoch("m", "cursorbench_external", "high", 0.1, "2026-11-01 00:00:00"),
+      epoch("m", "cursorbench_external", "high", 0.2, "2026-11-08 00:00:00"),
+      epoch("m", "cursorbench_external", null, 0.9, "2026-11-01 00:00:00"),
+    ]);
+    expect(latest).toHaveLength(2);
+    expect(latest.find((r) => r.conditions === "high")?.value).toBe(0.2);
+    expect(latest.find((r) => r.conditions === null)?.value).toBe(0.9);
+  });
+
+  const lookup = indexEpochRows([
+    epoch("m", "cursorbench_external", "medium", 0.4),
+    epoch("m", "cursorbench_external", "max", 0.6),
+    epoch("m", "cursorbench_external", null, 0.6),
+    epoch("bare", "scicode_external", null, 0.3),
+  ]);
+
+  it("maps tiers to their own effort, max to the bare slug, and never borrows another tier", () => {
+    const at = (effort: "low" | "medium" | "max", bare: boolean) =>
+      codingComponents({ lookup, modelId: "m", effort, bare }).map((c) => c.score);
+    expect(at("medium", false)).toEqual([0.4]);
+    expect(at("max", true)).toEqual([0.6]);
+    expect(at("low", false)).toEqual([]);
+  });
+
+  it("answers an effort-less variant from the headline row only when no tiers exist", () => {
+    expect(codingComponents({ lookup, modelId: "bare", effort: "default", bare: true }).map((c) => c.score)).toEqual([0.3]);
+    expect(codingComponents({ lookup, modelId: "m", effort: "default", bare: true })).toEqual([]);
+    // a bare slug AA names with an effort of its own (Gemini's High) still takes a tier-less headline
+    expect(codingComponents({ lookup, modelId: "bare", effort: "high", bare: true }).map((c) => c.score)).toEqual([0.3]);
+    expect(codingComponents({ lookup, modelId: "bare", effort: "high", bare: false })).toEqual([]);
+  });
+
+  it("names the same Epoch metrics the collector registry stores", () => {
+    const cursor = CODING_BENCHMARKS.find((b) => b.benchmark === "cursorbench")!;
+    const stem = EPOCH_EXTRA_FILES.find((f) => f.file === "cursorbench_external.csv")!;
+    expect(cursor.metric).toBe("cursorbench_external");
+    expect(stem.extras?.map((e) => `cursorbench_external_${e.metricSuffix}`)).toEqual([cursor.costMetric, cursor.tokensMetric, `cursorbench_external_steps_per_task`]);
+    expect(EPOCH_EXTRA_FILES.some((f) => f.file === "swe_bench_verified.csv")).toBe(true);
+    expect(CODING_BENCHMARKS.some((b) => b.metric === "swe_bench_verified")).toBe(true);
+  });
+});
+
+describe("buildEfficiency coding", () => {
+  const model = (id: string): Model => ({
+    id,
+    provider: "x",
+    family: null,
+    modality: "llm",
+    display_name: id,
+    context_window: null,
+    iu_listed: true,
+    transport: "iu",
+    owned_by: null,
+    legs: "openai",
+    created_at: "2026-01-01",
+  });
+  const epochRows = [
+    // claude-haiku-5-5: tiers high / xhigh / max (bare slug), invented numbers
+    epoch("claude-haiku-5-5", "cursorbench_external", "high", 0.4),
+    epoch("claude-haiku-5-5", "cursorbench_external_cost_per_task", "high", 0.3),
+    epoch("claude-haiku-5-5", "cursorbench_external_tokens_per_task", "high", 7000),
+    epoch("claude-haiku-5-5", "cursorbench_external", "xhigh", 0.45),
+    epoch("claude-haiku-5-5", "cursorbench_external", "max", 0.5),
+    epoch("claude-haiku-5-5", "cursorbench_external", null, 0.5),
+    epoch("claude-haiku-5-5", "scicode_external", "high", 0.5),
+    epoch("claude-haiku-5-5", "scicode_external", "xhigh", 0.55),
+    epoch("claude-haiku-5-5", "scicode_external", "max", 0.6),
+    // gpt-6.1-terra: one benchmark at medium only
+    epoch("gpt-6.1-terra", "cursorbench_external", "medium", 0.3),
+  ];
+  const res = buildEfficiency({
+    variants,
+    models: [model("claude-haiku-5-5"), model("gpt-6.1-terra")],
+    probes: new Map(),
+    routes: [],
+    routesError: null,
+    epochRows,
+    now: NOW,
+  });
+  const bySlug = (slug: string) => res.variants.find((v) => v.slug === slug)!;
+
+  it("lists the per-effort components, with cost and tokens for CursorBench", () => {
+    expect(bySlug("claude-haiku-5-5-high").coding?.components).toEqual([
+      { benchmark: "cursorbench", score: 0.4, costPerTask: 0.3, tokensPerTask: 7000 },
+      { benchmark: "scicode", score: 0.5, costPerTask: null, tokensPerTask: null },
+    ]);
+    expect(bySlug("claude-haiku-5-5-xhigh").coding?.components[0]).toMatchObject({ benchmark: "cursorbench", score: 0.45 });
+  });
+
+  it("maps Epoch max onto the bare slug", () => {
+    expect(bySlug("claude-haiku-5-5").coding?.components[0]).toMatchObject({ benchmark: "cursorbench", score: 0.5 });
+  });
+
+  it("scores by mean percentile and nulls a single-benchmark variant", () => {
+    // cursorbench holders: high .4, xhigh .45, max .5, terra-medium .3; scicode: .5, .55, .6
+    expect(bySlug("claude-haiku-5-5-high").coding!.score).toBeCloseTo(((1.5 / 4) * 100 + (0.5 / 3) * 100) / 2);
+    const terra = bySlug("gpt-6-1-terra-medium").coding!;
+    expect(terra.score).toBeNull();
+    expect(terra.components).toHaveLength(1);
+  });
+
+  it("has no coding for an effort Epoch did not measure", () => {
+    expect(bySlug("claude-haiku-5-5-low").coding).toBeNull();
+    expect(bySlug("gpt-6-1-terra-high").coding).toBeNull();
   });
 });
 

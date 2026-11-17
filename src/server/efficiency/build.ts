@@ -7,6 +7,7 @@ import type {
   EfficiencyRoute,
   EfficiencyVariant,
 } from "./types.js";
+import { buildCoding, codingComponents, indexEpochRows, type EpochRow } from "./coding.js";
 import { accessOf, computeSuperseded, estimateTask, routeVariant, type ScoredRow } from "./variants.js";
 
 export interface BuildInput {
@@ -16,6 +17,8 @@ export interface BuildInput {
   probes: ReadonlyMap<string, boolean>;
   routes: readonly AgwRoute[];
   routesError: string | null;
+  /** Stored Epoch metric rows (any history; the newest per model/metric/effort wins). */
+  epochRows?: readonly EpochRow[];
   now?: Date;
 }
 
@@ -61,7 +64,13 @@ export function buildEfficiency(input: BuildInput): EfficiencyResponse {
     now,
   );
 
-  const out: EfficiencyVariant[] = scoredRows.map((v) => {
+  const epoch = indexEpochRows(input.epochRows ?? []);
+  const components = scoredRows.map((v) =>
+    codingComponents({ lookup: epoch, modelId: resolveIu(v.lineage), effort: v.effort, bare: v.slug === v.lineage }),
+  );
+  const coding = buildCoding(components);
+
+  const out: EfficiencyVariant[] = scoredRows.map((v, i) => {
     const iuId = resolveIu(v.lineage);
     const iuModel = iuId ? byId.get(iuId) : undefined;
     const sup = superseded.get(v.lineage) ?? { superseded: false, supersededBy: null };
@@ -81,6 +90,7 @@ export function buildEfficiency(input: BuildInput): EfficiencyResponse {
       e2eSec: v.e2e_sec,
       tps: v.tps,
       ttfatSec: v.ttfat_sec,
+      coding: coding[i] ?? null,
       superseded: sup.superseded,
       supersededBy: sup.supersededBy,
       iu: {
