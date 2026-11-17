@@ -66,8 +66,8 @@ hidden thinking against the same output budget as visible text, so a budget size
 answer is consumed by the thinking and the call returns **HTTP 200 with empty content and
 `finish_reason: length`** — no error, no exception.
 
-This has bitten in production (`argo/apps/api/src/lib/ai-sentence.ts`) and twice in our own
-benchmark harness, where it produced two wrong verdicts before it was found. Minimum safe
+This has bitten in production (`argo/apps/api/src/lib/ai-sentence.ts`) and twice in our earlier
+benchmark runs, where it produced two wrong verdicts before it was found. Minimum safe
 budget on any thinking model: **~2,000 tokens**, and 16,000 for a tool loop or long output.
 
 **Every call site must assert non-empty content and log `finish_reason`.** Silent empty
@@ -130,6 +130,8 @@ real session usage before acting on it.
 
 ## 3. Measuring a model
 
+We run no evals of our own (owner decision, 2026-11-17). Sections 3.1–3.5 govern the live latency measurements only.
+
 ### 3.1 The headline is total wall time to a *correct* answer
 
 Not time-to-first-token. A model that starts late and decodes fast can still finish first — the
@@ -169,11 +171,9 @@ Check that exactly one answer is correct before trusting a failure. An ambiguous
 identical correct answers across five models as wrong, and nearly disqualified a model on it.
 If every model "fails" the same way, the grader is wrong, not the field.
 
-### 3.6 Never read an operational benchmark as a quality benchmark
+### 3.6 Never read an operational probe as a quality benchmark
 
-`ccbench` measures whether a model can hold an agent loop; the cut fast-tier bench measured the
-cost of correctness on deliberately easy tasks. Both measure a **floor**. A perfect score means the
-floor was cleared, never that the model is smart.
+A live probe (`make probe`, the latency script) measures whether a route answers, how fast and what it bills. It measures a **floor**: a perfect probe means the route works, never that the model is smart. Quality comes from third-party benchmarks.
 
 ---
 

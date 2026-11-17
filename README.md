@@ -31,11 +31,10 @@ The server runs at `http://localhost:7727` (also `https://modelpick.test` via th
 No `.env` file needed — secrets resolve via `secrets-run` at runtime (see Env below): the `op` CLI
 (account `tkrumm`) on the MacBook, an offline cache on the headless mini.
 
-## Running the agentic bench
+## Model choice
 
-```bash
-bun run bench        # run the agentic ccbench suite that measures operational fitness of coding models (spends; --dry-run is free)
-```
+Model choice rests on third-party benchmarks (ArtificialAnalysis, Epoch AI, LMArena, models.dev, OpenRouter)
+plus a live access probe (`make probe`). We run no evals of our own.
 
 ## Database
 

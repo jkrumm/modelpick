@@ -33,21 +33,17 @@ Local-only, one-person curation. All state lives in a single SQLite file (`model
   `modelpick=` line, appends a 0600 override (`~/.local/state/modelpick/gateway.env`) with
   `IU_API_KEY` = that door token and the five `IU_*_BASE_URL` on `http://127.0.0.1:7794`. Elsewhere
   `.env.tpl` is what runs. Every probe/catalog request carries `x-agw-upstream: iu` so the Anthropic
-  leg measures IU, never a credit org. `bun run bench` (`bench/spawn.ts`) prefers the Keychain and
-  stays on IU direct, not through the gateway.
+  leg measures IU, never a credit org.
 - **Makefile targets**: `make dev`, `make build`, `make db-push`, `make db-seed`,
   `make models|probe|collect|refresh` (catalog sync, access probe, metrics, full refresh),
   `make check`, `make deploy`, `make verify`, `make version`, `make logs`,
-  `make refresh-setup|refresh-check|refresh-teardown` (the 06:00 LaunchAgent). The
-  one measurement that matters day to day is a bun script, not a Makefile target:
-  `bun run bench` (ccbench).
+  `make refresh-setup|refresh-check|refresh-teardown` (the 06:00 LaunchAgent). There is no benchmark target: model choice rests on third-party benchmarks plus `make probe`.
 
 ## Decision models
 
 `decision` is a model modality (`MODALITY`): typed-answer classifiers (Clef,
 Decision-1, Jev, PPLX Decider, Luna's Decisions API: yes/no, choice and score answers with
-probabilities, no text generation). No leaderboard scores them and the bench that ranked them has
-been cut (verdict kept in the decision record).
+probabilities, no text generation). No leaderboard scores them; the verdict lives in the decision record.
 All but Luna are called on UE's native **systemone** API (`IU_DECISIONS_BASE_URL` +
 `/systemone`); Luna's Decisions route is its own catalog entry, `gpt-6-luna:decisions`, on the
 OpenAI leg. The ids live in `src/db/decision-models.ts`; the probe reads UE's decision list
@@ -64,6 +60,10 @@ is current; the dated evidence sits behind it in `docs/decisions/`.
 **[`docs/decisions/model-configs.md`](docs/decisions/model-configs.md)** is the rollout
 reference: exact settings per model per wire, plus the gateway traps.
 
+**Model choice rests on third-party benchmarks** (ArtificialAnalysis, Epoch AI, LMArena, models.dev,
+OpenRouter) **plus a live access probe** (`make probe`). We run no evals of our own (owner decision,
+2026-11-17). A probe proves a route answers, never that a model is good.
+
 The four facts that decide most questions before they are asked:
 
 - **`gpt-5.6-luna`, `deepseek-v4.1-flash` and `gemini-3.8-flash` 404 on the Anthropic leg.**
@@ -78,10 +78,7 @@ The four facts that decide most questions before they are asked:
 - **Match the metric to the job.** A score whose name matches the question is not evidence that
   it measures the question — that error has produced three wrong answers here.
 
-The fast-tier and writing benches (`bench:fast`, `bench:writing`) were cut in the slim-down; their
-verdicts and numbers live in `docs/decisions/fast-model.md` and `writing-model.md`, the raw runs in
-`docs/experiments/`. Give every future fast-tier candidate >=16,000 tokens — two retracted verdicts
-in this repo came from budget starvation being scored as failure.
+Past verdicts and raw runs: `docs/decisions/` and `docs/experiments/`.
 
 
 ## Validate
@@ -128,17 +125,13 @@ elsewhere.
 ## Gotchas
 
 - **LaunchAgent, not a Docker container** — deliberate, unlike rb and linewatch. Those own
-  their SQLite file exclusively; modelpick's is shared with host-side writers that cannot be
-  containerised (`bun run bench` spawns the `claude` CLI and reads the macOS Keychain; the
-  06:00 refresh agent writes the same file). A Docker volume gives two divergent databases; a
+  their SQLite file exclusively; modelpick's is shared with a host-side writer that cannot be
+  containerised (the 06:00 refresh agent). A Docker volume gives two divergent databases; a
   bind mount gives the fcntl/virtiofs corruption already measured twice here (linewatch
   2026-07-30, work dashboard 2026-07-21/26). Same-host processes get real SQLite locking; a
   VM boundary does not.
 - **No plaintext `.env`** — `secrets-run run --env-file=.env.tpl` resolves keys; a raw
   `op run` hangs on the headless mini (cache backend there, `op` on the MacBook).
-- **`bun run bench` spends real money** and needs its isolated `CLAUDE_CONFIG_DIR`; never
-  remove it or the sandbox measures the global dotfiles instead of the model (`--dry-run`
-  costs nothing).
 - **`db:push` refuses data-loss statements interactively** — dropping a column needs
   `bunx drizzle-kit push --force`.
 - **This repo is public and ArtificialAnalysis data is internal-use only.** Never commit AA API rows, dumps or
@@ -178,7 +171,7 @@ syncs to the SQLite file with `bun run db:push` (`drizzle-kit push`, dialect `sq
 - To add/change a table or column: edit `schema.ts`, then run `bun run db:push` — it diffs the
   schema against `modelpick.db` and applies the change. No hand-written SQL, no `db:generate`.
 - For a clean rebuild: `rm modelpick.db && bun run db:push && bun run db:seed`.
-- Dropping a column needs `bunx drizzle-kit push --force`: `db:push` refuses data-loss
+- Dropping a column or table needs `bunx drizzle-kit push --force`: `db:push` refuses data-loss
   statements interactively and there is no TTY in a tool call.
 - Seed with `bun run db:seed` (model catalogs), demos with `bun run demos:seed`.
 - German TTS comparison on `/tts`: samples live in `data/tts-compare/` (`manifest.json` tracked, `audio/`
@@ -225,9 +218,8 @@ from the sync; rows are never deleted.
   Epoch AI, LMArena (writing scores Arena only). Per-source detail in `docs/pipelines.md`.
 - `snapshot-commit.ts` commits only the regenerated `epoch-benchmarks.ts`, `iu-catalog.ts`
   and never fails the refresh.
-- ccbench (`bun run bench`) measures operational fitness, **not quality**, and **spends real
-  money** (`--yes`; `--dry-run` is free). Never remove its isolated `CLAUDE_CONFIG_DIR`: without
-  it the sandbox measures dotfiles instead of the model.
+- `make probe` measures access and billing, **not quality**. Quality comes from third-party
+  leaderboards only; never read a probe as a benchmark.
 
 ## Project skills
 
