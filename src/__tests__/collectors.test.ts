@@ -1,3 +1,6 @@
+import { promises as fs } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { parquetReadObjects } from "hyparquet";
 import { compareVersions, createIdResolver, versionOf } from "../server/collectors/normalize.js";
@@ -9,6 +12,12 @@ import {
   parseBenchmarkIndex,
   stripEffortSuffix,
   extractScores,
+  extractScoreRows,
+  metricsForRows,
+  normalizeEffortLabel,
+  readMetricsFromDir,
+  scoreSources,
+  EPOCH_EXTRA_FILES,
 } from "../server/collectors/epoch.js";
 import { benchmarkSaturation } from "../server/collectors/epoch-benchmarks.js";
 import { collectModelsDev } from "../server/collectors/modelsdev.js";
@@ -615,6 +624,156 @@ describe("extractScores", () => {
     const csv = `${header}some-model,70.2,70.2\n`;
     const scores = extractScores(csv, "Best score (across scorers)", 0.01);
     expect(scores.get("some-model")?.value).toBeCloseTo(0.702);
+  });
+});
+
+// ── epoch: per-effort rows ───────────────────────────────────────────────────
+
+// Synthetic: invented model ids and numbers (this repo is public).
+const ACME_RESOLVE = (id: string) => (id.startsWith("acme") ? id : null);
+
+describe("normalizeEffortLabel", () => {
+  it("maps Epoch's labels onto stored effort values", () => {
+    expect(normalizeEffortLabel("Extra High")).toBe("xhigh");
+    expect(normalizeEffortLabel("extra-high")).toBe("xhigh");
+    expect(normalizeEffortLabel("XHigh")).toBe("xhigh");
+    expect(normalizeEffortLabel("Max")).toBe("max");
+    expect(normalizeEffortLabel("High")).toBe("high");
+    expect(normalizeEffortLabel("Medium")).toBe("medium");
+    expect(normalizeEffortLabel("LOW")).toBe("low");
+    expect(normalizeEffortLabel("None")).toBe("off");
+  });
+
+  it("returns null for an unknown or empty label", () => {
+    expect(normalizeEffortLabel("")).toBeNull();
+    expect(normalizeEffortLabel("Unknown")).toBeNull();
+    expect(normalizeEffortLabel("Turbo")).toBeNull();
+  });
+
+  it("carries the effort on the stripped suffix", () => {
+    expect(stripEffortSuffix("acme-1_xhigh").effort).toBe("xhigh");
+    expect(stripEffortSuffix("acme-1_none").effort).toBe("off");
+    expect(stripEffortSuffix("acme-1_unknown").effort).toBeNull();
+    expect(stripEffortSuffix("acme-1").effort).toBeNull();
+  });
+});
+
+describe("extractScoreRows / metricsForRows", () => {
+  const header = "Model version,Score,Reasoning level,Cost per task\n";
+  const csv =
+    header +
+    "acme-1_low,0.30,Low,0.10\nacme-1_high,0.40,High,0.50\nacme-1_xhigh,0.45,Extra High,0.90\n" +
+    "acme-2,0.20,Extra High,0.05\nacme-3,0.10,,0.01\nother-1_high,0.9,High,1\n";
+
+  it("keeps every effort tier as its own row", () => {
+    const rows = extractScoreRows(csv, "Score", 1, "Reasoning level").filter((r) => r.baseId === "acme-1");
+    expect(rows.map((r) => [r.effort, r.value])).toEqual([
+      ["low", 0.3],
+      ["high", 0.4],
+      ["xhigh", 0.45],
+    ]);
+  });
+
+  it("falls back to the level label for a bare id, and to no effort without one", () => {
+    const rows = extractScoreRows(csv, "Score", 1, "Reasoning level");
+    expect(rows.find((r) => r.baseId === "acme-2")?.effort).toBe("xhigh");
+    expect(rows.find((r) => r.baseId === "acme-3")?.effort).toBeNull();
+    expect(extractScoreRows(csv, "Score", 1).find((r) => r.baseId === "acme-2")?.effort).toBeNull();
+  });
+
+  it("emits the top tier unconditioned next to the per-effort rows", () => {
+    const unmatched = new Map();
+    const metrics = metricsForRows({
+      rows: extractScoreRows(csv, "Score", 1, "Reasoning level"),
+      metric: "acmebench",
+      resolve: ACME_RESOLVE,
+      unmatched,
+    });
+    const acme1 = metrics.filter((m) => m.model_id === "acme-1").map((m) => [m.conditions, m.value]);
+    expect(acme1).toContainEqual([null, 0.45]);
+    expect(acme1).toContainEqual(["low", 0.3]);
+    expect(acme1).toContainEqual(["high", 0.4]);
+    expect(acme1).toContainEqual(["xhigh", 0.45]);
+    expect(acme1).toHaveLength(4);
+    expect([...unmatched.keys()]).toEqual(["other-1"]);
+  });
+
+  it("leaves a bare id with no effort as one unconditioned row", () => {
+    const metrics = metricsForRows({
+      rows: extractScoreRows(csv, "Score", 1),
+      metric: "acmebench",
+      resolve: ACME_RESOLVE,
+      unmatched: new Map(),
+    });
+    expect(metrics.filter((m) => m.model_id === "acme-2")).toEqual([
+      { model_id: "acme-2", source: "epoch", metric: "acmebench", value: 0.2, confidence: 0.85, conditions: null },
+    ]);
+  });
+
+  it("stays equal to the old one-row-per-model result for the headline value", () => {
+    expect(extractScores(csv, "Score", 1).get("acme-1")).toEqual({ value: 0.45, rank: 5 });
+  });
+});
+
+describe("epoch extra-file registry", () => {
+  const index = parseBenchmarkIndex(
+    "benchmark,in_eci,source_file,score_column,scale\nListed,True,scicode_external.csv,Score,1\nOther,True,other.csv,Score,0.01\n",
+  );
+
+  it("registers CursorBench, SciCode and WebDev Arena with their columns", () => {
+    const byFile = new Map(EPOCH_EXTRA_FILES.map((f) => [f.file, f]));
+    expect(byFile.get("cursorbench_external.csv")).toMatchObject({ scoreColumn: "Score", levelColumn: "Reasoning level" });
+    expect(byFile.get("cursorbench_external.csv")?.extras?.map((e) => e.column)).toEqual([
+      "Cost per task",
+      "Tokens per task",
+      "Steps per task",
+    ]);
+    expect(byFile.get("scicode_external.csv")?.scoreColumn).toBe("Score");
+    expect(byFile.get("webdev_arena_external.csv")?.scoreColumn).toBe("Arena Score");
+  });
+
+  it("adds registry files and their extras as metrics, skipping a file the index lists", () => {
+    const sources = scoreSources(index);
+    const metrics = sources.map((s) => s.metric);
+    expect(metrics).toContain("cursorbench_external");
+    expect(metrics).toContain("cursorbench_external_cost_per_task");
+    expect(metrics).toContain("cursorbench_external_tokens_per_task");
+    expect(metrics).toContain("cursorbench_external_steps_per_task");
+    expect(metrics).toContain("webdev_arena_external");
+    expect(metrics.filter((m) => m === "scicode_external")).toHaveLength(1);
+    expect(sources.find((s) => s.file === "other.csv")?.scale).toBe(0.01);
+  });
+
+  it("parses the three files from synthetic CSVs and warns, never fails, on a missing one", async () => {
+    const dir = await fs.mkdtemp(path.join(tmpdir(), "epoch-test-"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      await fs.writeFile(
+        path.join(dir, "cursorbench_external.csv"),
+        "Model version,Score,Reasoning level,Cost per task,Tokens per task,Steps per task\nacme-1_medium,0.4,Medium,0.5,1000,10\nacme-1_high,0.5,High,1.5,3000,30\n",
+      );
+      await fs.writeFile(path.join(dir, "scicode_external.csv"), "Model version,Score\nacme-1_high,0.6\n");
+      await fs.writeFile(
+        path.join(dir, "webdev_arena_external.csv"),
+        "Model version,Arena Score\nacme-1_high,1500.5\n",
+      );
+      const result = await readMetricsFromDir({ dir, index: [], resolve: ACME_RESOLVE });
+      const get = (metric: string, conditions: string | null) =>
+        result.metrics.find((m) => m.metric === metric && m.conditions === conditions)?.value;
+      expect(get("cursorbench_external", "medium")).toBe(0.4);
+      expect(get("cursorbench_external", "high")).toBe(0.5);
+      expect(get("cursorbench_external", null)).toBe(0.5);
+      expect(get("cursorbench_external_cost_per_task", "medium")).toBe(0.5);
+      expect(get("cursorbench_external_tokens_per_task", "high")).toBe(3000);
+      expect(get("cursorbench_external_steps_per_task", "high")).toBe(30);
+      expect(get("scicode_external", "high")).toBe(0.6);
+      expect(get("webdev_arena_external", "high")).toBe(1500.5);
+      // swe_bench_verified.csv is absent from the directory: warned, not thrown.
+      expect(warn.mock.calls.some((c) => String(c[0]).includes("swe_bench_verified.csv missing"))).toBe(true);
+    } finally {
+      warn.mockRestore();
+      await fs.rm(dir, { recursive: true, force: true });
+    }
   });
 });
 

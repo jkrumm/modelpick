@@ -417,6 +417,7 @@ async function reconcileCaseDuplicates({
         model_id: metricSnapshot.model_id,
         source: metricSnapshot.source,
         metric: metricSnapshot.metric,
+        conditions: metricSnapshot.conditions,
         captured_at: metricSnapshot.captured_at,
       })
       .from(metricSnapshot);
@@ -425,7 +426,7 @@ async function reconcileCaseDuplicates({
         loserId,
         survivorId,
         rows: metricRows,
-        uniqueKey: (r) => `${r.source}|${r.metric}|${r.captured_at}`,
+        uniqueKey: (r) => `${r.source}|${r.metric}|${r.conditions ?? ""}|${r.captured_at}`,
       }),
       update: (ids) =>
         db

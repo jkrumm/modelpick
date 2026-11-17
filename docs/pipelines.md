@@ -18,13 +18,31 @@ generated snapshot; don't strip it if this data moves anywhere else.
 benchmark's `source_file` and `score_column`, so no column is ever hardcoded
 per-file. Two things this source needs that the others don't:
 
-- **Reasoning-effort suffixes.** Epoch appends
+- **Reasoning-effort suffixes, stored per effort.** Epoch appends
   `_none/_unknown/_low/_medium/_high/_xhigh/_max` to `Model version` for every
   model it re-ran across effort settings, giving one model several rows per
-  benchmark. `stripEffortSuffix()` keeps exactly one row per model per
-  benchmark — the *highest* available tier, since that's what a headline
-  leaderboard number means once tiers exist. Matched on a literal underscore
-  only (`glm-5.2_max` strips; `qwen3.7-max`, a real model name, does not).
+  benchmark. `stripEffortSuffix()` splits the suffix off; matched on a literal
+  underscore only (`glm-5.2_max` strips; `qwen3.7-max`, a real model name, does
+  not). Per (model, benchmark) the collector writes **two kinds of
+  `metric_snapshot` row**: the *highest* tier as the unconditioned row
+  (`conditions` NULL — the headline number every earlier consumer reads, unchanged),
+  and every measured tier as its own row with the effort in `conditions`
+  (`low/medium/high/xhigh/max`; `_none` -> `off`). A bare id (no suffix) and
+  `_unknown` state no effort and yield the unconditioned row only. No schema
+  change: `conditions` already existed. A reader that wants one value per model
+  must filter `conditions IS NULL`. When the suffix is absent, a file's free-text
+  level column ("Extra High") is normalized to the same values
+  (`normalizeEffortLabel`).
+- **Files the index does not list.** Epoch ships per-model CSVs for benchmarks whose
+  `source_file` is blank in `benchmark_metadata.csv` (`in_eci=False`). The small
+  explicit registry `EPOCH_EXTRA_FILES` in `epoch.ts` reads the ones modelpick
+  uses: `cursorbench_external` (`Score`, plus `Cost per task`, `Tokens per task`,
+  `Steps per task` as `cursorbench_external_cost_per_task` / `_tokens_per_task` /
+  `_steps_per_task`), `scicode_external` (`Score`), `webdev_arena_external`
+  (`Arena Score`, an Elo-style number, not 0-1) and `swe_bench_verified`
+  (`Best score (across scorers)`; the index leaves it blank, so it was never
+  ingested before). A missing file warns and is skipped; a file the index starts
+  listing is read through the index only. Metric names are the file stem.
 - **Scale normalization.** Raw scores are on whatever scale the benchmark uses
   (e.g. percentages); `scale` from the index normalizes every value onto the
   same 0–1 range as `random_baseline`/`score_ceiling` before it's stored.
@@ -37,6 +55,39 @@ exports `benchmarkSaturation()` — given a benchmark and its observed scores,
 reports what share of the field sits near the ceiling, i.e. whether the
 benchmark stopped discriminating between models (the ccbench-field-bunching
 problem, but data-driven instead of eyeballed).
+
+## Efficiency feed: `coding` (GET /api/efficiency)
+
+Contract in `src/server/efficiency/types.ts`; the Argo Issue builds on exactly this shape.
+Each `EfficiencyVariant` carries `coding: EfficiencyCoding | null`:
+
+```ts
+coding: {
+  score: number | null; // 0-100, see below
+  components: Array<{
+    benchmark: string; // cursorbench | swe_bench_verified | terminalbench | frontierswe |
+                       // frontiercode | scicode | aider_polyglot | webdev_arena
+    score: number;          // the benchmark's own scale (webdev_arena is Elo-like)
+    costPerTask: number | null;   // USD, cursorbench only
+    tokensPerTask: number | null; // cursorbench only
+  }>;
+} | null; // null: Epoch has no coding benchmark for this exact (model, effort)
+```
+
+- **Mapping.** An Epoch row `<base>_<effort>` is the AA variant `<base>-<effort>`; Epoch
+  `max` is the bare slug `<base>` (AA's bare Claude slugs are Max rows). Matched on
+  (IU model of the variant's lineage, effort), reading the per-effort rows above. A
+  variant with no effort of its own (`default`, or a bare slug AA names differently) takes
+  the unconditioned row, and only when Epoch has no per-effort row of that metric: a tier
+  never borrows another tier's value.
+- **`coding.score`** = mean over the variant's benchmarks of its mid-rank percentile among
+  all variants *in the response* that have that benchmark: `(below + equal/2) / n * 100`.
+  A benchmark only one variant has contributes nothing; with fewer than 2 contributing
+  benchmarks `score` is null and `components` is still listed. Ranks shift as variants or
+  benchmarks are added: compare within one response, never across time.
+- **Not read:** AA's `coding_index` (null on every row since about 2026-10-28).
+- Epoch data is CC-BY 4.0; the response's `source` still names Artificial Analysis for the
+  AA fields, so a consumer showing `coding` must also credit Epoch AI (epoch.ai).
 
 ## ccbench internals — things that bite
 

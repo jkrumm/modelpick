@@ -46,6 +46,7 @@ const result = await runRefresh({
         metric: m.metric,
         value: m.value,
         confidence: m.confidence,
+        conditions: m.conditions ?? null,
       })),
     );
   },

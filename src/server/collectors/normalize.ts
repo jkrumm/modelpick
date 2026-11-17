@@ -1,4 +1,4 @@
-import type { AaVariant, MetricSource } from "../../db/schema.js";
+import type { AaVariant, MetricSource, Thinking } from "../../db/schema.js";
 
 export interface NormalizedMetric {
   model_id: string;
@@ -6,6 +6,8 @@ export interface NormalizedMetric {
   metric: string;
   value: number;
   confidence: number;
+  /** Reasoning effort the value was measured at; absent/null = unconditioned (headline) row. */
+  conditions?: Thinking | null;
 }
 
 /** One ArtificialAnalysis slug as stored in `aa_variant` (timestamps are set by the upsert). */
