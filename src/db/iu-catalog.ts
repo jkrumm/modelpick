@@ -3381,17 +3381,6 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
-    "id": "voxtral-mini-tts-3-1",
-    "provider": "mistral",
-    "family": null,
-    "modality": "tts",
-    "display_name": "voxtral-mini-tts-3-1",
-    "context_window": null,
-    "iu_listed": true,
-    "owned_by": "mistralai",
-    "legs": "openai"
-  },
-  {
     "id": "voxtral-mini-tts-latest",
     "provider": "mistral",
     "family": null,
