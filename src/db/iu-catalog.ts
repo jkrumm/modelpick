@@ -1639,7 +1639,7 @@ export const IU_CATALOG: ModelInsert[] = [
     "display_name": "GPT 5.4",
     "context_window": 1000000,
     "iu_listed": true,
-    "owned_by": "Middleware Germanywestcentral OAI Server,OpenAI Vendor Group Key,IU AI Middleware Sweden Central Global Sink,AWS mantle us-east-1 GPT-5.4 chat",
+    "owned_by": "Middleware Germanywestcentral OAI Server,OpenAI Vendor Group Key,IU AI Middleware Sweden Central Global Sink,AWS Runtime Chat global us-east-1",
     "legs": "openai"
   },
   {
@@ -1848,7 +1848,7 @@ export const IU_CATALOG: ModelInsert[] = [
     "display_name": "GPT-6.1 Terra",
     "context_window": 1050000,
     "iu_listed": true,
-    "owned_by": "OpenAI Vendor Group Key,IU AI Middleware Sweden Central Global Sink,AWS mantle us-east-1 GPT-5.4 chat,IU GDPR Sink Sweden",
+    "owned_by": "OpenAI Vendor Group Key,IU AI Middleware Sweden Central Global Sink,IU GDPR Sink Sweden,AWS Runtime Chat global us-east-1",
     "legs": "openai"
   },
   {
@@ -2046,7 +2046,7 @@ export const IU_CATALOG: ModelInsert[] = [
     "display_name": "gpt-oss-120b",
     "context_window": 128000,
     "iu_listed": true,
-    "owned_by": "OpenAI Vendor Group Key,Nebius AI Cloud,IU AI Middleware Sweden Project,AWS mantle us-east-1 openai chat",
+    "owned_by": "OpenAI Vendor Group Key,Nebius AI Cloud,IU AI Middleware Sweden Project,AWS Mantle Chat EU eu-west-1,AWS Mantle Chat US us-east-1",
     "legs": "openai"
   },
   {
@@ -3375,6 +3375,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "family": null,
     "modality": "tts",
     "display_name": "voxtral-mini-tts-3-0",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "mistralai",
+    "legs": "openai"
+  },
+  {
+    "id": "voxtral-mini-tts-3-1",
+    "provider": "mistral",
+    "family": null,
+    "modality": "tts",
+    "display_name": "voxtral-mini-tts-3-1",
     "context_window": null,
     "iu_listed": true,
     "owned_by": "mistralai",
