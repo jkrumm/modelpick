@@ -63,7 +63,7 @@ route for `deepseek-v4.1-flash` as of this date — a direct probe re-sending a 
 prefix got `cached_tokens: 7552`, cost per call falling from $0.0011682 to $0.000058
 (gateway-measured rates: $0.15/MTok input, $0.60 output, ~$0.003 cache read). The
 `fast`-category no-caching claim in `seed.ts` and the hermes/brain row in `deployments.ts`
-(both measured 2026-09-12) are corrected in place, dated, not deleted — the capability-over-
+(removed 2026-11-06; both measured 2026-09-12) are corrected in place, dated, not deleted — the capability-over-
 cost verdicts they fed stand unchanged; only the caching reading was wrong.
 
 CLASSIFY (`check`/`overview`/`review_router`) is unaffected by this move but was itself

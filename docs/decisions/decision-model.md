@@ -293,8 +293,9 @@ Any one of these re-runs `bun run bench:decision` and revisits the pick:
 
 ## Consumers
 
-`email-gateway` (VPS container) — one decision slot and four LLM slots, all in `src/db/deployments.ts`
-and checked by `bun run verify-deployments`:
+`email-gateway` (VPS container) — one decision slot and four LLM slots. This was a dated snapshot:
+`src/db/deployments.ts` and `bun run verify-deployments` were removed on 2026-11-06; the live
+config is `agw routes`.
 
 | slot | model | wired in |
 |-|-|-|
