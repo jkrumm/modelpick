@@ -19,7 +19,8 @@ import { runReleaseAlerts } from "../src/server/alerts/releases.js";
 import { upsertAaVariants } from "../src/server/efficiency/store.js";
 import { createIdResolver } from "../src/server/collectors/normalize.js";
 import { db, client } from "../src/db/index.js";
-import { metricSnapshot, models } from "../src/db/schema.js";
+import { models } from "../src/db/schema.js";
+import { insertMetrics } from "../src/server/metrics-store.js";
 
 // Resolver is built at collect time (after the probe step has merged in any new
 // IU models) so leaderboard ids reconcile against the full current catalog.
@@ -39,16 +40,7 @@ const result = await runRefresh({
   collectLmarena: async () => collectLmarena(await buildResolver()),
   insertMetrics: async (metrics) => {
     if (metrics.length === 0) return;
-    await db.insert(metricSnapshot).values(
-      metrics.map((m) => ({
-        model_id: m.model_id,
-        source: m.source,
-        metric: m.metric,
-        value: m.value,
-        confidence: m.confidence,
-        conditions: m.conditions ?? null,
-      })),
-    );
+    await insertMetrics(metrics);
   },
   upsertAaVariants: (rows) => upsertAaVariants(rows),
   releaseAlerts: () => runReleaseAlerts({ deps: createReleaseAlertDeps() }),

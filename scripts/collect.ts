@@ -7,7 +7,8 @@ import { collectLmarena } from "../src/server/collectors/lmarena.js";
 import { createIdResolver } from "../src/server/collectors/normalize.js";
 import { upsertAaVariants } from "../src/server/efficiency/store.js";
 import { db, client } from "../src/db/index.js";
-import { metricSnapshot, models } from "../src/db/schema.js";
+import { models } from "../src/db/schema.js";
+import { insertMetrics } from "../src/server/metrics-store.js";
 
 const catalog = await db.select({ id: models.id }).from(models);
 const resolve = createIdResolver(catalog.map((m) => m.id));
@@ -38,16 +39,7 @@ const allMetrics = results.flatMap((r) => r.result.metrics);
 const allUnmatched = results.flatMap((r) => r.result.unmatched);
 
 if (allMetrics.length > 0) {
-  await db.insert(metricSnapshot).values(
-    allMetrics.map((m) => ({
-      model_id: m.model_id,
-      source: m.source,
-      metric: m.metric,
-      value: m.value,
-      confidence: m.confidence,
-      conditions: m.conditions ?? null,
-    })),
-  );
+  await insertMetrics(allMetrics);
 }
 
 const aaVariants = results.flatMap((r) => r.result.aaVariants ?? []);
