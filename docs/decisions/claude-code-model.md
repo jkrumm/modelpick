@@ -9,6 +9,7 @@
 > **Status of this record:** interactive and EU-pinned picks current; the GLM-worker verdict is
 > history, kept for its evidence.
 > Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
+> **Cut 2026-11-17, owner decision, no own benchmarks:** the ccbench harness (`bun run bench`) that produced the numbers below was deleted; this record stays as evidence.
 
 **Decision (2026-08-31):** two picks, because interactive and unattended are different jobs and
 one number does not cover both.

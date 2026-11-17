@@ -1,7 +1,7 @@
-# modelpick — collector and benchmark internals
+# modelpick — collector internals
 
 *Moved out of `AGENTS.md` to keep it dense. The one-line rules stay there; this is
-the how and why behind the Epoch AI collector and the ccbench harness.*
+the how and why behind the Epoch AI collector and the efficiency feed.*
 
 ## Epoch AI benchmark collector
 
@@ -53,8 +53,7 @@ wholesale on every `bun run collect`, same relationship as `iu-catalog.ts` ↔
 `random_baseline`/`score_ceiling`/`in_eci`/`release_date`/`superseded_by` and
 exports `benchmarkSaturation()` — given a benchmark and its observed scores,
 reports what share of the field sits near the ceiling, i.e. whether the
-benchmark stopped discriminating between models (the ccbench-field-bunching
-problem, but data-driven instead of eyeballed).
+benchmark stopped discriminating between models (field bunching near the ceiling, measured instead of eyeballed).
 
 ## Efficiency feed: `coding` (GET /api/efficiency)
 
@@ -88,38 +87,6 @@ coding: {
 - **Not read:** AA's `coding_index` (null on every row since about 2026-10-28).
 - Epoch data is CC-BY 4.0; the response's `source` still names Artificial Analysis for the
   AA fields, so a consumer showing `coding` must also credit Epoch AI (epoch.ai).
-
-## ccbench internals — things that bite
-
-`bun run bench` (`scripts/bench.ts`, `src/server/bench/`) copies a committed
-fixture into a throwaway sandbox, spawns `claude -p` against the IU
-**Anthropic** route with the model pinned on all four `ANTHROPIC_DEFAULT_*`
-tiers, parses the stream-json transcript into metrics, and grades the
-resulting files mechanically. Rows land in `bench_run`.
-
-- **It spends real money.** `--yes` is required non-interactively, mirroring
-  the other spending scripts. `--dry-run` exercises the whole pipeline against a synthetic
-  transcript and costs nothing.
-- **Never remove the isolated `CLAUDE_CONFIG_DIR`.** Without it the global
-  CLAUDE.md, MCP servers, extra tools and hooks load into every sandbox (71
-  tools / 35k cache-creation tokens vs 27 / 20.5k) and the run measures
-  dotfiles instead of the model.
-- **Parallel tool use is detected by grouping assistant events on
-  `message.id`** — the CLI emits one content block per event, so counting per
-  event always yields 1. The `usage` object repeats identically across those
-  events; totals must come from the `result` event or they multiply.
-- **The CLI's cost figure is only valid for Claude ids.** For everything else
-  it applies a Claude-tier default (over by up to 77x). `src/server/bench/cost.ts`
-  re-prices from token counts against `pick_probe` rates; `--reprice` backfills
-  stored rows. A zero-token run is `unpriced`, never free.
-- **Graders are guarded by golden-solution tests.** Every file-based task
-  asserts 1.00 against a committed reference under
-  `fixtures/bench/<task>/.solution/`, plus a negative control. A
-  silently-broken grader and a genuinely perfect field produce the same table
-  without them.
-- Residency is visible only in the gateway's `x-middleware-forwarded-*`
-  headers; the committed `ROUTE_RESIDENCY` snapshot and the `route-map` survey script were
-  both cut (the snapshot 2026-11-17, unused).
 
 ## Why a model looks slower on IU than on the leaderboard (2026-09-11)
 
@@ -337,25 +304,8 @@ The HF datasets-server answers "index is loading" as an HTTP 500 mid-pagination,
 collector retries and then **keeps the pages it got** — a partial arena pull is incomplete,
 never wrong.
 
-## ccbench — the agentic benchmark
+## Model-choice inputs
 
-**What it is for, and what it is not.** ccbench measures *operational fitness*: does the model
-actually drive an agent loop, how fast, at what real cost, how its caching behaves, where it
-times out. It is **not a quality benchmark** and must never be read as one — on the current
-field 11 of 13 models score a flat 1.000, which is the correct answer to "can it hold a loop"
-and no answer at all to "which is smarter". Quality comes from external leaderboards
-(`metric_snapshot`), never from here. Used as a ranking it hands the pick to whatever tiebreak
-is left over; used as a gate it does exactly the job it was built for.
-
-`bun run bench` (`scripts/bench.ts`, `src/server/bench/`) is the only measurement here that
-drives a real agent loop rather than a single call. Each run copies a committed fixture into a
-throwaway sandbox, spawns `claude -p` against the IU **Anthropic** route with the model pinned
-on all four `ANTHROPIC_DEFAULT_*` tiers, parses the stream-json transcript into metrics, and
-grades the resulting files mechanically. Rows land in `bench_run`; the verdict lives in
-`docs/decisions/claude-code-model.md`.
-
-**It spends real money** (`--yes` required non-interactively; `--dry-run` costs nothing) and
-**never remove the isolated `CLAUDE_CONFIG_DIR`** — without it the sandbox loads the global
-CLAUDE.md/MCP/hooks and measures dotfiles instead of the model. Five more sharp edges
-(parallel-tool-use counting, the CLI's cost figure being Claude-only, golden-solution
-graders): [`docs/decisions/claude-code-model.md`](./decisions/claude-code-model.md) §ccbench.
+Third-party benchmarks only (ArtificialAnalysis, Epoch AI, LMArena, models.dev, OpenRouter) plus the live access
+probe (`make probe`). We run no evals of our own (owner decision, 2026-11-17). The removed harness and its numbers
+stay in [`docs/decisions/claude-code-model.md`](./decisions/claude-code-model.md).
