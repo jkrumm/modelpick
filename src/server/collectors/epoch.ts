@@ -371,7 +371,7 @@ export function extractScoreRows(
 }
 
 /** The highest-effort row per base model: the unconditioned headline value. */
-export function topTierRows(rows: readonly ScoreRow[]): ScoreRow[] {
+function topTierRows(rows: readonly ScoreRow[]): ScoreRow[] {
   const best = new Map<string, ScoreRow>();
   for (const row of rows) {
     const existing = best.get(row.baseId);

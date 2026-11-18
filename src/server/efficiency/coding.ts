@@ -116,7 +116,7 @@ export function codingComponents(input: {
 }
 
 /** Fewest benchmarks a variant needs for a `coding.score`: one benchmark is a ranking, not a blend. */
-export const MIN_CODING_BENCHMARKS = 2;
+const MIN_CODING_BENCHMARKS = 2;
 
 /**
  * Mid-rank percentile (0-100) of each value among its peers: (below + 0.5 * equal) / n * 100,
