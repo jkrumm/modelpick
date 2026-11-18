@@ -87,6 +87,8 @@ only relevant to a multi-round caller.
 ## Residency
 
 Unchanged and unresolved: `gemini-3.8-flash` returns no `x-ms-region` header on either
-transport; `gpt-5.6-luna` verifies `Sweden Central` on every call. Only `gemini-3.5-flash-eu`
-and `gemini-2.5-pro-eu` have EU aliases. For anything touching personal data this decides the
+transport; `gpt-5.6-luna` verifies `Sweden Central` on every call. At the 2026-09-04 measurement only
+`gemini-3.5-flash-eu` and `gemini-2.5-pro-eu` had EU aliases. The current EU aliases are the
+`*-eu` ids in `src/db/iu-catalog.ts` (it also lists `gemini-4-argon-eu` and `gemini-4-carbon-eu`;
+this record does not measure their residency). For anything touching personal data this decides the
 question before any latency number does.
