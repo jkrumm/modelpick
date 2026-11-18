@@ -43,7 +43,7 @@ Quota exceeded for metric: generate_content_free_tier_requests, limit: 0, model:
 **So the gateway is not the bottleneck.** Where AI Studio answered at all, IU matched or beat
 it, and IU is the only door that reliably answers. The residency picture is unchanged and
 still the real constraint: no Gemini tier returns an `x-ms-region` header on either door, and
-only `gemini-3.5-flash-eu` / `gemini-2.5-pro-eu` have EU aliases at all.
+at the 2026-09-04 measurement only `gemini-3.5-flash-eu` / `gemini-2.5-pro-eu` had EU aliases. The 2026-11-18 catalog (`src/db/iu-catalog.ts`) also lists `gemini-4-argon-eu` and `gemini-4-carbon-eu`; this record does not measure their residency.
 
 ## Where the tiers land
 
