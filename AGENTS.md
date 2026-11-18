@@ -34,23 +34,10 @@ Local-only, one-person curation. All state lives in a single SQLite file (`model
   `IU_API_KEY` = that door token and the five `IU_*_BASE_URL` on `http://127.0.0.1:7794`. Elsewhere
   `.env.tpl` is what runs. Every probe/catalog request carries `x-agw-upstream: iu` so the Anthropic
   leg measures IU, never a credit org.
-- **Makefile targets**: `make dev`, `make build`, `make db-push`, `make db-seed`,
-  `make models|probe|collect|refresh` (catalog sync, access probe, metrics, full refresh),
-  `make check`, `make deploy`, `make verify`, `make version`, `make logs`,
-  `make refresh-setup|refresh-check|refresh-teardown` (the 06:00 LaunchAgent). There is no benchmark target: model choice rests on third-party benchmarks plus `make probe`.
+- **Make**: `make help` lists the targets; `make check` is the gate.
 
 ## Decision models
-
-`decision` is a model modality (`MODALITY`): typed-answer classifiers (Clef,
-Decision-1, Jev, PPLX Decider, Luna's Decisions API: yes/no, choice and score answers with
-probabilities, no text generation). No leaderboard scores them; the verdict lives in the decision record.
-All but Luna are called on UE's native **systemone** API (`IU_DECISIONS_BASE_URL` +
-`/systemone`); Luna's Decisions route is its own catalog entry, `gpt-6-luna:decisions`, on the
-OpenAI leg. The ids live in `src/db/decision-models.ts`; the probe reads UE's decision list
-(`/decisions/v1/models`) and warns about — and catalogs — any id missing there. They are never
-probed with a chat "hi" (`probe.ts` sends a minimal decision request). Record:
-[`docs/decisions/decision-model.md`](docs/decisions/decision-model.md); wire formats in
-`model-configs.md`.
+`decision` is a model modality: typed-answer classifiers with no leaderboard, never probed with a chat "hi". Ids, the systemone route, wire formats and the record: `.claude/rules/decision-models.md` (loads on `src/db/decision-models.ts`, `scripts/probe.ts`, `src/server/iu/**`).
 
 ## Model choice and configuration — read the guidelines, don't re-derive
 
@@ -140,73 +127,13 @@ elsewhere.
   against the running instance.
 
 ## Efficiency data and release alerts (detail: [`docs/pipelines.md`](docs/pipelines.md))
-
-- `aa_variant` (PK `slug`) holds one row per ArtificialAnalysis slug, effort variants separate,
-  upserted from the same fetch as the AA metrics. `release_alert` (PK `lineage`) records the ntfy
-  release pushes already made. `src/server/efficiency/` is the pure domain (parse, estimates,
-  superseded, route mapping, `coding.ts`); `GET /api/efficiency` contract:
-  `src/server/efficiency/types.ts`, relayed by Argo, so a change to a field lands in Argo too.
-- **Coding evidence.** Each variant's `coding` ({score, components}) comes from Epoch AI (CC-BY 4.0,
-  credit Epoch where shown). The Epoch collector stores one `metric_snapshot` row per (model, benchmark,
-  effort) with the effort in `conditions`, plus the top tier unconditioned (`conditions` NULL); a reader
-  wanting one value per model filters NULL. CursorBench/SciCode/WebDev Arena/SWE-bench verified come from
-  the `EPOCH_EXTRA_FILES` registry in `epoch.ts`. Formula and mapping: `docs/pipelines.md`.
-- **ArtificialAnalysis terms:** use the API only (`/api/v2/language/models/free`), never scrape
-  artificialanalysis.ai, and show attribution ("Source: Artificial Analysis
-  (artificialanalysis.ai)") wherever the data appears; the endpoint response carries it.
-- **Estimates caveat.** `tokensPerTaskEst` / `timePerTaskEstSec` are derived (AA's free tier has
-  no tokens or time per task): rank correlation 0.69 with AA's published time per task, but
-  overstated 2-4x for Anthropic/OpenAI and up to 21x for input-heavy models. Always named `Est`.
-- AA's `coding_index` has been null on every row of the free API since about 2026-10-28; the stored
-  metrics are stale and nothing consumes them.
-- Release alerts: refresh step after collect; `NTFY_TOKEN` in `.env.tpl`, `NTFY_URL` injected into
-  the refresh plist by `make refresh-setup` (private host, never committed);
-  `MODELPICK_NOTIFY_DRY=1 bun run alerts` prints instead of publishing.
+`GET /api/efficiency` is the Argo feed. Tables, coding evidence, the estimates caveat, the ArtificialAnalysis terms and release alerts: `.claude/rules/efficiency.md` (loads on `src/server/efficiency/**`, `src/server/alerts/**`, `src/routes/api.efficiency.ts`). The field contract is `src/server/efficiency/types.ts`: a change to a field lands in Argo too.
 
 ## Database / schema changes
-
-`src/db/schema.ts` is the single source of truth; there is **no migration folder**. The schema
-syncs to the SQLite file with `bun run db:push` (`drizzle-kit push`, dialect `sqlite`).
-
-- To add/change a table or column: edit `schema.ts`, then run `bun run db:push` — it diffs the
-  schema against `modelpick.db` and applies the change. No hand-written SQL, no `db:generate`.
-- For a clean rebuild: `rm modelpick.db && bun run db:push && bun run db:seed`.
-- Dropping a column or table needs `bunx drizzle-kit push --force`: `db:push` refuses data-loss
-  statements interactively and there is no TTY in a tool call.
-- Seed with `bun run db:seed` (model catalogs), demos with `bun run demos:seed`.
-- German TTS comparison on `/tts`: samples live in `data/tts-compare/` (`manifest.json` tracked, `audio/`
-  gitignored) and are served at request time by `/api/tts-audio/<file>`, so new samples need no rebuild.
-  Regenerate with `secrets-run run --env-file=.env.tpl -- bun scripts/tts-compare.ts [--only <model>]
-  [--skip-existing] [--dry-run]` (spends IU money, estimates and caps at $2.5). Record: `docs/decisions/audio-stack.md`.
-  `/tts` is a listening workbench: open questions are defined in `src/server/audio/experiments.ts` (manifest ids → question, variants,
-  production flag); picks persist in browser localStorage; the model comparison and voice audition sit in a collapsed reference.
-- German STT comparison: the `/stt` page, its scripts and scoring were cut; the numbers are in
-  `docs/decisions/audio-stack.md` §German STT comparison.
-- SQLite has no native enums — they're `text({ enum: [...] })` with value tuples (`MODALITY`,
-  `RESIDENCY`, …) exported from `schema.ts`. Booleans are `integer({ mode: "boolean" })`;
-  timestamps are text (`CURRENT_TIMESTAMP`), which sort lexically.
+`src/db/schema.ts` is the single source of truth: no migration folder, synced with `bun run db:push`, never hand-written SQL. Dropping a column needs `--force` (see Gotchas). Conventions: `.claude/rules/database.md` (loads on `src/db/**`).
 
 ## IU model catalog — how it stays current
-
-The catalog comes from the IU gateway's live per-leg `GET /models` endpoints (OpenAI,
-Anthropic, Gemini, Decisions), which return exactly what the check-key page shows and
-need only `IU_API_KEY` — no SSO, no HTML export. `make models` (`scripts/sync-catalog.ts`,
-step 0 of `bun run refresh`) merges the legs by exact id (case-sensitive, verbatim),
-upserts `models` (adds `owned_by` = the backend route list, the best residency hint, and
-`legs` = the legs that accept the id) and sets `iu_listed=false` on vanished ids in one
-transaction, and only then rewrites the committed snapshot `src/db/iu-catalog.ts` (tmp file +
-rename); the refresh commits it only when the catalog step succeeded. A failing or empty
-leg aborts before anything is written. It never deletes rows: probes and metrics hang off
-them. Modality: ChatCompletion/Responses means `llm` even with Embedding/ImageGeneration/
-audio capabilities listed (image-only models are the ones with ImageOutput or no
-Functions); an id only the decisions leg lists is a `decision` model. `make models` also refreshes the
-Replicate speech catalog. **Listed ≠ callable** — `make probe` (`bun run probe`) proves
-real access and residency.
-
-**`/models` is not complete.** `HIDDEN_CALLABLE` in `src/server/iu/catalog.ts` lists ids that
-are callable and billed but in no leg (start: `claude-haiku-5-5-eu`); add one only after
-`make probe` proves it callable. An id in no leg gets `iu_listed=false`
-from the sync; rows are never deleted.
+Listed ≠ callable: `make probe` proves access. How `make models` syncs the IU legs, `iu_listed` and `HIDDEN_CALLABLE`: `.claude/rules/iu-catalog.md` (loads on `scripts/sync-catalog.ts`, `src/server/iu/**`, `src/db/iu-catalog.ts`).
 
 ## Pipelines (detail: [`docs/pipelines.md`](docs/pipelines.md))
 
