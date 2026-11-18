@@ -1,6 +1,6 @@
 .PHONY: dev build db-push db-seed models probe collect refresh refresh-setup refresh-check refresh-teardown \
 	web-setup web-check web-teardown web-restart \
-	help check deploy verify version logs
+	help check deploy verify version logs main-checkout
 
 # Local-only app: a single SQLite file (modelpick.db, gitignored). No docker.
 
@@ -54,7 +54,7 @@ dev:
 build:
 	bun run build
 
-refresh-setup: ## Install + load the 06:00 daily refresh LaunchAgent (mini only)
+refresh-setup: main-checkout ## Install + load the 06:00 daily refresh LaunchAgent (mini only)
 	@test "$$(cat ~/.config/secrets/backend 2>/dev/null)" = cache || { echo "refresh-setup: dev host only (secrets backend is not 'cache')"; exit 1; }
 	@test -x "$(HOME)/.local/bin/jobrun" || { echo "refresh-setup: $(HOME)/.local/bin/jobrun missing — run 'make setup' in dotfiles"; exit 1; }
 	@mkdir -p "$(HOME)/Library/LaunchAgents" "$(HOME)/Library/Logs"
@@ -78,7 +78,13 @@ refresh-teardown: ## Unload + remove the daily refresh LaunchAgent and its jobru
 	@rm -f "$(REFRESH_PLIST)" "$(HOME)/.local/state/jobs/$(REFRESH_LABEL).json"
 	@echo "✓ $(REFRESH_LABEL) removed"
 
-web-setup: build ## Build, then install + load the always-on dashboard LaunchAgent (mini only)
+# Both plist renders write $(CURDIR) into WorkingDirectory. A worktree has its own empty modelpick.db,
+# so a LaunchAgent pointed there serves ok:false and crash-loops. Refuse before anything is built or written.
+main-checkout:
+	@git_dir=$$(git rev-parse --path-format=absolute --git-dir) && common=$$(git rev-parse --path-format=absolute --git-common-dir) && test -n "$$git_dir" && test "$$git_dir" = "$$common" || { echo "main-checkout: $(CURDIR) is not the main checkout (a worktree, or git < 2.31); run deploy from the main checkout, or the LaunchAgents point here"; exit 1; }
+
+web-setup: main-checkout ## Build, then install + load the always-on dashboard LaunchAgent (mini only)
+	@$(MAKE) --no-print-directory build
 	@test "$$(cat ~/.config/secrets/backend 2>/dev/null)" = cache || { echo "web-setup: dev host only (secrets backend is not 'cache')"; exit 1; }
 	@mkdir -p "$(HOME)/Library/LaunchAgents" "$(HOME)/Library/Logs"
 	@sed -e 's|__HOME__|$(HOME)|g' -e 's|__REPO__|$(CURDIR)|g' "$(WEB_TMPL)" > "$(WEB_PLIST)"
