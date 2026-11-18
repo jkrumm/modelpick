@@ -1852,6 +1852,28 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-6.2-astra",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "GPT-6.2 Astra",
+    "context_window": 1050000,
+    "iu_listed": true,
+    "owned_by": "OpenAI Vendor Group Key,IU AI Middleware Sweden Central Global Sink,IU GDPR Sink Sweden",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-6.2-sol",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "GPT-6.2 Sol",
+    "context_window": 1050000,
+    "iu_listed": true,
+    "owned_by": "OpenAI Vendor Group Key,IU AI Middleware Sweden Central Global Sink,IU GDPR Sink Sweden",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-audio",
     "provider": "openai",
     "family": null,
