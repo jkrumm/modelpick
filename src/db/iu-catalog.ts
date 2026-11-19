@@ -998,7 +998,29 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "google",
     "family": null,
     "modality": "llm",
-    "display_name": "gemini-4-hydrogen",
+    "display_name": "Google Gemini 4 Hydrogen",
+    "context_window": 1048576,
+    "iu_listed": true,
+    "owned_by": "Gemini API OpenAI direct,LiteLLM 2026 Gateway,LiteLLM 2026 Gateway GDPR",
+    "legs": "openai,gemini"
+  },
+  {
+    "id": "gemini-4-hydrogen-eu",
+    "provider": "google",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Google Gemini 4 Hydrogen EU",
+    "context_window": 1048576,
+    "iu_listed": true,
+    "owned_by": "Gemini API OpenAI direct,LiteLLM 2026 Gateway GDPR,Gemini Agent Platform EU OpenAI direct",
+    "legs": "openai,gemini"
+  },
+  {
+    "id": "gemini-4-neon",
+    "provider": "google",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gemini-4-neon",
     "context_window": null,
     "iu_listed": true,
     "owned_by": "google",
@@ -1024,7 +1046,7 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": null,
     "iu_listed": true,
     "owned_by": "google",
-    "legs": "openai,gemini"
+    "legs": "openai"
   },
   {
     "id": "gemini-embedding-2",
@@ -2213,6 +2235,28 @@ export const IU_CATALOG: ModelInsert[] = [
     "iu_listed": true,
     "owned_by": "Requesty-Global",
     "legs": "openai,anthropic"
+  },
+  {
+    "id": "hy4",
+    "provider": "tencent",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Tencent HY4",
+    "context_window": 1048576,
+    "iu_listed": true,
+    "owned_by": "Requesty-Global",
+    "legs": "openai"
+  },
+  {
+    "id": "hy4-flash",
+    "provider": "tencent",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Tencent HY4 Flash",
+    "context_window": 1048576,
+    "iu_listed": true,
+    "owned_by": "Requesty-Global",
+    "legs": "openai"
   },
   {
     "id": "jev-1.13.0",
