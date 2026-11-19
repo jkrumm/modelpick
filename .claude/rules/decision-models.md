@@ -13,5 +13,5 @@ All but Luna are called on UE's native **systemone** API (`IU_DECISIONS_BASE_URL
 OpenAI leg. The ids live in `src/db/decision-models.ts`; the probe reads UE's decision list
 (`/decisions/v1/models`) and warns about — and catalogs — any id missing there. They are never
 probed with a chat "hi" (`probe.ts` sends a minimal decision request). Record:
-[`docs/decisions/decision-model.md`](docs/decisions/decision-model.md); wire formats in
+[`docs/decisions/decision-model.md`](../../docs/decisions/decision-model.md); wire formats in
 `model-configs.md`.
