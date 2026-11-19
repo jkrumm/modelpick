@@ -3,7 +3,7 @@ description: Efficiency data and release alerts: aa_variant, coding evidence, es
 paths: ["src/server/efficiency/**","src/server/alerts/**","src/routes/api.efficiency.ts"]
 ---
 
-# Efficiency data and release alerts (detail: [`docs/pipelines.md`](docs/pipelines.md))
+# Efficiency data and release alerts (detail: [`docs/pipelines.md`](../../docs/pipelines.md))
 
 - `aa_variant` (PK `slug`) holds one row per ArtificialAnalysis slug, effort variants separate,
   upserted from the same fetch as the AA metrics. `release_alert` (PK `lineage`) records the ntfy
