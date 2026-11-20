@@ -2072,6 +2072,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-live-1.1",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-live-1.1",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-live-transcribe",
     "provider": "openai",
     "family": null,
