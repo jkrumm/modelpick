@@ -1046,7 +1046,7 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": null,
     "iu_listed": true,
     "owned_by": "google",
-    "legs": "openai"
+    "legs": "openai,gemini"
   },
   {
     "id": "gemini-embedding-2",
