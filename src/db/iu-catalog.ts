@@ -1020,10 +1020,21 @@ export const IU_CATALOG: ModelInsert[] = [
     "provider": "google",
     "family": null,
     "modality": "llm",
-    "display_name": "gemini-4-neon",
-    "context_window": null,
+    "display_name": "Google Gemini 4 Neon",
+    "context_window": 1048576,
     "iu_listed": true,
-    "owned_by": "google",
+    "owned_by": "Gemini API OpenAI direct,LiteLLM 2026 Gateway GDPR",
+    "legs": "openai,gemini"
+  },
+  {
+    "id": "gemini-4-neon-eu",
+    "provider": "google",
+    "family": null,
+    "modality": "llm",
+    "display_name": "Google Gemini 4 Neon EU",
+    "context_window": 1048576,
+    "iu_listed": true,
+    "owned_by": "Gemini API OpenAI direct,LiteLLM 2026 Gateway GDPR,Gemini Agent Platform EU OpenAI direct",
     "legs": "openai,gemini"
   },
   {
