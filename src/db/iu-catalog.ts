@@ -1841,6 +1841,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-6-astra-healthcare",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-6-astra-healthcare",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-6-luna",
     "provider": "openai",
     "family": null,
@@ -1874,6 +1885,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-6.1-sol-healthcare",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-6.1-sol-healthcare",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-6.1-terra",
     "provider": "openai",
     "family": null,
@@ -1896,6 +1918,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "legs": "openai"
   },
   {
+    "id": "gpt-6.2-astra-healthcare",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-6.2-astra-healthcare",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
+    "legs": "openai"
+  },
+  {
     "id": "gpt-6.2-sol",
     "provider": "openai",
     "family": null,
@@ -1904,6 +1937,17 @@ export const IU_CATALOG: ModelInsert[] = [
     "context_window": 1050000,
     "iu_listed": true,
     "owned_by": "OpenAI Vendor Group Key,IU AI Middleware Sweden Central Global Sink,IU GDPR Sink Sweden",
+    "legs": "openai"
+  },
+  {
+    "id": "gpt-6.2-sol-healthcare",
+    "provider": "openai",
+    "family": null,
+    "modality": "llm",
+    "display_name": "gpt-6.2-sol-healthcare",
+    "context_window": null,
+    "iu_listed": true,
+    "owned_by": "system",
     "legs": "openai"
   },
   {
