@@ -196,6 +196,34 @@ describe("fetchLegListings", () => {
     }
   });
 
+  it.each([
+    ["a 429", () => new Response("slow down", { status: 429 })],
+    ["a dropped connection", () => Promise.reject(new TypeError("fetch failed"))],
+    ["a timeout", () => Promise.reject(new DOMException("timed out", "TimeoutError"))],
+  ])("retries %s on one leg and keeps the recovered listing", async (_name, firstAttempt) => {
+    vi.useFakeTimers();
+    let openaiCalls = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("/openai/")) {
+        openaiCalls += 1;
+        if (openaiCalls === 1) return firstAttempt();
+        return Response.json({ data: [{ id: "x" }] });
+      }
+      if (url.includes("/anthropic/")) return Response.json({ data: [] });
+      return Response.json({ models: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const pending = fetchLegListings(env);
+      await vi.advanceTimersByTimeAsync(5_000);
+      const listings = await pending;
+      expect(listings.openai.map((m) => m.id)).toEqual(["x"]);
+      expect(openaiCalls).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("gives up on a leg that stays down after its retries", async () => {
     vi.useFakeTimers();
     try {
