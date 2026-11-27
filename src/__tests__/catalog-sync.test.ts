@@ -97,7 +97,7 @@ describe("syncCatalog", () => {
   });
 
   it.each([
-    ["a leg errors", { gemini: new Response("nope", { status: 503 }) }],
+    ["a leg errors", { gemini: new Response("nope", { status: 404 }) }],
     ["a leg is empty", { anthropic: new Response(JSON.stringify({ data: [] }), { status: 200 }) }],
   ])("%s: no snapshot write, no DB writes", async (_name, overrides) => {
     mockLegs(overrides);

@@ -62,19 +62,51 @@ export const parseLeg = {
 
 const FETCH_TIMEOUT_MS = 30_000;
 
+/** A non-2xx answer keeps its status, so the retry can tell a blip from a refusal. */
+class IuHttpError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+// Pauses before the second and third attempt at a leg. A 502, a timeout or a dropped
+// connection is a blip on the gateway; a leg still failing after these fails the catalog step.
+const LEG_RETRY_DELAYS_MS = [5_000, 15_000];
+
+function isTransient(err: unknown): boolean {
+  if (err instanceof IuHttpError) return err.status >= 500 || err.status === 429;
+  if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) return true;
+  return err instanceof TypeError; // fetch's own failure: DNS, reset, refused
+}
+
+async function getJsonOnce(url: string, name: string, headers: Record<string, string>): Promise<unknown> {
+  const resp = await fetch(url, {
+    headers: { ...headers, ...IU_UPSTREAM_HEADER },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (!resp.ok) throw new IuHttpError(resp.status, `IU ${name} /models returned HTTP ${resp.status}`);
+  return (await resp.json()) as unknown;
+}
+
 async function getJson(
   base: string | undefined,
   leg: Leg,
   name: string,
   headers: Record<string, string>,
-) {
+): Promise<unknown> {
   if (!base) throw new Error(`IU_${leg.toUpperCase()}_BASE_URL is not set`);
-  const resp = await fetch(`${base.replace(/\/+$/, "")}/models`, {
-    headers: { ...headers, ...IU_UPSTREAM_HEADER },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
-  if (!resp.ok) throw new Error(`IU ${name} /models returned HTTP ${resp.status}`);
-  return (await resp.json()) as unknown;
+  const url = `${base.replace(/\/+$/, "")}/models`;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await getJsonOnce(url, name, headers);
+    } catch (err) {
+      const delay = LEG_RETRY_DELAYS_MS[attempt];
+      if (delay === undefined || !isTransient(err)) throw err;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
 }
 
 /** Fetches all four legs. Any leg failing throws: a partial listing would mark live ids as vanished. */

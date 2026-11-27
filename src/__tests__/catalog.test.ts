@@ -149,6 +149,7 @@ describe("fetchLegListings", () => {
   } as NodeJS.ProcessEnv;
 
   it("names the missing base URL variable", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 404 })));
     await expect(fetchLegListings({ ...env, IU_GEMINI_BASE_URL: undefined })).rejects.toThrow(
       "IU_GEMINI_BASE_URL is not set",
     );
@@ -168,6 +169,52 @@ describe("fetchLegListings", () => {
     for (const call of fetchMock.mock.calls) {
       expect((call[1] as RequestInit).signal).toBeInstanceOf(AbortSignal);
     }
+  });
+
+  it("retries a 5xx blip on one leg and keeps the recovered listing", async () => {
+    vi.useFakeTimers();
+    let openaiCalls = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("/openai/")) {
+        openaiCalls += 1;
+        if (openaiCalls === 1) return new Response("bad gateway", { status: 502 });
+        return Response.json({ data: [{ id: "x" }] });
+      }
+      if (url.includes("/anthropic/")) return Response.json({ data: [] });
+      if (url.includes("/gemini/")) return Response.json({ models: [] });
+      return Response.json({ models: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const pending = fetchLegListings(env);
+      await vi.advanceTimersByTimeAsync(5_000);
+      const listings = await pending;
+      expect(listings.openai.map((m) => m.id)).toEqual(["x"]);
+      expect(openaiCalls).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives up on a leg that stays down after its retries", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchMock = vi.fn(async () => new Response("bad gateway", { status: 502 }));
+      vi.stubGlobal("fetch", fetchMock);
+      const settled = expect(fetchLegListings(env)).rejects.toThrow("HTTP 502");
+      await vi.advanceTimersByTimeAsync(20_000);
+      await settled;
+      expect(fetchMock).toHaveBeenCalledTimes(12);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not retry an answer that is not a blip", async () => {
+    const fetchMock = vi.fn(async () => new Response("nope", { status: 404 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(fetchLegListings(env)).rejects.toThrow("HTTP 404");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });
 
