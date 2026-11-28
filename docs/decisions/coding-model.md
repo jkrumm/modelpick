@@ -1,8 +1,8 @@
 # Coding Model — DeepSeek-V4-Pro → DeepSeek-V4-Flash
 
-> **Current verdict (2026-09-12):** superseded — the coding pick is `glm-5.3-flash` (unattended
-> worker, per ccbench) and `claude-sonnet-5` (interactive). See
-> [claude-code-model.md](./claude-code-model.md).
+> **Current verdict (2026-10-05):** superseded by claude-code-model.md. `glm-5.3-flash` was retired
+> from routing 2026-09-23; the coding picks are `claude-sonnet-5` (interactive) and `claude-opus-5`
+> (EU-pinned). Workers: read `GET /api/routing`.
 > **Status of this record:** superseded by claude-code-model.md.
 > Settled patterns live in [../GUIDELINES.md](../GUIDELINES.md).
 
